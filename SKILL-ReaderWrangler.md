@@ -74,6 +74,37 @@ description: Project-specific context including architecture patterns, common pi
 - Manifest fetch with cache-busting: `amazon-organizer.js` line ~254
 - Clear everything function: `amazon-organizer.js` line ~683
 
+## Git Remote Workflow (Dev/Prod Pattern)
+
+_Consider copying this pattern to other GitHub Pages projects_
+
+**Remotes:**
+- `dev` → readerwranglerdev repo (testing on GitHub Pages)
+- `prod` → readerwrangler repo (production)
+- No `origin` remote exists (prevents accidental pushes)
+
+**Safety Design:**
+- `git push` without specifying remote will **fail** (no default)
+- Must explicitly choose: `git push dev main` or `git push prod main`
+
+**Workflow Rules:**
+- **Default push target: DEV** (`git push dev main`)
+- **NEVER push to prod without explicit approval**
+- "Proceed with push" = push to DEV only
+- "Release to production" or "push to prod" = push to PROD
+- After pushing to DEV, wait for GitHub Pages to deploy (~1-5 min), then test
+
+**Approval Language:**
+- "push" or "proceed with push" → `git push dev main`
+- "release to production" or "push to prod" → `git push prod main`
+- "release" alone → Clarify which target
+
+**Testing Flow:**
+1. Make changes locally
+2. Commit
+3. `git push dev main` → test on ron-l.github.io/readerwranglerdev
+4. When stable: `git push prod main` → live on readerwrangler.com
+
 ## Pending Tasks (from TODO.md)
 
 1. Search improvements (partially done in v3.1.0.a, uncommitted)
