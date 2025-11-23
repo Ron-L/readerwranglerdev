@@ -6,11 +6,13 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
 
 ### 🔥 Priority 1: Critical Documentation & Onboarding (HIGH Priority, LOW-MEDIUM Complexity)
 
-0. **🔧 Dev/Prod Dual-Repo Workflow** - HIGH/LOW (in progress)
+0. **🔧 Dev/Prod Dual-Repo Workflow** - ✅ COMPLETE (2025-11-23)
    - Set up readerwranglerdev repo for testing changes on GitHub Pages without affecting production
    - Three bookmarklets: LOCAL (localhost), DEV (readerwranglerdev), PROD (readerwrangler.com)
    - Enables testing bookmarklet-nav-hub.js and install pages before pushing to production
-   - Status: Step 0 complete (installer pages updated), Step 1 pending (create GitHub repo)
+   - Fixed three-environment bookmarklet navigation bug (all bookmarklets were navigating to wrong destinations)
+   - Added `isDevRepo` detection to index.html landing page
+   - Added console.log version output to installer pages for debugging
 
 1. **📖 Quick Start Video & Written Guide** - HIGH/LOW (2-4 hours)
    - **Production Plan**: See [VIDEO-PRODUCTION-PLAN.md](VIDEO-PRODUCTION-PLAN.md) for complete details

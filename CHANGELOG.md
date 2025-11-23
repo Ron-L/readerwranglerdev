@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Dev/Prod Dual-Repo Workflow** - Three-environment testing infrastructure (2025-11-23)
+  - LOCAL (localhost:8000), DEV (readerwranglerdev), PROD (readerwrangler.com)
+  - Environment-aware bookmarklet installer shows appropriate bookmarklets per environment
+  - Console.log version output added to installer pages for debugging cache issues
+  - Documentation in CONTRIBUTING.md "Bookmarklet Development and Testing" section
 - **GUID-Based Status Tracking** - Library fetcher now generates unique GUIDs for status bar tracking (amazon-library-fetcher.js v3.4.0.a)
   - GUID stored in JSON file `metadata.guid` and IndexedDB manifest
   - Enables matching loaded files to their fetch manifests
@@ -25,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - User-first design principle: urgency based on Load state only
 
 ### Fixed
+- **Three-Environment Bookmarklet Navigation** - All bookmarklets were navigating to wrong destinations (2025-11-23)
+  - Root cause: `bookmarklet-loader.js` had `TARGET_ENV = 'PROD'` hardcoded
+  - Fix: Renamed to `bookmarklet-nav-hub.js`, bookmarklets now inject `window._READERWRANGLER_TARGET_ENV`
+  - Added `isDevRepo` detection to `index.html` (was missing, causing DEV repo to show PROD bookmarklet)
+  - Versions: index.html v1.0.5, install-bookmarklet.html v1.0.5, bookmarklet-nav-hub.js v1.1.3
 - **Status Dialog Bug** - Fixed dialog showing "No Library Loaded" when library was actually loaded (readerwrangler.js v3.7.0.n)
   - Dialog now correctly reads from persisted libraryStatus/collectionsStatus
   - Status initializes properly from localStorage on page load

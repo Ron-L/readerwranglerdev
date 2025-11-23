@@ -81,42 +81,20 @@ This file tracks tabled discussion items, work in progress context, and open que
 - **Fix**: Check for data despite errors, only fail if no data returned
 - **Status**: Complete and released as v3.3.2
 
-### Three-Environment Bookmarklet Bug - IN PROGRESS 🔄
+### Three-Environment Bookmarklet Bug - RELEASED ✅
 - **Started**: 2025-11-23
-- **Status**: Bug analyzed, awaiting approval to implement fix
+- **Completed**: 2025-11-23
+- **Status**: Fixed and released to production
 
 #### Problem
-All three bookmarklets (LOCAL, DEV, PROD) navigate to wrong destinations:
-- LOCAL bookmarklet → goes to PROD (should go to localhost:8000)
-- DEV bookmarklet → goes to localhost (should go to DEV repo)
-- PROD bookmarklet → goes to localhost (should go to PROD repo)
+All three bookmarklets (LOCAL, DEV, PROD) navigated to wrong destinations due to hardcoded `TARGET_ENV = 'PROD'` in the old `bookmarklet-loader.js`.
 
-#### Root Cause Analysis
-1. **Bookmarklet Architecture**:
-   - Bookmarklet code (in index.html/install-bookmarklet.html) sets window variable and loads nav hub script
-   - `bookmarklet-nav-hub.js` creates a navigation hub dialog with buttons
-   - User clicks button → navigation occurs based on `TARGET_ENV`
-
-2. **The Bug** (FIXED):
-   - Old `bookmarklet-loader.js` had `TARGET_ENV = 'PROD'` hardcoded
-   - Bookmarklets didn't set the TARGET_ENV window variable
-   - The nav hub ignored where it was loaded from
-
-3. **The Fix** (IMPLEMENTED):
-   - Renamed `bookmarklet-loader.js` → `bookmarklet-nav-hub.js`
-   - Bookmarklets now set `window._READERWRANGLER_TARGET_ENV` ('LOCAL', 'DEV', or 'PROD')
-   - Nav hub reads from window variable with 'PROD' fallback for backwards compatibility
-   - Updated all 7 file references
-
-#### Session Checklist
-```
-⬜ DEV bookmarklet verification ← CURRENT
-      ✅ Debug: Investigate wrong navigation (root cause found)
-      ⬜ Fix: Implement TARGET_ENV injection + rename
-      ⬜ Retest: LOCAL bookmarklet
-      ⬜ Retest: DEV bookmarklet
-      ⬜ Retest: PROD bookmarklet
-```
+#### Solution
+1. Renamed `bookmarklet-loader.js` → `bookmarklet-nav-hub.js`
+2. Bookmarklets now inject `window._READERWRANGLER_TARGET_ENV` ('LOCAL', 'DEV', or 'PROD')
+3. Nav hub reads from window variable with 'PROD' fallback for backwards compatibility
+4. Added `isDevRepo` detection to `index.html` (was missing, causing DEV repo to show PROD bookmarklet)
+5. Added console.log version output to installer pages for debugging cache issues
 
 ---
 
