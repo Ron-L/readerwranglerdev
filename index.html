@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script>const LANDING_VERSION = 'v1.0.5'; console.log('ReaderWrangler Landing Page ' + LANDING_VERSION);</script>
+    <script>const LANDING_VERSION = 'v1.0.5.a'; console.log('ReaderWrangler Landing Page ' + LANDING_VERSION);</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Free tool to scrape your Amazon Kindle library and organize books visually. Easy extraction of covers, ratings, reviews with a simple bookmarklet. Drag-and-drop organization. 100% private - works in your browser.">
     <meta name="keywords" content="scrape amazon kindle library, organize kindle books visually, amazon kindle organizer, extract kindle books, visual book organizer, kindle book manager, amazon book list extractor, kindle collection organizer, organize ebooks">
@@ -848,6 +848,10 @@
         const isLocalhost = window.location.hostname === 'localhost' ||
                            window.location.hostname === '127.0.0.1';
 
+        // Detect if we're served from the DEV repo
+        const isDevRepo = window.location.hostname === 'ron-l.github.io' &&
+                          window.location.pathname.startsWith('/readerwranglerdev');
+
         const container = document.getElementById('index-bookmarklet-container');
 
         // LOCAL bookmarklet - Sets TARGET_ENV='LOCAL' and loads nav-hub from localhost
@@ -904,6 +908,21 @@
                     </a>
                     <div style="font-size: 11px; color: #666; margin-top: 5px;">Production</div>
                 </div>
+            `;
+        } else if (isDevRepo) {
+            // DEV REPO: Show only DEV bookmarklet
+            container.innerHTML = `
+                <p style="font-size: 1.1em; color: #555; margin-bottom: 15px;">
+                    Just drag this bookmarklet
+                    <a href="${devBookmarklet}"
+                       style="${bookmarkletStyle} background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);"
+                       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(25, 118, 210, 0.4)';"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(25, 118, 210, 0.3)';"
+                       onclick="alert('Don\\'t click! Drag this button to your bookmarks bar instead.'); return false;">
+                        🔧 DEV ReaderWrangler
+                    </a>
+                    to your bookmarks bar, and you're ready to go!
+                </p>
             `;
         } else {
             // PRODUCTION: Show bookmarklet with instructions
