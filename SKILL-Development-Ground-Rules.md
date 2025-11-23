@@ -181,7 +181,7 @@ See CONTRIBUTING.md for detailed instructions:
 - **Update when**: User says "table that thought", finalizing a version, or updating CHANGELOG.md
 
 ### Claude Skills Management
-- Source files: `SKILL-Development-Ground-Rules.md`, `SKILL-Amazon-Book-Organizer.md`
+- Source files: `SKILL-Development-Ground-Rules.md`, `SKILL-ReaderWrangler.md`
 - **Required format**: SKILL-*.md files MUST start with YAML frontmatter
 - **Automatic .zip rebuilding**: Git pre-commit hook detects SKILL-*.md changes and rebuilds zips
 - Only source `.md` files are tracked in git (zips are generated locally)
