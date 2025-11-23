@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Landing Page v1.0.5 -->
     <meta charset="UTF-8">
+    <script>const LANDING_VERSION = 'v1.0.5'; console.log('ReaderWrangler Landing Page ' + LANDING_VERSION);</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Free tool to scrape your Amazon Kindle library and organize books visually. Easy extraction of covers, ratings, reviews with a simple bookmarklet. Drag-and-drop organization. 100% private - works in your browser.">
     <meta name="keywords" content="scrape amazon kindle library, organize kindle books visually, amazon kindle organizer, extract kindle books, visual book organizer, kindle book manager, amazon book list extractor, kindle collection organizer, organize ebooks">
@@ -850,11 +850,14 @@
 
         const container = document.getElementById('index-bookmarklet-container');
 
-        // DEV bookmarklet (localhost only)
-        const devBookmarklet = `javascript:(function(){var s=document.createElement('script');s.src='http://localhost:8000/bookmarklet-loader.js';document.body.appendChild(s);})();`;
+        // LOCAL bookmarklet - Sets TARGET_ENV='LOCAL' and loads nav-hub from localhost
+        const localBookmarklet = `javascript:(function(){console.log('⚠️ LOCAL Bookmarklet v1.1.3 - Starting...');window._READERWRANGLER_TARGET_ENV='LOCAL';var s=document.createElement('script');s.src='http://localhost:8000/bookmarklet-nav-hub.js?v='+Date.now();console.log('⚠️ LOCAL: Loading nav-hub from localhost:8000');document.body.appendChild(s);})();`;
 
-        // PROD bookmarklet (readerwrangler.com or github.io)
-        const prodBookmarklet = `javascript:(function(){var h=window.location.hostname;var r=h.indexOf('readerwrangler.com')>-1;var b=r?'https://readerwrangler.com/':'https://ron-l.github.io/readerwrangler/';var s=document.createElement('script');s.src=b+'bookmarklet-loader.js';document.body.appendChild(s);})();`;
+        // DEV bookmarklet - Sets TARGET_ENV='DEV' and loads nav-hub from readerwranglerdev
+        const devBookmarklet = `javascript:(function(){console.log('🔧 DEV Bookmarklet v1.1.3 - Starting...');window._READERWRANGLER_TARGET_ENV='DEV';var s=document.createElement('script');s.src='https://ron-l.github.io/readerwranglerdev/bookmarklet-nav-hub.js?v='+Date.now();console.log('🔧 DEV: Loading nav-hub from readerwranglerdev');document.body.appendChild(s);})();`;
+
+        // PROD bookmarklet - Sets TARGET_ENV='PROD' and loads nav-hub from production
+        const prodBookmarklet = `javascript:(function(){console.log('📚 PROD Bookmarklet v1.1.3 - Starting...');window._READERWRANGLER_TARGET_ENV='PROD';var h=window.location.hostname;var r=h.indexOf('readerwrangler.com')>-1;var b=r?'https://readerwrangler.com/':'https://ron-l.github.io/readerwrangler/';var s=document.createElement('script');s.src=b+'bookmarklet-nav-hub.js';console.log('📚 PROD: Loading nav-hub from '+b);document.body.appendChild(s);})();`;
 
         const bookmarkletStyle = `
             display: inline-block;
@@ -871,19 +874,27 @@
         `;
 
         if (isLocalhost && !DEV_MODE_VIEW_OF_PROD_BUTTONS) {
-            // LOCALHOST: Show both bookmarklets for developers
+            // LOCALHOST: Show all 3 bookmarklets for developers
             container.innerHTML = `
                 <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
                     <div style="font-weight: bold; color: #856404; margin-bottom: 8px; font-size: 14px;">⚙️ Developer Mode</div>
-                    <div style="font-size: 13px; color: #666;">Drag one or both bookmarklets to test localhost and/or production.</div>
+                    <div style="font-size: 13px; color: #666;">Drag bookmarklets to test across environments.</div>
+                </div>
+                <div style="display: inline-block; margin: 0 10px;">
+                    <a href="${localBookmarklet}"
+                       style="${bookmarkletStyle} background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);"
+                       onclick="alert('Don\\'t click! Drag this button to your bookmarks bar instead.'); return false;">
+                        ⚠️ LOCAL ReaderWrangler
+                    </a>
+                    <div style="font-size: 11px; color: #666; margin-top: 5px;">localhost:8000</div>
                 </div>
                 <div style="display: inline-block; margin: 0 10px;">
                     <a href="${devBookmarklet}"
-                       style="${bookmarkletStyle} background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);"
+                       style="${bookmarkletStyle} background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);"
                        onclick="alert('Don\\'t click! Drag this button to your bookmarks bar instead.'); return false;">
-                        ⚠️ DEV ReaderWrangler
+                        🔧 DEV ReaderWrangler
                     </a>
-                    <div style="font-size: 11px; color: #666; margin-top: 5px;">localhost:8000</div>
+                    <div style="font-size: 11px; color: #666; margin-top: 5px;">readerwranglerdev repo</div>
                 </div>
                 <div style="display: inline-block; margin: 0 10px;">
                     <a href="${prodBookmarklet}"

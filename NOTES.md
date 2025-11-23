@@ -44,7 +44,7 @@ This file tracks tabled discussion items, work in progress context, and open que
 - **Goal**: Deploy Amazon Book Organizer to GitHub Pages with bookmarklet for easy user access
 - **Completed**:
   1. ✅ POC: bookmarklet-poc.js v1.0.0.b (archived)
-  2. ✅ Smart bookmarklet: bookmarklet-loader.js v1.0.0 (intro dialog + page detection + navigation)
+  2. ✅ Smart bookmarklet: bookmarklet-nav-hub.js v1.1.2.b (intro dialog + page detection + navigation)
   3. ✅ Install page: install-bookmarklet.html v1.0.0 (drag-and-drop with instructions)
   4. ✅ Progress UI: library-fetcher.js (Option C - minimal overlay with phase updates)
   5. ✅ Progress UI: collections-fetcher.js (same pattern as library-fetcher)
@@ -80,6 +80,45 @@ This file tracks tabled discussion items, work in progress context, and open que
 - **Root Cause**: GraphQL partial errors - Amazon returns valid description data + errors for customerReviewsTop field
 - **Fix**: Check for data despite errors, only fail if no data returned
 - **Status**: Complete and released as v3.3.2
+
+### Three-Environment Bookmarklet Bug - IN PROGRESS 🔄
+- **Started**: 2025-11-23
+- **Status**: Bug analyzed, awaiting approval to implement fix
+
+#### Problem
+All three bookmarklets (LOCAL, DEV, PROD) navigate to wrong destinations:
+- LOCAL bookmarklet → goes to PROD (should go to localhost:8000)
+- DEV bookmarklet → goes to localhost (should go to DEV repo)
+- PROD bookmarklet → goes to localhost (should go to PROD repo)
+
+#### Root Cause Analysis
+1. **Bookmarklet Architecture**:
+   - Bookmarklet code (in index.html/install-bookmarklet.html) sets window variable and loads nav hub script
+   - `bookmarklet-nav-hub.js` creates a navigation hub dialog with buttons
+   - User clicks button → navigation occurs based on `TARGET_ENV`
+
+2. **The Bug** (FIXED):
+   - Old `bookmarklet-loader.js` had `TARGET_ENV = 'PROD'` hardcoded
+   - Bookmarklets didn't set the TARGET_ENV window variable
+   - The nav hub ignored where it was loaded from
+
+3. **The Fix** (IMPLEMENTED):
+   - Renamed `bookmarklet-loader.js` → `bookmarklet-nav-hub.js`
+   - Bookmarklets now set `window._READERWRANGLER_TARGET_ENV` ('LOCAL', 'DEV', or 'PROD')
+   - Nav hub reads from window variable with 'PROD' fallback for backwards compatibility
+   - Updated all 7 file references
+
+#### Session Checklist
+```
+⬜ DEV bookmarklet verification ← CURRENT
+      ✅ Debug: Investigate wrong navigation (root cause found)
+      ⬜ Fix: Implement TARGET_ENV injection + rename
+      ⬜ Retest: LOCAL bookmarklet
+      ⬜ Retest: DEV bookmarklet
+      ⬜ Retest: PROD bookmarklet
+```
+
+---
 
 ### Review Data Analysis & GraphQL API Investigation - IN PROGRESS 🔄
 - **Started**: 2025-11-10

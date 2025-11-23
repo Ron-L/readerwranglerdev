@@ -91,7 +91,7 @@ Click the status line at the top and load your downloaded JSON file.
 
 ## For Developers: Contributing to ReaderWrangler
 
-There are two development workflows available, depending on whether you want instant local testing or prefer to test via GitHub Pages.
+There are three development workflows available, depending on your testing needs.
 
 ### Development Option A: Local Testing (Recommended)
 
@@ -124,40 +124,28 @@ There are two development workflows available, depending on whether you want ins
 
    Browsers block JavaScript from loading local files (like your library JSON) when opening HTML files directly (`file://` protocol). Running a local HTTP server (`http://localhost`) allows the application to access these files securely.
 
-### Development Option B: GitHub Pages Testing
+### Development Option B: GitHub Pages DEV Testing
 
-**Best for:** Testing deployment process, verifying production behavior, collaborative testing
+**Best for:** Testing GitHub Pages deployment without affecting production, verifying bookmarklet loading from remote server
 
 **Workflow:**
-1. Clone the repository
-2. Create a feature branch
-3. Make your code changes
-4. Commit and push to GitHub
-5. Configure GitHub Pages to serve your branch
-6. Wait 1-5 minutes for GitHub to rebuild
-7. Test at https://ron-l.github.io/readerwrangler/
+1. Make your code changes locally
+2. Commit changes
+3. Push to DEV: `git push dev main`
+4. Wait 1-5 minutes for GitHub Pages to rebuild
+5. Test at https://ron-l.github.io/readerwranglerdev/
 
 **Setup:**
 
-1. **Configure GitHub Pages:**
-   - Go to repository Settings → Pages
-   - Set Source to your branch (e.g., `feature-ux-landing-page-tweaks`)
-   - GitHub Pages will rebuild and serve your branch
+This project uses a dual-repo pattern with separate DEV and PROD remotes:
+- `dev` → readerwranglerdev repo (testing)
+- `prod` → readerwrangler repo (production)
+- No `origin` remote (prevents accidental pushes)
 
-2. **Deployment delays:**
-   - First deploy: ~2-5 minutes
-   - Subsequent updates: ~1-3 minutes
-   - No local server required
-
-3. **Testing your changes:**
-   - Visit https://ron-l.github.io/readerwrangler/
-   - Cache may be stale - use hard refresh (Ctrl+Shift+R)
-   - Or use incognito/private mode for clean testing
-
-4. **When ready for production:**
-   - Merge to `main` branch
-   - Configure GitHub Pages to serve `main`
-   - Changes appear at both github.io and readerwrangler.com URLs
+**Testing your changes:**
+- Visit https://ron-l.github.io/readerwranglerdev/
+- Use the 🔧 DEV bookmarklet to test fetchers from DEV repo
+- Cache may be stale - use hard refresh (Ctrl+Shift+R)
 
 **Note:** GitHub Pages caching is aggressive. During development, you may need to:
 - Hard refresh browser (Ctrl+Shift+R or Cmd+Shift+R)
@@ -165,44 +153,67 @@ There are two development workflows available, depending on whether you want ins
 - Use incognito/private browsing mode
 - Wait a few minutes for GitHub's CDN to update
 
+### Development Option C: GitHub Pages Production Deployment
+
+**Best for:** Final release to production
+
+**Workflow:**
+1. Test thoroughly on LOCAL and/or DEV first
+2. When stable: `git push prod main`
+3. Wait 1-5 minutes for GitHub Pages to rebuild
+4. Verify at https://readerwrangler.com/ or https://ron-l.github.io/readerwrangler/
+
+**Safety:** Always test on DEV before pushing to PROD. The dual-repo pattern ensures you can't accidentally push to production.
+
 ### Bookmarklet Development and Testing
 
 The bookmarklet installer ([install-bookmarklet.html](install-bookmarklet.html)) is **environment-aware** and adapts to where it's running:
 
 #### For End Users (Production)
-When users visit the installer on **readerwrangler.com** or **GitHub Pages**, they see a single production bookmarklet:
+When users visit the installer on **readerwrangler.com** or **GitHub Pages prod repo**, they see a single production bookmarklet:
 - **📚 ReaderWrangler** (purple gradient)
 - Points to production servers (readerwrangler.com or GitHub Pages)
 - Optimized for performance with browser caching
 
-#### For Developers (Localhost)
-When you run the installer on **localhost:8000**, it automatically shows **BOTH** bookmarklets side-by-side:
+#### For End Users (DEV repo)
+When users visit the installer on **ron-l.github.io/readerwranglerdev**, they see the DEV bookmarklet:
+- **🔧 DEV ReaderWrangler** (blue gradient)
+- Points to the DEV GitHub Pages repo
+- For testing purposes only
 
-1. **⚠️ DEV ReaderWrangler** (orange gradient)
+#### For Developers (Localhost)
+When you run the installer on **localhost:8000**, it automatically shows **ALL THREE** bookmarklets:
+
+1. **⚠️ LOCAL ReaderWrangler** (orange gradient)
    - Points exclusively to `localhost:8000`
    - Always loads fresh code (cache-busting enabled)
    - Use this when testing local changes on Amazon pages
 
-2. **📚 ReaderWrangler** (purple gradient)
-   - Points to production servers (readerwrangler.com/GitHub Pages)
-   - Use this to compare production behavior vs your local changes
+2. **🔧 DEV ReaderWrangler** (blue gradient)
+   - Points to `ron-l.github.io/readerwranglerdev`
+   - Tests GitHub Pages deployment without affecting production
+   - Use this to verify changes work on GitHub Pages
 
-**Why two bookmarklets for developers?**
+3. **📚 ReaderWrangler** (purple gradient)
+   - Points to production servers (readerwrangler.com/GitHub Pages)
+   - Use this to compare production behavior vs your changes
+
+**Why three bookmarklets for developers?**
 
 The bookmarklet runs *on Amazon's website*, not on our pages. When you click a bookmarklet on `amazon.com/yourbooks`, the JavaScript has no way to know if you're a developer with a local server running. It only sees Amazon's hostname.
 
-Solution: Install both bookmarklets from the localhost installer. Now you can:
-- Click **⚠️ DEV** to test your local changes
-- Click **📚 Production** to verify production behavior
-- Easily switch between them while testing on Amazon
+Solution: Install all three bookmarklets from the localhost installer. Now you can:
+- Click **⚠️ LOCAL** to test your local changes (instant feedback)
+- Click **🔧 DEV** to test GitHub Pages deployment (after `git push dev main`)
+- Click **📚 PROD** to verify production behavior
+- Easily switch between environments while testing on Amazon
 
 **Testing workflow:**
 1. Start local server: `python -m http.server 8000`
 2. Visit `http://localhost:8000/install-bookmarklet.html`
-3. Drag both bookmarklets to your bookmarks bar
+3. Drag all three bookmarklets to your bookmarks bar
 4. Navigate to Amazon library page
-5. Click **⚠️ DEV** bookmarklet to test local changes
-6. (Optional) Click **📚 Production** to compare behavior
+5. Click appropriate bookmarklet to test that environment
 
 The installer detects its own environment using `window.location.hostname` and generates appropriate bookmarklet code dynamically.
 
@@ -216,7 +227,7 @@ The installer detects its own environment using `window.location.hostname` and g
 - `readerwrangler.css` - Application styles
 
 **Data Fetchers:**
-- `bookmarklet-loader.js` - Smart bookmarklet loader with environment detection
+- `bookmarklet-nav-hub.js` - Navigation hub dialog (loaded by bookmarklet, shows menu)
 - `amazon-library-fetcher.js` - Amazon library data fetching utility
 - `amazon-collections-fetcher.js` - Amazon collections data fetching utility
 
@@ -237,12 +248,12 @@ The installer detects its own environment using `window.location.hostname` and g
 - Quick Start with bookmarklet installer link
 - Features overview (library management, organization, privacy)
 - Technology stack (brief)
-- App access methods (GitHub Pages, local development)
+- App access methods (Production at readerwrangler.com, DEV at readerwranglerdev for testing)
 - Project version (source of truth for git tags)
 
 **When to Update:** When adding user-facing features or incrementing project version
 
-**Note:** Development setup has been moved to CONTRIBUTING.md (this file)
+**Note:** Development setup has been moved to CONTRIBUTING.md (this file). The DEV repo (readerwranglerdev) is for developer testing only and should not be promoted to end users.
 
 #### CHANGELOG.md
 **Purpose:** Detailed version history with technical notes

@@ -44,8 +44,9 @@ These files have been modified and are awaiting your review before commit:
    - Comprehensive comparison with 6 other ebook management tools
    - Referenced in README documentation section
 
-5. **bookmarklet-loader.js** (v1.1.0.b)
-   - Localhost detection restored to proper functionality
+5. **bookmarklet-nav-hub.js** (v1.1.2.b)
+   - Renamed from bookmarklet-loader.js (better reflects purpose)
+   - Now reads TARGET_ENV from window variable (injected by bookmarklet)
 
 ### Key Changes Summary
 
@@ -197,7 +198,7 @@ Create 4-5 columns with these themes (left to right):
 - **Project Version**: v3.5.0 (major rebranding complete)
 - **index.html**: v1.0.1
 - **install-bookmarklet.html**: v1.0.4
-- **bookmarklet-loader.js**: v1.1.0.b
+- **bookmarklet-nav-hub.js**: v1.1.2.b
 
 ### Next Version
 - Project version should remain **v3.5.0** (recent rebranding release)
@@ -233,7 +234,7 @@ Test with social media validators:
 - index.html
 - install-bookmarklet.html
 - COMPETITIVE-ANALYSIS.md
-- bookmarklet-loader.js
+- bookmarklet-nav-hub.js
 
 **Commit message:**
 ```

@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Consistent Navigation**: "Launch App" and all navigation now use localhost regardless of current domain
   - **Developer Experience**: Enables testing production bookmarklet behavior while using local files
   - **Console Diagnostics**: Both DEV and PROD bookmarklets log version and loading source
-  - **Locations**: [install-bookmarklet.html:222,226](install-bookmarklet.html#L222), [bookmarklet-loader.js:12](bookmarklet-loader.js#L12)
+  - **Locations**: [install-bookmarklet.html:222,226](install-bookmarklet.html#L222), [bookmarklet-nav-hub.js:12](bookmarklet-nav-hub.js#L12)
 
 ### Removed
 - **Dead Code Cleanup** - Removed non-functional `about:blank` detection from bookmarklet and loader

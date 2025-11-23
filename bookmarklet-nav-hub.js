@@ -1,38 +1,46 @@
-// ReaderWrangler Bookmarklet Loader v1.1.1.a
-// Universal navigator and data fetcher
+// ReaderWrangler Bookmarklet Navigation Hub v1.1.2.b
+// Universal navigator and data fetcher dialog
+//
+// This script creates a navigation dialog when invoked by a bookmarklet.
+// The TARGET_ENV is injected by the bookmarklet via window._READERWRANGLER_TARGET_ENV
+// before this script loads.
+//
+// Expected values for window._READERWRANGLER_TARGET_ENV:
+// 'LOCAL' → localhost:8000 (for local development)
+// 'DEV'   → ron-l.github.io/readerwranglerdev (for testing on GitHub Pages)
+// 'PROD'  → readerwrangler.com or ron-l.github.io/readerwrangler (for production)
 
 (function() {
     'use strict';
 
-    const LOADER_VERSION = 'v1.1.1.a';
+    const NAV_HUB_VERSION = 'v1.1.2.b';
+
+    // Read TARGET_ENV from window (injected by bookmarklet)
+    // Default to 'PROD' for backwards compatibility with old bookmarklets
+    const TARGET_ENV = window._READERWRANGLER_TARGET_ENV || 'PROD';
 
     const currentUrl = window.location.href;
 
-    // ISSUE #2 FIX: Check if DEV mode was explicitly requested via global flag
-    const FORCE_LOCALHOST = window._READERWRANGLER_DEV_MODE || false;
-
-    // Environment detection
-    // Production = readerwrangler.com (users get optimal caching)
-    // Dev = localhost OR github.io OR FORCE_LOCALHOST flag (developers get fresh code)
-    const isLocalhost = window.location.hostname === 'localhost' ||
-                       window.location.hostname === '127.0.0.1';
-    const IS_PRODUCTION = !FORCE_LOCALHOST && window.location.hostname === 'readerwrangler.com';
-    const IS_DEV = !IS_PRODUCTION;
-
-    const baseUrl = FORCE_LOCALHOST || isLocalhost
+    // Calculate baseUrl from TARGET_ENV
+    const baseUrl = TARGET_ENV === 'LOCAL'
         ? 'http://localhost:8000/'
-        : IS_PRODUCTION
-            ? 'https://readerwrangler.com/'
+        : TARGET_ENV === 'DEV'
+            ? 'https://ron-l.github.io/readerwranglerdev/'
             : 'https://ron-l.github.io/readerwrangler/';
 
+    // For PROD, prefer readerwrangler.com if user is already on custom domain
+    const finalBaseUrl = TARGET_ENV === 'PROD' && window.location.hostname === 'readerwrangler.com'
+        ? 'https://readerwrangler.com/'
+        : baseUrl;
+
+    // Cache-busting for non-PROD environments (developers get fresh code)
+    const IS_DEV_MODE = TARGET_ENV !== 'PROD';
+
     // Debug logging
-    console.log(`📚 ReaderWrangler Loader ${LOADER_VERSION}`);
-    console.log(`   Hostname: ${window.location.hostname}`);
-    console.log(`   FORCE_LOCALHOST: ${FORCE_LOCALHOST}`);
-    console.log(`   isLocalhost: ${isLocalhost}`);
-    console.log(`   IS_PRODUCTION: ${IS_PRODUCTION}`);
-    console.log(`   IS_DEV: ${IS_DEV}`);
-    console.log(`   baseUrl: ${baseUrl}`);
+    console.log(`📚 ReaderWrangler Nav Hub ${NAV_HUB_VERSION}`);
+    console.log(`   TARGET_ENV: ${TARGET_ENV} (from ${window._READERWRANGLER_TARGET_ENV ? 'bookmarklet' : 'default'})`);
+    console.log(`   baseUrl: ${finalBaseUrl}`);
+    console.log(`   Cache-busting: ${IS_DEV_MODE}`);
 
     // Detect current page type
     const onLibraryPage = currentUrl.includes('amazon.com/yourbooks') ||
@@ -149,11 +157,11 @@
         const script = document.createElement('script');
 
         // Cache-busting in dev environments for fresh code
-        const cacheBuster = IS_DEV ? '?v=' + Date.now() : '';
-        script.src = baseUrl + scriptName + cacheBuster;
+        const cacheBuster = IS_DEV_MODE ? '?v=' + Date.now() : '';
+        script.src = finalBaseUrl + scriptName + cacheBuster;
 
         console.log(`   Loading from: ${script.src}`);
-        console.log(`   Cache-busting enabled: ${IS_DEV}`);
+        console.log(`   Cache-busting enabled: ${IS_DEV_MODE}`);
 
         script.onerror = function() {
             alert(`❌ Failed to load ${description}. Please check your internet connection.`);
@@ -204,7 +212,7 @@
     if (launchAppBtn) {
         launchAppBtn.onclick = () => {
             dialog.remove();
-            window.location.href = baseUrl + 'readerwrangler.html';
+            window.location.href = finalBaseUrl + 'readerwrangler.html';
         };
     }
 
@@ -212,14 +220,14 @@
     if (launchIntroBtn) {
         launchIntroBtn.onclick = () => {
             dialog.remove();
-            window.location.href = baseUrl + 'index.html';
+            window.location.href = finalBaseUrl + 'index.html';
         };
     }
 
     // Add version footer to dialog
     const versionFooter = document.createElement('div');
     versionFooter.style.cssText = 'text-align: center; margin-top: 20px; color: #999; font-size: 11px;';
-    versionFooter.textContent = LOADER_VERSION;
+    versionFooter.textContent = NAV_HUB_VERSION;
     dialog.appendChild(versionFooter);
 
     // Hover effects

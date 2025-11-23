@@ -13,10 +13,12 @@ description: Project-specific context including architecture patterns, common pi
 
 **Files:**
 - `readerwrangler.html` - Main SPA (React + Tailwind CSS + IndexedDB)
+- `bookmarklet-nav-hub.js` - Navigation hub dialog (loaded by bookmarklet)
+- `install-bookmarklet.html` - Bookmarklet installer page (environment-aware)
+- `index.html` - Landing page
 - `CHANGELOG.md` - Detailed version history with Technical Notes
 - `TODO.md` - Pending tasks and improvements
 - `images/` - Status icons (busy.png, empty.png, fresh.png, stale.png, question-mark.png)
-- `amazon-manifest.json` - Metadata file (totalBooks count) for stale detection
 - User's library JSON file (not in git) - Contains full book data
 
 ## Tech Stack
@@ -104,6 +106,29 @@ _Consider copying this pattern to other GitHub Pages projects_
 2. Commit
 3. `git push dev main` → test on ron-l.github.io/readerwranglerdev
 4. When stable: `git push prod main` → live on readerwrangler.com
+
+## Three-Environment Testing
+
+**Environments:**
+| Environment | URL | Bookmarklet | Use Case |
+|-------------|-----|-------------|----------|
+| LOCAL | localhost:8000 | ⚠️ LOCAL (orange) | Rapid iteration, instant feedback |
+| DEV | ron-l.github.io/readerwranglerdev | 🔧 DEV (blue) | Test GitHub Pages deployment |
+| PROD | readerwrangler.com | 📚 ReaderWrangler (purple) | Production users |
+
+**Bookmarklet Behavior:**
+- LOCAL bookmarklet → loads from localhost:8000
+- DEV bookmarklet → loads from readerwranglerdev repo
+- PROD bookmarklet → loads from readerwrangler.com (or github.io fallback)
+
+**Why three bookmarklets?**
+Bookmarklets run on Amazon.com, not our servers. They can't detect if you're a developer. Solution: Install all three from localhost installer, then choose which environment to test.
+
+**Testing workflow:**
+1. Start local server: `python -m http.server 8000`
+2. Visit localhost:8000/install-bookmarklet.html (shows all 3)
+3. Drag bookmarklets to toolbar
+4. On Amazon, click appropriate bookmarklet to test that environment
 
 ## Pending Tasks (from TODO.md)
 
