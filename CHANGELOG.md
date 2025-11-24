@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Session Compaction Protocol** - Restored critical protocol to ground rules (2025-11-24)
+  - Root cause: Protocol was removed during ground rules reorganization on 2025-11-22
+  - Impact: Post-compaction sessions failed to load ground rules, causing Rule #0 violations
+  - Fix: Restored Session Compaction Protocol section to SKILL-Development-Ground-Rules.md
+  - Updated references from SKILL-Amazon-Book-Organizer.md → SKILL-ReaderWrangler.md
+  - Removed redundant Rule #0 format duplication (now single source of truth at top of file)
+  - File: SKILL-Development-Ground-Rules.md lines 205-247
+
 ### Added
 - **Dev/Prod Dual-Repo Workflow** - Three-environment testing infrastructure (2025-11-23)
   - LOCAL (localhost:8000), DEV (readerwranglerdev), PROD (readerwrangler.com)

@@ -202,6 +202,46 @@ After EVERY code release (when project version increments):
 4. If patterns emerge, propose ground rules updates
 - Does NOT apply to documentation-only changes
 
+### Session Compaction Protocol
+
+**CRITICAL**: When creating a summary for session compaction (automatic or manual), you MUST include these directives at the very beginning of the summary:
+
+1. **Ground Rules File Access** - State explicitly:
+   ```
+   IMMEDIATELY after reading this summary, BEFORE your first response:
+   1. Read SKILL-ReaderWrangler.md in full
+   2. Read CONTRIBUTING.md for decision frameworks
+   3. These files are already loaded via CLAUDE.md but you must read them explicitly to ensure protocol execution
+   4. Critical behavioral requirements from these files:
+      - Recursive rule display (Rule #0 - see top of this file for exact format)
+      - Version management protocol
+      - Approval workflow requirements
+      - Ship Fast vs. Build Solid decision framework
+   ```
+
+2. **Recursive Rule Display Requirement** - Reference the canonical definition:
+   ```
+   Follow Rule #0 (Status Line Display) as defined at the top of SKILL-Development-Ground-Rules.md.
+   This includes the timestamp, progress bar, and freshness indicator.
+   Display this at the start of EVERY response.
+   ```
+
+3. **Standard Summary Content**: Include current work status, completed work, and next steps as usual.
+
+**Why This Matters**:
+- The compaction summary is the ONLY way to pass behavioral requirements across session boundaries
+- Without explicit file read directives, ground rules are forgotten
+- Without the recursive display directive, the rule reminder disappears
+- Loss of these protocols causes rule violations and workflow disruption
+
+**Post-Compaction Checklist for Next Session**:
+- [ ] Read SKILL-Development-Ground-Rules.md
+- [ ] Read SKILL-ReaderWrangler.md
+- [ ] Read CONTRIBUTING.md
+- [ ] Display recursive rule reminder in first response
+- [ ] Apply Rule #1 (Version Management) before any code changes
+- [ ] Apply Rule #2 (Approval Workflow) before any operations
+
 ---
 
 ## Communication Protocol
