@@ -329,6 +329,21 @@ A: No. Extract once, save the JSON files to cloud storage, and access them from 
 **Q: What happens if I organize on two devices simultaneously?**
 A: The organization is stored per-device (in IndexedDB). Use Backup/Restore workflow to sync changes between devices. Last restore wins.
 
+**Q: Can I maintain separate organizational states (e.g., demo vs. actual collection)?**
+A: Yes! Use the Backup/Restore workflow to swap between different organizational states:
+1. **Setup**: Organize your actual collection normally
+2. **Before demo**: Click **Backup** to save your current organization (e.g., `my-organization.json`)
+3. **Demo mode**: Click **Clear Library**, then organize for demo/testing purposes
+4. **Return to your organization**: Click **Restore** and select your backup file (`my-organization.json`)
+
+This lets you maintain multiple "versions" of your organization without complex multi-user support. Perfect for:
+- Testing new organization strategies without losing your actual setup
+- Creating demo states to show friends/family
+- Experimenting with different column structures
+- Maintaining separate organizations for different purposes
+
+**Pro Tip**: Name your backups descriptively (e.g., `actual-collection.json`, `demo-state.json`, `testing-layout.json`) so you always know which one to restore.
+
 ### Technical
 
 **Q: Where is my data stored?**
