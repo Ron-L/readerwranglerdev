@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - File: SKILL-Development-Ground-Rules.md lines 205-247
 
 ### Added
+- **Token Monitoring and Compaction Management Protocol** - Automated compaction detection and tracking (2025-11-24)
+  - Status line progress bar (5 blocks) shows token usage visually
+  - Freshness indicator (🟢🟡🟠🔴) shows data staleness
+  - Threshold-based actions: Green/Yellow/Orange/Red zones with specific protocols
+  - Automatic compaction detection: Triggers when token % increases (e.g., 19% → 100%)
+  - Approval workflow: "yes" / "yes to all" / "no" for logging to Compaction-log.md
+  - VS Code snippet + keybinding (Ctrl+Alt+L) for manual logging fallback
+  - Purpose: Track actual token usage to validate Claude Max cost vs Pro + API
+  - File: SKILL-Development-Ground-Rules.md lines 247-383
+- **Wishlist Integration TODO Items** - Planned features for wishlist tracking and series gap detection (2025-11-24)
+  - Item #19 (Priority 3): Basic wishlist with bookmarklet extraction and gray-out UI
+  - Item #36 (Priority 6): Series gap detection with automatic missing book discovery
+  - Bookmarklet saves to amazon-library.json as new top-level `wishlist` array
+  - App creates special "Wishlist" column with visual distinction
+  - Series gap detection requires Amazon API investigation (may be blocked by inconsistent series metadata)
+  - Files: TODO.md lines 193-209 (item #19) and lines 321-342 (item #36)
 - **Dev/Prod Dual-Repo Workflow** - Three-environment testing infrastructure (2025-11-23)
   - LOCAL (localhost:8000), DEV (readerwranglerdev), PROD (readerwrangler.com)
   - Environment-aware bookmarklet installer shows appropriate bookmarklets per environment

@@ -190,9 +190,27 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: Series books scattered across library
     - Impact: Better management for series readers
 
+19. **🎯 Wishlist Integration - Basic** - MEDIUM/MEDIUM (8-10 hours)
+    - Bookmarklet on Amazon book page extracts basic metadata (ASIN, title, author, cover, rating)
+    - Appends to existing `amazon-library.json` as new top-level `wishlist` array
+    - User selects same library JSON file → app merges wishlist + owned books
+    - Wishlist books displayed in special "Wishlist" column with visual distinction:
+      - Gray-out effect on cover/title
+      - "Wishlist" badge overlay
+      - Click opens Amazon purchase page
+    - Problem: Users browse Amazon, find interesting books, no easy way to track for later purchase
+    - Impact: Bridges gap between browsing and buying, integrates with existing organization workflow
+    - **Subtasks:**
+      - Bookmarklet: Extract book metadata from Amazon product page DOM
+      - Bookmarklet: Append to `amazon-library.json` under `wishlist` array (or create file if user doesn't have library yet)
+      - App: Parse wishlist array on JSON load
+      - App: Create "Wishlist" column (auto-created, can't be deleted while wishlist books exist)
+      - App: Gray-out styling + badge for unowned books
+      - App: Click handler → open Amazon purchase page in new tab
+
 ### 📊 Priority 4: Analytics & Export (MEDIUM Priority, LOW-MEDIUM Complexity)
 
-19. **📈 Reading Stats Dashboard** - MEDIUM/MEDIUM (8-12 hours)
+20. **📈 Reading Stats Dashboard** - MEDIUM/MEDIUM (8-12 hours)
     - Books acquired by month/year
     - Genre distribution pie chart
     - Average rating of collection
@@ -200,7 +218,7 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: No insights into library composition
     - Impact: Interesting for users, helps rediscover forgotten books
 
-20. **💾 Enhanced Export Options** - MEDIUM/LOW (2-4 hours)
+21. **💾 Enhanced Export Options** - MEDIUM/LOW (2-4 hours)
     - Export organization to CSV (already has JSON)
     - Print-friendly reading list
     - Privacy-respecting share feature
@@ -209,18 +227,18 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
 
 ### 🔧 Priority 5: Technical Improvements (MEDIUM-LOW Priority, MEDIUM-HIGH Complexity)
 
-21. **Phase 3: UI Error Handling** #FetcherImprovements - MEDIUM/LOW (2-3 hours)
+22. **Phase 3: UI Error Handling** #FetcherImprovements - MEDIUM/LOW (2-3 hours)
     - Warning banners for missing descriptions
     - "View Missing Descriptions" feature
     - Problem: Users unaware of missing enrichment data
     - Impact: Transparency about data quality
 
-22. **Minor Fetcher Improvements** #FetcherImprovements - LOW/LOW (1-2 hours)
+23. **Minor Fetcher Improvements** #FetcherImprovements - LOW/LOW (1-2 hours)
     - Timeout removal, messaging improvements, terminology consistency
     - Problem: Minor UX issues in fetcher scripts
     - Impact: Polish and consistency
 
-23. **🔄 Phase 3 Retry Logic + Recovery + Pause/Resume** - MEDIUM/HIGH (12-16 hours, optional)
+24. **🔄 Phase 3 Retry Logic + Recovery + Pause/Resume** - MEDIUM/HIGH (12-16 hours, optional)
     - See [docs/design/PHASE-3-RETRY-LOGIC.md](docs/design/PHASE-3-RETRY-LOGIC.md) for full spec
     - Retry logic for failed enrichments (~1.3% failure rate)
     - Pause/Resume capability with global flag + button UI
@@ -229,13 +247,13 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: Random enrichment failures, long extractions without pause, lost progress on interruption
     - Impact: Data quality improvement (99.8%+ expected), better UX for long extractions, prevents data loss
 
-24. **🗂️ Nested Groups/Hierarchies** #Optional - LOW/HIGH (15-20 hours)
+25. **🗂️ Nested Groups/Hierarchies** #Optional - LOW/HIGH (15-20 hours)
     - "Science Fiction" → "Space Opera" → "Culture Series"
     - Significant UI rework required
     - Problem: Flat column structure limits deep organization
     - Impact: Better for very large libraries (1000+ books)
 
-25. **🤖 Smart Collections (Rule-Based)** #Optional - LOW/HIGH (12-16 hours)
+26. **🤖 Smart Collections (Rule-Based)** #Optional - LOW/HIGH (12-16 hours)
     - "All unread books rated 4.5+"
     - Requires complex rule engine
     - Problem: Manual organization is tedious
@@ -243,49 +261,49 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
 
 ### 🌐 Priority 6: Integrations & Advanced Features (LOW Priority, HIGH-VERY HIGH Complexity)
 
-26. **🔗 Third-Party Integrations** - LOW/HIGH (20-30 hours)
+27. **🔗 Third-Party Integrations** - LOW/HIGH (20-30 hours)
     - Goodreads sync (import ratings, mark as read)
     - StoryGraph integration
     - Export recommendations to Amazon wishlist
     - Problem: Complex API work, authentication, rate limits
     - Impact: Niche feature for users of these services
 
-27. **☁️ Multi-Device Sync** #Architecture - LOW/VERY HIGH (40-60 hours)
+28. **☁️ Multi-Device Sync** #Architecture - LOW/VERY HIGH (40-60 hours)
     - Cloud storage option (self-hosted or encrypted)
     - Sync organization across devices
     - Problem: Major architectural change, privacy implications
     - Impact: Convenience for multi-device users
 
-28. **🧠 Smart Recommendations** - LOW/HIGH (30-40 hours)
+29. **🧠 Smart Recommendations** - LOW/HIGH (30-40 hours)
     - "You own these similar books you haven't read yet"
     - "Others who loved [this book] also read [these books] from your library"
     - Highlight forgotten purchases based on high ratings
     - Problem: Requires recommendation engine, ML/AI complexity
     - Impact: Book discovery from existing library
 
-29. **Book Copy Feature** #Optional - MEDIUM/MEDIUM (8-10 hours)
+30. **Book Copy Feature** #Optional - MEDIUM/MEDIUM (8-10 hours)
     - Allow same book to appear in multiple columns
     - See [docs/design/BOOK-COPY.md](docs/design/BOOK-COPY.md) for full spec
     - Array-based architecture, Ctrl+Drag UI, delete operation
     - Problem: Can't organize same book multiple ways
     - Impact: More flexible organization
 
-30. **Live reflow drag-and-drop animation** #Optional - LOW/MEDIUM (4-6 hours)
+31. **Live reflow drag-and-drop animation** #Optional - LOW/MEDIUM (4-6 hours)
     - Smooth visual feedback during drag operations
     - Problem: Current drag-and-drop feels abrupt
     - Impact: Polish and visual appeal
 
-31. **2D matrix layout** #Optional - LOW/VERY HIGH (50-80 hours)
+32. **2D matrix layout** #Optional - LOW/VERY HIGH (50-80 hours)
     - Major refactor to grid-based layout
     - Problem: Current column-only layout limiting
     - Impact: Alternative organization paradigm
 
-32. **Groups/series containers** #Optional - MEDIUM/HIGH (15-20 hours)
+33. **Groups/series containers** #Optional - MEDIUM/HIGH (15-20 hours)
     - Nested containers for related books
     - Problem: Related books scattered across columns
     - Impact: Better grouping for series/themes
 
-33. **Multi-User Support** #Architecture - LOW/VERY HIGH (40-60 hours)
+34. **Multi-User Support** #Architecture - LOW/VERY HIGH (40-60 hours)
     - See [docs/design/MULTI-USER-DESIGN.md](docs/design/MULTI-USER-DESIGN.md) for full spec
     - Status: Future enhancement (single-user first, multi-user later)
     - Covers: AccountId identification, storage architecture, mismatch handling
@@ -293,12 +311,35 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Impact: Household/family sharing
     - **Workaround Available**: See [USER-GUIDE.md FAQ](USER-GUIDE.md#faq) "Can I maintain separate organizational states?" for Backup/Restore method to swap between different organizational states (demo vs. actual collection, testing vs. production, etc.)
 
-34. **Multi-Store Architecture** #Architecture - LOW/VERY HIGH (60-80 hours)
+35. **Multi-Store Architecture** #Architecture - LOW/VERY HIGH (60-80 hours)
     - See [docs/design/MULTI-STORE-ARCHITECTURE.md](docs/design/MULTI-STORE-ARCHITECTURE.md) for full spec
     - Status: Future enhancement (Amazon first, other stores later)
     - Covers: File naming, bookmarklet detection, data structure, migration path
     - Problem: Only works with Amazon
     - Impact: Support for other ebook platforms
+
+36. **🎯 Wishlist Integration - Series Gap Detection** #Optional - MEDIUM/VERY HIGH (20-30 hours)
+    - Automatic series detection for owned books (requires series metadata)
+    - Identify missing books in series (e.g., own books 1, 2, 4 but not 3)
+    - Fetch metadata for missing books via Amazon API or series page scraping
+    - Auto-populate wishlist with series gaps
+    - Series column UI: Show gaps visually (grayed placeholder covers?)
+    - **Blockers**:
+      - Requires Speed Up Enrichment (#1) to avoid API throttling
+      - Amazon's inconsistent series tagging may limit effectiveness
+    - Problem: Series readers often have incomplete sets, no easy way to identify gaps
+    - Impact: Automatic discovery of missing series books, targeted purchasing
+    - **Investigation tasks:**
+      - Research Amazon API for series metadata (GraphQL? Product Advertising API?)
+      - Test series detection accuracy across sample of 50+ series books
+      - Determine if series page scraping is feasible fallback
+      - Measure API rate limits for series metadata queries
+    - **Subtasks:**
+      - Series detection algorithm (pattern matching on titles, author clustering)
+      - Series gap identification logic
+      - Amazon API integration for missing book metadata
+      - Wishlist auto-population workflow
+      - Series column UI for gap visualization
 
 
 
