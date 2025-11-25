@@ -7,24 +7,47 @@ description: Core development workflow rules including version management, appro
 
 ## Core Rules (NEVER violate these)
 
-### 0. Status Line Display (Unbreakable)
-**At the start of EVERY response**, display:
-```
-📋 Ground Rules Active - Full rules in SKILL-Development-Ground-Rules.md [YYYY-MM-DD HH:MM:SS Local] | ██░░░ 25% left 🟡
-```
+### 0. Start of Response Protocol (Unbreakable)
 
-**Components:**
-- **Timestamp**: User's local time in ISO 8601
-- **Progress bars** (████░): Visual token level
-  - █████ = 100-80% (5 blocks)
-  - ████░ = 79-60% (4 blocks)
-  - ███░░ = 59-40% (3 blocks)
-  - ██░░░ = 39-20% (2 blocks)
-  - █░░░░ = 19-0% (1 block)
-- **Percentage**: Exact tokens remaining
-- **Freshness indicator**: 🟢 Fresh (last 2 responses) | 🟡 Recent (2-4) | 🟠 Stale (5-7) | 🔴 Ancient (8+)
+**At the start of EVERY response, execute these steps in order:**
 
-**Exception**: Skip only if user explicitly requests it be turned off.
+1. **Read Memory and Timestamp Files**
+   - Read `.claude-memory` (JSON) → parse and extract: `lastTokenPercent`, `lastTimestamp`, `timestampStaleCount`
+   - Read `.claude-timestamp` → get current timestamp from Python service
+   - File paths:
+     - `c:\Users\Ron\OneDrive\Documents\Projects\ReaderWrangler\.claude-memory`
+     - `c:\Users\Ron\OneDrive\Documents\Projects\ReaderWrangler\.claude-timestamp`
+
+2. **Timestamp Staleness Detection**
+   - Compare current timestamp with `lastTimestamp` from memory
+   - If unchanged: increment `timestampStaleCount`
+   - If changed: reset `timestampStaleCount` to 0
+   - If `timestampStaleCount >= 3`: Add warning to status line (see Status Line Format below)
+
+3. **Compaction Detection & Memory Update**
+   - Calculate current token percentage from system warning → store as `currentPercent`
+   - Detect if compaction occurred: `currentPercent > lastTokenPercent` (e.g., 25% → 78%)
+   - **IMMEDIATELY write updated memory** as JSON:
+     ```json
+     {
+       "lastTokenPercent": <currentPercent>,
+       "lastTimestamp": "<timestamp from .claude-timestamp>",
+       "timestampStaleCount": <calculated value>
+     }
+     ```
+
+4. **Status Line Display**
+   - Display the complete status line format as defined in "Status Line Format" section below
+   - Must include: timestamp (from `.claude-timestamp`), token percentage/progress bar/freshness indicator
+   - Add timestamp staleness warning if `timestampStaleCount >= 3`
+   - Add horizontal rule separator: `---`
+   - See "Status Line Format" section for complete specification
+
+5. **Compaction Notification** (if detected in step 3)
+   - Display notification with permission request (see Compaction Detection Protocol section below)
+   - Request user approval to write to `Compaction-log.md`
+
+**Exception**: Only skip Status Line Display (step 4) if user explicitly requests it be turned off.
 
 ### 1. Version Management
 - **BEFORE** making ANY code change, increment the version letter
@@ -257,21 +280,31 @@ After EVERY code release (when project version increments):
 Include token status in Rule #0 display at the start of every response:
 
 ```
-📋 Ground Rules Active [2025-11-19 14:48:15] | ██░░░ 25% left 🟡
-                                                  ↑       ↑      ↑
-                                               progress exact  fresh
+📋 Ground Rules Active [2025-11-25 10:42:18] | ██░░░ 25% left 🟡
+                                 ↑                ↑       ↑      ↑
+                            timestamp          progress exact  fresh
+```
+
+**With staleness warning (when `timestampStaleCount >= 3`):**
+```
+📋 Ground Rules Active [2025-11-25 10:42:18] | ██░░░ 25% left 🟡 ⚠️ Timestamp service may be stopped - run: python update-timestamp.py
 ```
 
 **Components:**
 
-1. **Progress bars** (████░): Visual token level
+1. **Timestamp** (from `.claude-timestamp` file):
+   - Format: `[YYYY-MM-DD HH:MM:SS]`
+   - Source: Python service (`update-timestamp.py`) writes every 60 seconds
+   - Example: `[2025-11-25 10:42:18]`
+
+2. **Progress bars** (████░): Visual token level
    - █████ = 100-80% remaining (5 blocks)
    - ████░ = 79-60% remaining (4 blocks)
    - ███░░ = 59-40% remaining (3 blocks)
    - ██░░░ = 39-20% remaining (2 blocks)
    - █░░░░ = 19-0% remaining (1 block)
 
-2. **Percentage**: Exact number for precision (e.g., "25% left")
+3. **Percentage**: Exact number for precision (e.g., "25% left")
    - **CALCULATION**: `(tokens_remaining / total_tokens) × 100 = percentage_remaining`
    - **Example**: System says "135323 remaining / 200000 total"
      - Calculate: 135323 ÷ 200000 = 0.6766 = **67.66% remaining**
@@ -279,37 +312,41 @@ Include token status in Rule #0 display at the start of every response:
    - **DO NOT** calculate tokens used (total - remaining) / total - that's the WRONG metric
    - **ALWAYS** calculate tokens remaining / total
 
-3. **Freshness indicator**: Colored dot showing data staleness
+4. **Freshness indicator**: Colored dot showing data staleness
    - 🟢 Fresh: Updated in last 2 responses
    - 🟡 Recent: 2-4 responses ago
    - 🟠 Stale: 5-7 responses ago
    - 🔴 Ancient: 8+ responses ago
 
+5. **Timestamp Staleness Warning** (conditional):
+   - Only appears when timestamp hasn't changed for 3+ consecutive responses
+   - Warning text: `⚠️ Timestamp service may be stopped - run: python update-timestamp.py`
+   - Indicates `update-timestamp.py` may not be running
+
 ### Compaction Detection Protocol
 
 **Memory File Mechanism:**
-- File: `.claude-token-memory` (project root)
-- Content: Single number representing previous token percentage (e.g., "48")
+- File: `.claude-memory` (project root)
+- Format: JSON with structure:
+  ```json
+  {
+    "lastTokenPercent": 48,
+    "lastTimestamp": "2025-11-25 10:42:18",
+    "timestampStaleCount": 0
+  }
+  ```
 - Purpose: Persist state across compaction without user interaction
 - **DO NOT commit to git** (add to `.gitignore`)
+- **Handled automatically by Rule #0** (Start of Response Protocol above)
 
-**At start of EVERY response:**
-1. **Read `.claude-token-memory`** to get previous percentage
-   - File path: `c:\Users\Ron\OneDrive\Documents\Projects\ReaderWrangler\.claude-token-memory`
-   - Use Read tool with absolute path (no file picker needed)
-   - If file doesn't exist, assume previous = 0
-2. **Calculate current percentage** from system warning tokens
-   - Formula: `(tokens_remaining / total_tokens) × 100`
-   - Example: 77092 / 200000 = 38.5% remaining
-3. **Compare previous to current**:
-   - If current > previous (e.g., 19% → 100%):
-     - Compaction has occurred
-     - Trigger notification and logging workflow
-4. **Write current percentage to file** at end of response
-   - Content: Just the number (e.g., "38")
-   - Use Write tool with absolute path
+**Timestamp File Mechanism:**
+- File: `.claude-timestamp` (project root)
+- Format: Plain text timestamp: `2025-11-25 10:42:18`
+- Source: Python service `update-timestamp.py` (run in background)
+- Updated every 60 seconds
+- **DO NOT commit to git** (add to `.gitignore`)
 
-**Notification format:**
+**Notification format when compaction detected:**
 ```
 🔄 COMPACTION DETECTED: Tokens jumped from 19% → 100%
 

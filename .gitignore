@@ -39,7 +39,8 @@ temp/
 *.tmp
 
 # Claude state files
-.claude-token-memory
+.claude-memory
+.claude-timestamp
 
 # Claude Skills (generated files - source .md files are tracked)
 SKILL.md
