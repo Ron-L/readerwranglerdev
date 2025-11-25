@@ -352,7 +352,7 @@ Include token status in Rule #0 display at the start of every response:
 
 📝 Ready to log: [2025-11-24 19:19] Compaction
 
-**Permission to write to Compaction-log.md?**
+🔔 **Permission to write to Compaction-log.md?**
 - "yes" = Write this one entry
 - "yes to all" = Write all future compaction entries automatically (this session only)
 - "no" = Skip this entry

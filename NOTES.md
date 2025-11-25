@@ -14,6 +14,39 @@ This file tracks tabled discussion items, work in progress context, and open que
 
 ## Current Work in Progress
 
+### Timestamp & Token Monitoring System - COMPLETE ✅
+- **Started**: 2025-11-25
+- **Completed**: 2025-11-25
+- **Status**: System tested and operational
+- **Goal**: Implement reliable timestamp and token usage tracking for Rule #0 status line
+
+**Key Findings**:
+1. **Claude's internal timestamp is unreliable** - Cannot be trusted for accurate time display
+2. **Claude's token usage updates sporadically** - Not refreshed on every response
+3. **Python script solution** - Created `update-timestamp.py` to write accurate timestamps to `.claude-timestamp` every 60 seconds
+4. **Staleness detection** - Added rules to detect if timestamper script stops running (3+ unchanged reads triggers warning)
+5. **Compaction detection** - Token percentage jumps (e.g., 25% → 78%) indicate context compaction occurred
+6. **Persistent memory** - `.claude-memory` JSON file stores state across compaction:
+   - `timestampStaleCount` and `lastTimestamp` - Detect if timestamper script running
+   - `lastTokenPercent` - Detect compactions by comparing current vs last percentage
+
+**Files Created**:
+- `update-timestamp.py` - Background service writing timestamps every 60 seconds with precise timing algorithm
+- `.claude-timestamp` - Plain text file with current timestamp (updated by Python script)
+- `.claude-memory` - JSON file with persistent state (survives compaction)
+
+**Rule #0 Enhancements**:
+- Status line now displays accurate timestamp from file (not Claude's unreliable internal timestamp)
+- Token percentage, progress bar, and freshness indicator
+- Staleness warning when timestamp unchanged for 3+ responses
+- Compaction notification with 🔔 bell emoji for visibility
+
+**Testing Results**:
+- ✅ Post-compaction protocol verified (token jump from ~17% → 83% detected correctly)
+- ✅ Staleness detection working (warning triggered after 3 unchanged reads)
+- ✅ Memory persistence across compaction confirmed
+- ✅ Timestamp file reading working (displays actual file contents, not cached values)
+
 ### Landing Page & UX Tweaks - RELEASED ✅
 - **Started**: 2025-11-15
 - **Released**: 2025-11-16
@@ -81,20 +114,406 @@ This file tracks tabled discussion items, work in progress context, and open que
 - **Fix**: Check for data despite errors, only fail if no data returned
 - **Status**: Complete and released as v3.3.2
 
-### Three-Environment Bookmarklet Bug - RELEASED ✅
+### Dev/Prod Dual-Repo Workflow - COMPLETE ✅
 - **Started**: 2025-11-23
 - **Completed**: 2025-11-23
-- **Status**: Fixed and released to production
+- **Status**: Complete - three-environment workflow operational
 
-#### Problem
-All three bookmarklets (LOCAL, DEV, PROD) navigated to wrong destinations due to hardcoded `TARGET_ENV = 'PROD'` in the old `bookmarklet-loader.js`.
+#### Setup
+- Created `readerwranglerdev` repository for testing changes on GitHub Pages without affecting production
+- Three bookmarklets: LOCAL (localhost), DEV (readerwranglerdev), PROD (readerwrangler.com)
+- Enables testing bookmarklet-nav-hub.js and install pages before pushing to production
 
-#### Solution
+#### Three-Environment Bookmarklet Bug - Fixed
+**Problem**: All three bookmarklets (LOCAL, DEV, PROD) navigated to wrong destinations due to hardcoded `TARGET_ENV = 'PROD'` in the old `bookmarklet-loader.js`.
+
+**Solution**:
 1. Renamed `bookmarklet-loader.js` → `bookmarklet-nav-hub.js`
 2. Bookmarklets now inject `window._READERWRANGLER_TARGET_ENV` ('LOCAL', 'DEV', or 'PROD')
 3. Nav hub reads from window variable with 'PROD' fallback for backwards compatibility
 4. Added `isDevRepo` detection to `index.html` (was missing, causing DEV repo to show PROD bookmarklet)
 5. Added console.log version output to installer pages for debugging cache issues
+
+### Project Rename to ReaderWrangler - COMPLETE ✅
+- **Started**: 2025-11-17
+- **Completed**: 2025-11-24
+- **Status**: Repository renamed, all files updated, deployed to production
+- **New Name**: ReaderWrangler™
+- **New GitHub URL**: https://ron-l.github.io/readerwrangler/
+
+#### Rename Strategy
+Two-phase approach for safety:
+1. **Release 1 (v3.5.0)**: Repository rename + file updates
+2. **Release 2 (v3.5.1)**: Enhanced getting started UX (see [docs/design/ENHANCED-GETTING-STARTED-UX.md](docs/design/ENHANCED-GETTING-STARTED-UX.md))
+
+#### Files Changed
+- `amazon-organizer.html` → `readerwrangler.html`
+- `amazon-organizer.js`, `amazon-organizer.css` - Updated product name and generic descriptions
+- `bookmarklet-nav-hub.js`, `install-bookmarklet.html` - Updated GitHub Pages URLs
+- `SKILL-Amazon-Book-Organizer.md` → `SKILL-ReaderWrangler.md`
+- `amazon-book-organizer.code-workspace` → `readerwrangler.code-workspace`
+- README.md, CONTRIBUTING.md, TODO.md, NOTES.md - Updated project references
+
+#### Rename Ground Rules Applied
+- **KEPT Amazon references**: Legal/trademark notices, platform-specific features, historical CHANGELOG entries, technical instructions, Amazon-specific file functionality
+- **CHANGED to generic**: Product descriptions, feature descriptions, UI text, file names, URLs
+
+---
+
+## Completed Work History
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+### CRITICAL: Shift-Click Range Selection Bug - COMPLETED (2025-11-19)
+- [x] **Fixed critical data corruption bug** (v3.5.1)
+  - **Severity**: CRITICAL - Caused massive unintended selections
+  - **Impact**: User selected 10 filtered books, actually moved 1437 unfiltered books
+  - **Root Cause**: Shift-click calculated range on underlying array instead of filtered/visible results
+  - **User Report**: Filtered on "Ayres" (10 books), shift-clicked first→last, moved all 1437 books to "Time Travel" column
+  - **Fix**: Changed line 1119 in readerwrangler.js from `const visibleBooks = column.books;` to `const visibleBooks = filteredBooks(column.books);`
+  - **Branch**: `bugfix/shift-click-filtered-selection` (merged to main)
+  - **Commits**: 61738c8 (fix), 3965fc5 (version bump)
+
+### Project Rename to ReaderWrangler - COMPLETED (2025-11-18)
+- [x] **Repository Rename** - Changed from "amazon-book-organizer" to "readerwrangler"
+- [x] **Custom Domain Setup** - readerwrangler.com configured with FreeDNS and GitHub Pages
+- [x] **File Updates** - All references updated throughout codebase
+- [x] **Landing Page** - index.html created for custom domain
+- [x] **Bookmarklet Navigation Hub** - Transformed from script runner to multi-step navigation system
+- [x] **Documentation** - README.md, USER-GUIDE.md, "Coming Soon!" section added
+- [x] **SEO Infrastructure** - sitemap.xml, robots.txt, Schema.org structured data
+- [x] **Launch Strategy** - REDDIT-LAUNCH-POST.md, PRODUCTHUNT-LAUNCH-CHECKLIST.md
+
+### Documentation Accuracy & SEO Setup - COMPLETED (2025-11-18)
+- [x] **Bookmarklet Evolution to Navigation Hub**
+  - Conceptual shift: Bookmarklet now shows navigation menu instead of auto-running scripts
+  - Multi-step workflow: Navigate → Fetch → Launch (not "one-click" as originally advertised)
+  - Installation now available from both index.html and install-bookmarklet.html
+  - Added DEV_MODE_VIEW_OF_PROD_BUTTONS toggle for localhost testing
+- [x] **"One-Click" False Advertising Fixes**
+  - Replaced "one-click extraction" with accurate "easy extraction with bookmarklet"
+  - Updated 15+ locations across index.html, install-bookmarklet.html, README.md
+  - User expectations now match reality
+- [x] **Documentation Accuracy**
+  - "How It Works" section rewritten to explicitly mention navigation menu
+  - Standardized to "when you click the bookmarklet" throughout
+  - Changed "One-Time Setup" → "Initial Setup" (more accurate)
+  - Fixed typo: "canvase for your" → "canvas for you"
+  - Removed old commented code for previous bookmarklet order
+- [x] **README.md Structure Alignment**
+  - Added missing section title: "Extract and Organize Your Online Amazon Kindle Library Easily"
+  - Reordered all sections to match index.html exactly
+  - Fixed GIF placement (moved below 2nd paragraph)
+  - Fixed Quick Start formatting (each step on separate line)
+  - Converted sections to 2x2 table format (matches index.html)
+  - Added "How It Works" section matching index.html
+  - Word-for-word verification: All matching content now identical
+  - Added FreeDNS credit in Notice section
+- [x] **SEO Infrastructure**
+  - Created sitemap.xml for Google indexing
+  - Created robots.txt for crawler guidance
+  - Added Schema.org structured data (JSON-LD) to index.html
+  - Optimized meta tags with "scrape", "visually", "extract" keywords
+  - Added OG meta tags for social media sharing
+- [x] **Launch Strategy Documentation**
+  - Created REDDIT-LAUNCH-POST.md for r/kindle launch (200k+ subscribers)
+  - Created PRODUCTHUNT-LAUNCH-CHECKLIST.md with complete launch guide
+  - Documented best posting times, expected Q&A, success metrics
+
+### Landing Page & UX Tweaks - RELEASED (2025-11-16)
+- [x] Created index.html landing page for custom domain (readerwrangler.com)
+- [x] Updated amazon-collections-fetcher.js progress message (1½ minutes per 1000 books)
+- [x] Added X buttons to all dialogs (bookmarklet, library fetcher, collections fetcher)
+- [x] Added localhost detection to bookmarklet for local testing
+- [x] Removed "Refresh page to cancel" from dialogs (kept in console)
+- [x] Environment-aware bookmarklet installer (v1.0.2.d)
+  - Production: Shows single bookmarklet (📚 ReaderWrangler)
+  - Localhost: Shows BOTH dev and prod bookmarklets side-by-side
+  - Dev bookmarklet: ⚠️ DEV ReaderWrangler (orange, localhost only)
+  - Prod bookmarklet: 📚 ReaderWrangler (purple, GitHub/readerwrangler.com)
+  - Tested successfully on localhost and Amazon pages
+- [x] Restructured CONTRIBUTING.md with logical flow
+- [x] Removed version numbers from Files Overview (maintenance burden)
+- [x] Initialize git repository
+- [x] Setup GitHub remote
+- [x] Create project documentation
+- [x] Repository setup and organization
+- [x] Project renamed from Kindle Library Organizer to Amazon Book Organizer
+- [x] Phase 0 API Testing - Validate BOTH library and enrichment queries before fetching (fail fast with diagnostics)
+- [x] Improved file save location messaging (browser's save location vs Downloads folder)
+- [x] Rename "Empty (No Library Loaded)" text → "Click here to load library"
+- [x] Custom status icons - Replace Unicode with PNG images (busy, empty, fresh, stale, question-mark)
+- [x] Fix status icon display lag - Pre-load all icons and toggle with CSS
+- [x] Grammar fix - Singular/plural for "1 new book" vs "N new books"
+- [x] Dialog behavior fix - Close immediately when file picker opens
+- [x] Fix manifest caching issue - Add cache-busting to fetch
+- [x] Fix stale status after "Clear Everything" - Clear manifestData
+- [x] Improve button labels - "Sync Now" → "Load Updated Library"
+- [x] Terminology consistency - Replace "sync" with "load" throughout UI
+- [x] Dynamic title management - Browser title updates from APP_VERSION constant
+- [x] Search bar improvements - Add magnifying glass icon and better placeholder
+- [x] Add Column UX redesign - Button creates "New Column" with cursor ready to rename
+- [x] Claude Skills infrastructure - Created SKILL-*.md files and build scripts
+- [x] Session continuity - Created NOTES.md for tabled items and work context
+- [x] Project version management - README.md as source of truth for git tags
+- [x] Documentation updates - README with server setup, Skills workflow, NOTES.md
+- [x] Improve column rename discoverability - Added hover pencil icon (feature was working via double-click but not obvious to users)
+- [x] Improve library fetcher error messages - Added actionable recovery steps for auth failures
+- [x] HTML refactoring - Split monolithic HTML into separate CSS/JS files (v3.2.0)
+- [x] Version management enhancements - Query string cache busting, footer display, version comments
+- [x] Git pre-commit hook - Automatic SKILL zip rebuilding on commit
+- [x] Collections fetcher - Built collections-fetcher.js to extract collection membership and read status (v1.0.0)
+- [x] Multi-select with Ctrl/Shift clicking - Standard file-manager style multi-select (v3.4.0, released 2025-11-12)
+- [x] GitHub Pages Distribution - Bookmarklet-based deployment for zero-installation access (released 2025-11-13)
+  - [x] bookmarklet-loader.js v1.0.0 - Smart loader with page detection and navigation
+  - [x] install-bookmarklet.html v1.0.0 - Drag-and-drop installer page
+  - [x] Progress UI overlays for library-fetcher.js and collections-fetcher.js
+  - [x] README Quick Start section with installer link
+
+### Stable ASIN-Based IDs - COMPLETED (2025-11-24)
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Fix book organization persistence by using stable ASIN-based IDs instead of sequential book-N IDs
+
+**Problem**: Books were using sequential IDs (`book-0`, `book-1`, etc.) that changed when library was reloaded in different order, causing:
+- Books with mismatched IDs not appearing in organizer UI
+- Organization data becoming out of sync with library
+- Missing books at end of library (5 books hidden after reload)
+
+**Solution**:
+- Use ASIN as stable book ID (IDs persist across reloads regardless of order)
+- Sort books by acquisition date (newest first) to maintain familiar display order
+- Clear IndexedDB and localStorage to start fresh with new ID system
+
+**Changes Made**:
+- [x] Changed ID generation from `book-${i}` to `item.asin` in organizer
+- [x] Added purchase date sorting (newest first) to restore original ordering
+- [x] Removed complex migration logic (opted for clean start instead)
+- [x] Updated version to v3.3.0.c for testing
+- [x] Test that all 2343 books load correctly
+- [x] Test that organization persists across reloads
+- [x] Verify purchase date ordering is correct
+
+### Fetcher Improvements - Phase 2 (Description Tracking & Reporting) - COMPLETED
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Add comprehensive tracking and reporting for books without descriptions
+
+**Status**: Completed and committed (commit e058725)
+
+**Schema v3.0.0 Changes**:
+- [x] Add metadata section to amazon-library.json (fetchDate, totalBooks, booksWithoutDescriptions)
+- [x] Schema version "3.0.0"
+- [x] booksWithoutDescriptions array: [{asin, title, authors}]
+
+**Library Fetcher Enhancements**:
+- [x] Track missing descriptions during Pass 2
+- [x] Add end-of-run summary to console
+
+**Organizer Support**:
+- [x] Handle new JSON schema v3.0.0 (validates {metadata, books} structure)
+
+**Collections Fetcher**:
+- [x] Added named function wrapper for reusability (fetchAmazonCollections())
+
+### Fetcher Improvements - Phase 2.5 (Description Investigation) - COMPLETED
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Investigate why some books lack descriptions and explore alternative extraction methods
+
+**Status**: ✅ COMPLETED - 99.91% description recovery achieved
+
+- [x] Created 6 throwaway investigation/recovery scripts
+- [x] Discovered 3 new extraction patterns (paragraph wrappers, AI summaries, recursive fragments)
+- [x] Recovered 1,526 out of 1,528 missing descriptions
+- [x] Updated library-fetcher.js v3.2.0 with all discovered patterns
+- [x] Documented complete investigation in DESCRIPTION-RECOVERY-SUMMARY.md
+
+**Results**:
+- Traditional descriptions: 1,517 recovered
+- AI summaries: 7 recovered
+- Recursive extractions: 2 recovered
+- Only 2 books genuinely lack descriptions on Amazon (verified manually)
+
+### Fetcher Improvements - Phase 2.6 (Partial Error Investigation) - COMPLETED (2025-11-11)
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Fix 3/2666 enrichment failures caused by partial GraphQL errors
+
+**Status**: ✅ COMPLETED - Solution validated in overnight fetch (v3.3.2.b)
+
+**Problem**: 3 books failed during full library fetch with "Customer Id or Marketplace Id is invalid" error
+- Cats (position 2037, ASIN B0085HN8N6)
+- Queen's Ransom (position 2321, ASIN 0684862670)
+- To Ruin A Queen (position 2322, ASIN 0684862689)
+
+**Root Cause Discovered**: GraphQL partial errors
+- Amazon returns BOTH `data` (with valid description) AND `errors` (customerReviewsTop failed)
+- Our code rejected entire response if `data.errors` existed
+- Lost valid description data by treating partial errors as total failures
+
+**Solution Implemented** (v3.3.2.b):
+- [x] Partial error handling - check for data despite errors
+- [x] Enhanced error logging with raw response dumps
+- [x] Statistics tracking for partial errors (position, title, ASIN, error message, error path)
+- [x] Final summary section showing all partial errors
+
+**Validation Results**:
+- [x] Run overnight full library fetch validation (~3 hours) - SUCCESSFUL
+- [x] Verify all 3 books now have descriptions - CONFIRMED
+- [x] Review partial error statistics - 5 books had partial errors, all recovered
+- [x] Update CHANGELOG.md with v3.3.2 release - DONE
+- [x] Archive diagnostic scripts - DONE (60 files in archived-investigations/phase-2.6-partial-errors/)
+
+**See also**: archived-investigations/phase-2.6-partial-errors/ for investigation scripts and documentation
+
+### Release v3.3.2 - COMPLETED (2025-11-11)
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Released**: 2025-11-11
+**Tag**: [v3.3.2](https://github.com/Ron-L/amazon-book-organizer/releases/tag/v3.3.2)
+
+**Completed**:
+- ✅ Overnight fetch validation successful (all 3 problem books recovered)
+- ✅ Clear Library feature implemented and tested (v3.3.2.m → v3.3.2)
+- ✅ Load Library instruction text improved (v3.3.2.n → v3.3.2)
+- ✅ Version Management: library-fetcher.js v3.3.2, amazon-organizer.js v3.3.2
+- ✅ Documentation: CHANGELOG.md updated with complete v3.3.2 entry
+- ✅ Git Workflow: Committed, tagged v3.3.2, pushed with tags
+- ✅ Post-Release Review: Comprehensive post-mortem completed
+  - Created [post-mortems/v3.3.2-2025-11-11.md](post-mortems/v3.3.2-2025-11-11.md)
+  - Extracted 3 actionable patterns to Ground Rules
+  - Documented what worked well, mistakes made, lessons learned
+- ✅ Post-Release Cleanup: 77 investigation files archived
+  - Created `/future` directory for specification documents (2 files)
+  - Organized `archived-investigations/phase-2.0-description-recovery/` (17 files)
+  - Organized `archived-investigations/phase-2.6-partial-errors/` (60 files)
+  - Root directory: 100% cleanup of investigation artifacts
+- ✅ GraphQL Quick Reference: Created concise 1-page reference document
+
+**Key Achievements**:
+- Fixed partial GraphQL error handling (recovered 5/5 books with partial errors)
+- Simplified Clear Library feature (based on v3.2.1 working pattern)
+- Improved load library instructions for first-time users
+- 100% data coverage achieved (all 2666+ books enriched successfully)
+
+**Lessons Learned**: See [post-mortems/v3.3.2-2025-11-11.md](post-mortems/v3.3.2-2025-11-11.md)
+
+**Note**: This release followed the "Build Solid Foundation" approach - spent 6 days investigating 3/2666 failures (0.15%) because library management requires 100% data coverage
+
+### Bugs Fixed - COMPLETED (various dates)
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+- [x] **Description fetching is broken** - FIXED in v3.1.2 - Description extraction now works correctly
+- [x] **Missing books in organizer UI** - FIXED in v3.3.0.c - Switched to stable ASIN-based IDs
+- [x] **"Clear Library" feature** - FIXED in v3.3.2.m - Simplified from complex dialog to single button
+  - Replaced "Reset Organization" and "Clear Everything" dialog with single "Clear Library" button
+  - Based on proven v3.2.1 clearEverything pattern
+  - Complete reset: unloads library, removes columns, clears organization, resets to pristine state
+  - Simple confirm() dialog explains what will be cleared
+  - User tested and confirmed: "works exactly as expected!"
+
+### Fetcher Improvements - Phase 4 (Reliability & Data Quality) - COMPLETED
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Improve fetch reliability, filter out non-book items, and add comprehensive statistics
+
+**Status**: ✅ COMPLETED - library-fetcher.js v3.3.0
+
+- [x] **Retry logic with exponential backoff**:
+  - Applied to Phase 0 validation (library + enrichment tests)
+  - Applied to Pass 1 library page fetching
+  - Applied to Pass 2 individual book enrichment (already had retry logic)
+  - Retries up to 3 times with 5s, 10s, 20s delays between attempts
+  - Prevents data loss from temporary network issues (fixes 5 API errors seen in v3.2.0 fresh fetch)
+  - Console shows `⏳ Retry X/3 after Ys...` during retry attempts
+  - Only marks as failed after all retries exhausted
+  - Expected improvement: 99.79% → 99.95%+ success rate
+
+- [x] **Comprehensive statistics output**:
+  - ⏱️ TIMING: phase-by-phase duration breakdown (Phase 0, Pass 1, Pass 2, Merge, Manifest)
+  - 🔄 API RELIABILITY: retry histogram showing % of calls succeeding on first try vs. requiring retries
+  - 📊 FETCH RESULTS: total fetched, non-books filtered, books kept
+  - 📝 ENRICHMENT RESULTS: success rate with list of failed books after retries
+  - ⚠️ DATA QUALITY NOTES: books without descriptions, authors, AI summaries used
+  - 💾 FILES SAVED: confirmation of output files
+  - Statistics shown even when no new books found (validation-only mode)
+
+- [x] **Non-book item filter**:
+  - Automatically excludes non-book items during Pass 1 (DVDs, Audio CDs, CD-ROMs, Maps, Shoes, Product Bundles, Misc.)
+  - Only includes: Kindle Edition, Paperback, Hardcover, Mass Market Paperback, Board book, Unknown Binding, Audible Audiobook, Library Binding
+  - Console shows `⏭️  Skipping non-book: [title] ([binding])` when item filtered
+  - Statistics show how many non-books filtered with examples
+  - Removes 12 non-book items from future fetches
+
+- [x] **Early exit bug fix**:
+  - Fixed bug where statistics were not shown when library is up-to-date
+  - Now shows validation timing, API reliability, and library status even with no new books
+
+- [x] **Backward compatibility code cleanup**:
+  - Removed temporary schema v2.0 → v3.0.0 migration code (lines 221-234)
+  - Codebase now only supports schema v3.0.0+
+  - Simplified and cleaner implementation
+
+- [x] **Add timing information to fetcher output**: ✅ COMPLETED in v3.3.0
+  - Track start time for each phase (Phase 0, Pass 1, Pass 2, Merge, Manifest)
+  - Comprehensive timing breakdown in final statistics output
+  - Shows phase-by-phase duration with formatted times (e.g., "1h 23m 45s")
+  - Helps users understand performance and estimate future fetches
+
+### Collections Integration - Data Merge COMPLETED
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Status**: Collections data successfully merged into organizer
+
+- [x] Build collections fetcher script (collections-fetcher.js v1.0.0)
+- [x] Test collections fetcher (successfully fetched 2,280 books in 3m 56s)
+- [x] Generate amazon-collections.json with all collection data
+- [x] HTML refactor complete (v3.2.0) - modular structure ready for integration
+- [x] Merge v3.2.0 refactor to main
+- [x] Pull refactored main into feature-collection-read-status-exploration
+- [x] Load and merge collections data with library data in organizer
+  - Console shows: "📚 Collections data merged: 1163 books have collections"
+  - Read status tracked: 642 READ, 1 UNREAD, 1700 UNKNOWN
+
+### README Refactor Plan - COMPLETED
+
+*Moved from TODO.md on 2025-11-24 during cleanup*
+
+**Goal**: Split README into user-facing and developer-facing content
+
+**Rationale**: Now serving app via GitHub Pages, need clear separation of audiences
+
+**Plan**:
+1. **README.md** → User-facing product page
+   - What: Project description, features overview
+   - How: Quick Start with bookmarklet installer link
+   - Why: Privacy note, technology stack (brief)
+   - Delete obsolete "Getting Started" (local server setup)
+   - Keep: Project Version, License
+   - Remove: Documentation Guide, Skills Setup, all developer content
+
+2. **CONTRIBUTING.md** → Expand with developer content
+   - Move "Documentation Guide" from README
+   - Move "Claude Skills Setup" from README
+   - Move "Getting Started" local development setup
+   - Already has: Git workflow, commit patterns, decision frameworks
+
+3. **Benefits**:
+   - Clear audience separation
+   - Professional product page for end users
+   - Complete developer guide in standard location (CONTRIBUTING.md)
+   - Less confusing for casual users discovering via GitHub Pages
+
+**Status**: Completed
 
 ---
 
