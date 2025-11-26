@@ -5,352 +5,347 @@ description: Core development workflow rules including version management, appro
 
 # Software Development Ground Rules
 
-## Core Rules (NEVER violate these)
+## HOW TO USE THIS FILE
 
-### 0. Start of Response Protocol (Unbreakable)
+**Execution Protocol:**
 
-**At the start of EVERY response, execute these steps in order:**
+```
+WHEN user provides input:
+  1. Evaluate all TRIGGERS in ## TRIGGERS section
+  2. FOR EACH trigger where conditions match:
+       a. Execute all ACTIONS listed in that trigger
+       b. Find ACTION definition in ## ACTIONS section
+       c. Follow ACTION steps sequentially
+       d. IF step references XXX-REF:
+            - Look up XXX-REF in ## REFERENCE DATA section
+            - Use that data to complete the step
+       e. IF executing ACTION changes state (token %, git status, file changes, etc.):
+            - Re-evaluate ALL TRIGGERS with new state
+            - Execute any newly-matched triggers
+            - Repeat until no new triggers match
+  3. Continue with user request
+```
 
-1. **Read Memory and Timestamp Files**
-   - Read `.claude-memory` (JSON) → parse and extract: `lastTokenPercent`, `lastTimestamp`, `timestampStaleCount`
-   - Read `.claude-timestamp` → get current timestamp from Python service
-   - File paths:
-     - `c:\Users\Ron\OneDrive\Documents\Projects\ReaderWrangler\.claude-memory`
-     - `c:\Users\Ron\OneDrive\Documents\Projects\ReaderWrangler\.claude-timestamp`
-
-2. **Timestamp Staleness Detection**
-   - Compare current timestamp with `lastTimestamp` from memory
-   - If unchanged: increment `timestampStaleCount`
-   - If changed: reset `timestampStaleCount` to 0
-   - If `timestampStaleCount >= 3`: Add warning to status line (see Status Line Format below)
-
-3. **Compaction Detection & Memory Update**
-   - Calculate current token percentage from system warning → store as `currentPercent`
-   - Detect if compaction occurred: `currentPercent > lastTokenPercent` (e.g., 25% → 78%)
-   - **IMMEDIATELY write updated memory** as JSON:
-     ```json
-     {
-       "lastTokenPercent": <currentPercent>,
-       "lastTimestamp": "<timestamp from .claude-timestamp>",
-       "timestampStaleCount": <calculated value>
-     }
-     ```
-
-4. **Status Line Display**
-   - Display the complete status line format as defined in "Status Line Format" section below
-   - Must include: timestamp (from `.claude-timestamp`), token percentage/progress bar/freshness indicator
-   - Add timestamp staleness warning if `timestampStaleCount >= 3`
-   - Add horizontal rule separator: `---`
-   - See "Status Line Format" section for complete specification
-
-5. **Compaction Notification** (if detected in step 3)
-   - Display notification with permission request (see Compaction Detection Protocol section below)
-   - Request user approval to write to `Compaction-log.md`
-
-**Exception**: Only skip Status Line Display (step 4) if user explicitly requests it be turned off.
-
-### 1. Version Management
-- **BEFORE** making ANY code change, increment the version letter
-- **Exception**: Documentation and meta files do NOT require version increment:
-  - README.md, CHANGELOG.md, TODO.md, NOTES.md
-  - SKILL-*.md files
-  - Build scripts (.bat files)
-  - .gitignore
-- Violation of this rule is a "cardinal sin"
-
-#### Version Patterns
-- **Starting new work**: Increment version number AND add letter (e.g., v3.2.0 → v3.2.1.a)
-- **Iterating on work**: Increment letter only (e.g., v3.2.1.a → v3.2.1.b → v3.2.1.c)
-- **Releasing to main**: Remove letter (e.g., v3.2.1.c → v3.2.1)
-
-#### File-Specific Versioning
-- Only increment versions in files that are actually being modified
-- If changing library-fetcher.js, update FETCHER_VERSION only
-- If changing amazon-organizer.js, update APP_VERSION only
-- Project version in README.md increments independently (see Project Versioning below)
-
-### 2. Approval Workflow
-- **STOP and ASK** before making any code changes, commits, reverts, or git operations
-- Questions like "should we?", "thoughts?", "what do you think?" are requests for **DISCUSSION**, NOT approval
-- Wait for explicit "yes", "go ahead", "please proceed", or similar confirmation
-- **NEVER** "get ahead of yourself" by implementing during discussion
-
-#### Approval Language Interpretation
-- "Proceed with edits" = Make file edits ONLY, then STOP
-- "Proceed with commit" = Commit ONLY, then STOP
-- "Proceed with push" = Push ONLY, then STOP
-- "Proceed with testing" = Make edits, commit, and (if using GitHub Pages workflow) push to enable server testing, then STOP
-- "Proceed with X and Y" = Do both X and Y, then STOP
-- "Proceed" alone = Clarify what to proceed with
-- When in doubt, do ONE operation and STOP
-
-### 3. Update Before Commit
-- Always run git pull/fetch before committing to ensure local is current
-- Check for conflicts and resolve before pushing
+**Example Flow:**
+```
+User input received
+  → RESPONSE-START-TRIGGER fires (always matches)
+      → Executes READ-MEMORY-ACTION
+          → Loads lastTimestamp from .claude-memory
+      → Executes UPDATE-MEMORY-ACTION
+      → Executes DISPLAY-STATUS-LINE-ACTION
+      → State changes: lastTokenPercent updated in memory
+  → Re-evaluate triggers with new state
+      → FRESH-TIMESTAMP-TRIGGER or STALE-TIMESTAMP-TRIGGER fires
+          → Executes RESET-TIMESTAMP-STALE-CNT-ACTION or INCREMENT-TIMESTAMP-STALE-CNT-ACTION
+      → CODE-CHANGE-TRIGGER matches (if user requests code modification)
+          → Executes CHECK-VERSION-INCREMENTED-ACTION
+              → References DOCUMENTATION-FILES-REF for exceptions
+  → Re-evaluate triggers (no new matches)
+  → Continue with user request
+```
 
 ---
 
-## Rule Enforcement Protocol
+## TRIGGERS (Events That Activate Protocols)
 
-When taking rule-sensitive actions, Claude MUST explicitly check the relevant rule:
+### RESPONSE-START-TRIGGER
+**When**: At the beginning of EVERY Claude response
+**Frequency**: Every single response without exception
+**Actions**:
+- READ-MEMORY-ACTION
+- UPDATE-MEMORY-ACTION
+- DISPLAY-STATUS-LINE-ACTION
 
-### Before Proposing a Version Change:
-```
-Checking Ground Rule #1 (Version Management)...
-Current version: v3.2.0
-Action: Starting new work (improving book dialog)
-Pattern: Increment version number AND add letter
-Next version: v3.2.1.a
-```
+### CODE-CHANGE-TRIGGER
+**When**: Before making ANY modification to code files
+**Excludes**: Documentation files (see DOCUMENTATION-FILES-REF)
+**Actions**:
+- CHECK-VERSION-INCREMENTED-ACTION
+- INCREMENT-VERSION-ACTION (if not already done)
 
-### Before Any Git Operation:
-```
-Checking Ground Rule #2 (Approval Workflow)...
-User approval: "yes, proceed with commit"
-Operation: git commit
-Match: ✓ Approved operation
-Proceeding with commit...
-```
+### GIT-OPERATION-TRIGGER
+**When**: Before any git command (commit, push, pull, merge, revert, tag, etc.)
+**Actions**:
+- CHECK-APPROVAL-ACTION
+- VERIFY-APPROVAL-MATCH-ACTION
 
-### Before Any Commit:
-1. State: "**Checking Ground Rule #3 (Update Before Commit)...**"
-2. Run: `git fetch`
-3. Check for upstream changes
-4. If conflicts exist, resolve before proceeding
+### COMMIT-TRIGGER
+**When**: Before executing git commit
+**Actions**:
+- UPDATE-BEFORE-COMMIT-ACTION
+- CHECK-DOCUMENTATION-UPDATED-ACTION
 
-### Before Modifying Any Code File:
-1. Verify version was already incremented in this session
-2. If not incremented yet, STOP and increment first
+### FILE-CHANGES-COMPLETE-TRIGGER
+**When**: After completing file edits but before commit
+**Actions**:
+- LIST-MODIFIED-FILES-ACTION
+- SUMMARIZE-CHANGES-ACTION
+- REQUEST-COMMIT-APPROVAL-ACTION
 
-### After Completing File Changes:
-1. List all modified/created files
-2. Summarize what changed in each
-3. Ask: "Should I proceed with committing these changes?"
-4. STOP and wait for explicit approval
+### VERSION-CHANGE-PROPOSAL-TRIGGER
+**When**: Before proposing a version number change
+**Actions**:
+- STATE-CHECKING-RULE-ACTION
+- QUOTE-CURRENT-VERSION-ACTION
+- IDENTIFY-PATTERN-ACTION
+- CALCULATE-NEXT-VERSION-ACTION
+- PROPOSE-WITH-REASONING-ACTION
+
+### RELEASE-FINALIZATION-TRIGGER
+**When**: Before removing version letter (finalizing a release)
+**Actions**:
+- VERIFY-CHANGELOG-UPDATED-ACTION
+- VERIFY-NOTES-MARKED-RELEASED-ACTION
+- VERIFY-TODO-TASKS-COMPLETE-ACTION
+- VERIFY-README-VERSION-UPDATED-ACTION
+- SHOW-CHECKLIST-ACTION
+- REMOVE-LETTER-AND-TAG-ACTION
+
+### POST-RELEASE-TRIGGER
+**When**: After push/tag completes for a code release (project version incremented)
+**Excludes**: Documentation-only changes, letter-version commits
+**Actions**:
+- REQUEST-POST-MORTEM-ACTION
+- CONDUCT-REVIEW-ACTION
+- DOCUMENT-LESSONS-ACTION
+- PROPOSE-RULE-UPDATES-ACTION (if patterns emerge)
+
+### USER-PROBLEM-REPORT-TRIGGER
+**When**: User reports an issue, error, or unexpected behavior
+**Includes**: Explicit reports AND implicit signals ("can you review...", "please check...")
+**Actions**:
+- STOP-ACTION
+- ACKNOWLEDGE-PROBLEM-ACTION
+- REQUEST-ANALYSIS-PERMISSION-ACTION
+- PERFORM-ROOT-CAUSE-ANALYSIS-ACTION (if approved)
+- PRESENT-FINDINGS-ACTION
+- WAIT-FOR-DECISION-ACTION
+
+### SESSION-CHECKLIST-REQUEST-TRIGGER
+**When**: User says "add to checklist", "checklist item", "session task", or provides current Session Checklist after compaction
+**Actions**:
+- ADD-TO-SESSION-CHECKLIST-ACTION
+- MARK-CURRENT-ITEM-ACTION
+- PRINT-CHECKLIST-ACTION
+
+### TASK-COMPLETION-TRIGGER
+**When**: Marking a TODO phase/task as complete
+**Actions**:
+- UPDATE-TODO-ACTION
+- UPDATE-NOTES-ACTION
+- UPDATE-CHANGELOG-ACTION (if code release)
+- VERIFY-CONSISTENCY-ACTION
+- REQUEST-APPROVAL-ACTION
+
+### DISCUSSION-QUESTION-TRIGGER
+**When**: User asks "should we?", "thoughts?", "what do you think?", "your thoughts?"
+**Actions**:
+- STOP-ACTION
+- ENGAGE-DISCUSSION-ACTION
+- WAIT-FOR-APPROVAL-ACTION (do NOT implement)
+
+### FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
+**When**: User identifies foundational issue (rules not working, docs unclear, structure confusing)
+**Actions**:
+- EMBRACE-DETOUR-ACTION
+- ASK-PRIORITY-DECISION-ACTION
+- WAIT-FOR-EXPLICIT-DECISION-ACTION
+
+### DATA-GAP-DETECTION-TRIGGER
+**When**: >10% of expected data is missing or empty
+**Actions**:
+- RANDOM-SAMPLE-ACTION
+- MANUAL-EXTRACTION-ACTION
+- ANALYZE-RESULTS-ACTION
+- DISCOVER-PATTERNS-ACTION
+- IMPLEMENT-FIXES-ACTION
+
+### API-ERROR-TRIGGER
+**When**: Debugging API issues or errors
+**Actions**:
+- ADD-RAW-LOGGING-ACTION
+- EXAMINE-STRUCTURE-ACTION
+- CHECK-PARTIAL-SUCCESS-ACTION
+- DOCUMENT-FINDINGS-ACTION
+
+### START-NEW-FEATURE-TRIGGER
+**When**: Beginning work on a new feature
+**Actions**:
+- CREATE-FEATURE-BRANCH-ACTION
+- CONFIRM-TESTING-WORKFLOW-ACTION
+
+### READY-TO-RELEASE-TRIGGER
+**When**: Feature is complete, tested, and ready to merge to main
+**Actions**:
+- PREPARE-RELEASE-ACTION
+
+### CREATING-COMMIT-MESSAGE-TRIGGER
+**When**: Executing git commit
+**Actions**:
+- FORMAT-COMMIT-MESSAGE-ACTION
+
+### PROJECT-VERSION-PROPOSAL-TRIGGER
+**When**: Proposing a change to project version (README.md "Version" section)
+**Actions**:
+- ASSESS-PROJECT-VERSION-IMPACT-ACTION
+- CALCULATE-SEMANTIC-VERSION-ACTION
+- EXPLAIN-VERSION-INDEPENDENCE-ACTION
+
+### SESSION-COMPACTION-TRIGGER
+**When**: Current token percentage is GREATER than lastTokenPercent from .claude-memory (i.e., `currentTokenPercent > lastTokenPercent`)
+**Where**:
+- `currentTokenPercent` = (tokens_remaining / 200000) × 100 from system token budget
+- `lastTokenPercent` = value from `.claude-memory` file (see FILE-PATHS-REF)
+**Actions**:
+- NOTIFY-COMPACTION-ACTION
+- POST-COMPACTION-ACTION
+
+### USER-SUGGESTS-IDEA-TRIGGER
+**When**: User proposes new approach, feature, or solution
+**Actions**:
+- EVALUATE-IDEA-CRITICALLY-ACTION
+- IDENTIFY-POTENTIAL-ISSUES-ACTION
+- PROPOSE-ALTERNATIVES-ACTION (if warranted)
+- STATE-DISAGREEMENT-ACTION (when appropriate)
+
+### ADDING-CODE-OR-FEATURE-TRIGGER
+**When**: About to add new code or functionality
+**Actions**:
+- CONSIDER-REMOVAL-ALTERNATIVE-ACTION
+- QUESTION-NECESSITY-ACTION
+- ASSESS-COMPLEXITY-COST-ACTION
+
+### BEFORE-PROPOSING-SOLUTION-TRIGGER
+**When**: About to suggest an approach or fix
+**Actions**:
+- REVIEW-PAST-LEARNINGS-ACTION
+
+### DECIDING-APPROACH-TRIGGER
+**When**: Choosing between quick implementation vs thorough solution
+**Actions**:
+- ASSESS-DATA-IMPACT-ACTION
+- DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION
+- JUSTIFY-TIME-INVESTMENT-ACTION (if Build Solid chosen)
+
+### BEFORE-FINALIZING-VERSION-TRIGGER
+**When**: Before removing version letter (finalizing any release)
+**Actions**:
+- UPDATE-CHANGELOG-ACTION
+- REVIEW-TECHNICAL-NOTES-ACTION
+
+### USER-SAYS-TABLE-THOUGHT-TRIGGER
+**When**: User says "table that thought", "hold that thought", or similar
+**Actions**:
+- UPDATE-NOTES-TABLED-ITEMS-ACTION
+- COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION
+
+### WHEN-TO-STOP-AND-ASK-TRIGGER
+**When**: About to implement code change, git operation, create/modify files, or uncertain about approach
+**Actions**:
+- STOP-ACTION
+- ASK-FOR-APPROVAL-ACTION
+- WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION
+
+### IMPLICIT-PROBLEM-SIGNAL-TRIGGER
+**When**: User asks to "review", "check", or "verify" work you JUST completed
+**Red Flags**: "Can you review [files you just worked with]?", "I think [statement about your work] - is that right?", "Please check if [something you should have done]"
+**Actions**:
+- STOP-AND-SELF-ASSESS-ACTION
+- REVIEW-COMPLETION-PROTOCOL-ACTION
+- ACKNOWLEDGE-IF-GAP-FOUND-ACTION
+- ROOT-CAUSE-ANALYSIS-ACTION (without being asked)
+
+### CREATE-DIAGNOSTIC-SCRIPT-TRIGGER
+**When**: Creating temporary diagnostic, test, or output files
+**Actions**:
+- APPLY-NAMING-CONVENTION-ACTION
+- PRINT-FILENAME-IN-OUTPUT-ACTION
+
+### STALE-TIMESTAMP-TRIGGER
+**When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) matches `lastTimestamp` from memory
+**Actions**:
+- INCREMENT-TIMESTAMP-STALE-CNT-ACTION
+
+### FRESH-TIMESTAMP-TRIGGER
+**When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) does not match `lastTimestamp` from memory
+**Actions**:
+- RESET-TIMESTAMP-STALE-CNT-ACTION
 
 ---
 
-## Git Workflow Patterns
+## ACTIONS (Protocol Implementations)
 
-### Feature Development
-1. Create feature branch from main: `git checkout -b feature-name`
-2. Make incremental commits with letter versions (v3.1.0.a, v3.1.0.b, etc.)
-3. Push to GitHub when using GitHub Pages testing workflow
-4. When ready to release, squash all letter-versioned commits into one
-5. Update to release version (e.g., v3.1.0), merge to main
-6. Tag the release: `git tag v3.1.0`
-7. Push with tags: `git push origin main --tags`
+### READ-MEMORY-ACTION
+**Purpose**: Load persistent state from .claude-memory file
+**Steps**:
+1. Read `.claude-memory` (project root - see FILE-PATHS-REF for path)
+2. Parse JSON
+3. Extract: `lastTokenPercent`, `lastTimestamp`, `timestampStaleCount`
 
-### Testing Workflows
-See CONTRIBUTING.md for detailed instructions:
-- **Option A: Local Development** - Test on localhost:8000 (no push required)
-- **Option B: GitHub Pages Testing** - Push feature branch, configure repo settings, test on github.io
+### INCREMENT-TIMESTAMP-STALE-CNT-ACTION
+**Purpose**: Increment the count of how long it has been since the timestamp updated
+**Steps**:
+1. Increment `timestampStaleCount`
 
-### Documentation-Only Changes
-- Can be modified directly on main branch
-- No feature branch required
-- No version increment or tagging
-- Commit directly to main with descriptive message
-- Still requires approval before commit/push (Ground Rule #2)
+### RESET-TIMESTAMP-STALE-CNT-ACTION
+**Purpose**: Reset the count of how long it has been since the timestamp updated
+**Steps**:
+1. Reset `timestampStaleCount` to 0
 
-### Commit Messages
-- Use conventional commit format: `Type: Brief description`
-- Types: Feat, Fix, Update, Refactor, Docs, Test, Chore, Rename
-- Include version in subject line: `Fix: Resolve manifest caching issue v3.0.0.p`
-- Add detailed body explaining WHY, not just what
-- End with Claude attribution:
+### UPDATE-MEMORY-ACTION
+**Purpose**: Persist current state to .claude-memory
+**Steps**:
+1. Write JSON to `.claude-memory`:
+   ```json
+   {
+     "lastTokenPercent": <currentPercent>,
+     "lastTimestamp": "<timestamp from .claude-timestamp>",
+     "timestampStaleCount": <calculated value>
+   }
+   ```
+
+### DISPLAY-STATUS-LINE-ACTION
+**Purpose**: Show current session status
+**Format**:
+```
+📋 Ground Rules Active [YYYY-MM-DD HH:MM:SS] | ████░ XX% left 🟢
+---
+```
+
+**Components**:
+- Timestamp from `.claude-timestamp`
+- Progress bar based on token percentage (█ = filled, ░ = empty)
+  - █████ = 100-80% remaining
+  - ████░ = 79-60% remaining
+  - ███░░ = 59-40% remaining
+  - ██░░░ = 39-20% remaining
+  - █░░░░ = 19-0% remaining
+- Exact percentage: Calculate as `(tokens_remaining ÷ total_tokens) × 100`
+  - Example: System reports "135323 remaining / 200000 total"
+  - Calculate: (135323 ÷ 200000) × 100 = 67.66% remaining
+  - Display: `████░ 67% left`
+- Freshness indicator:
+  - 🟢 Fresh (updated in last 2 responses)
+  - 🟡 Recent (2-4 responses ago)
+  - 🟠 Stale (5-7 responses ago)
+  - 🔴 Ancient (8+ responses ago)
+
+**Conditional additions**:
+- If `timestampStaleCount >= 3`: Append warning
   ```
-  🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-  Co-Authored-By: Claude <noreply@anthropic.com>
+  ⚠️ Timestamp service may be stopped - run: python update-timestamp.py
   ```
 
-### Project Versioning
-- Project version tracked in README.md "Version" section
-- Increments ONLY for releases that include code/executable changes
-- **Documentation-only changes** do NOT increment project version or create tags
-- Semantic versioning based on user impact:
-  - Major (X): Breaking changes or major feature sets
-  - Minor (Y): New features or significant improvements
-  - Patch (Z): Bug fixes, minor improvements
-- Project version is independent of individual file versions
-- Git tags MUST match project version
+**Exception**: Only skip if user explicitly requests it be turned off
 
-#### Project Version vs File Version
-**Key Principle:** Project version and file versions are INDEPENDENT.
-
-- **Project Version**: User-facing, tracks releases that change user experience
-- **File Versions**: Developer-facing, track individual file changes
-
-**Common Mistake:** Assuming project version should match file versions.
-
----
-
-## Documentation Standards
-
-### CHANGELOG.md
-- Update before finalizing any version
-- Include Technical Notes section for approaches that didn't work
-- This prevents revisiting failed approaches in future sessions
-
-### TODO.md
-- Mark completed tasks
-- Add discovered tasks during implementation
-- Include context about WHY tasks are needed
-
-### NOTES.md
-- Meta file for session state and tabled discussion items
-- **Always commit NOTES.md** with any other commits
-- **Update when**: User says "table that thought", finalizing a version, or updating CHANGELOG.md
-
-### Claude Skills Management
-- Source files: `SKILL-Development-Ground-Rules.md`, `SKILL-ReaderWrangler.md`
-- **Required format**: SKILL-*.md files MUST start with YAML frontmatter
-- **Automatic .zip rebuilding**: Git pre-commit hook detects SKILL-*.md changes and rebuilds zips
-- Only source `.md` files are tracked in git (zips are generated locally)
-
-### Release Checklist
-Before removing version letter (finalizing release):
-1. Verify: CHANGELOG.md updated with version entry
-2. Verify: NOTES.md marked as RELEASED ✅
-3. Verify: TODO.md tasks marked complete
-4. Verify: README.md project version updated
-5. Then remove letter and tag
-
-### Post-Release Review
-After EVERY code release (when project version increments):
-1. Ask user: "Release v[X.Y.Z] complete. Ready for post-mortem?"
-2. Review: What worked well? What mistakes? What lessons learned?
-3. Document lessons in NOTES.md
-4. If patterns emerge, propose ground rules updates
-- Does NOT apply to documentation-only changes
-
-### Session Compaction Protocol
-
-**CRITICAL**: When creating a summary for session compaction (automatic or manual), you MUST include these directives at the very beginning of the summary:
-
-1. **Ground Rules File Access** - State explicitly:
-   ```
-   IMMEDIATELY after reading this summary, BEFORE your first response:
-   1. Read SKILL-ReaderWrangler.md in full
-   2. Read CONTRIBUTING.md for decision frameworks
-   3. These files are already loaded via CLAUDE.md but you must read them explicitly to ensure protocol execution
-   4. Critical behavioral requirements from these files:
-      - Recursive rule display (Rule #0 - see top of this file for exact format)
-      - Version management protocol
-      - Approval workflow requirements
-      - Ship Fast vs. Build Solid decision framework
-   ```
-
-2. **Recursive Rule Display Requirement** - Reference the canonical definition:
-   ```
-   Follow Rule #0 (Status Line Display) as defined at the top of SKILL-Development-Ground-Rules.md.
-   This includes the timestamp, progress bar, and freshness indicator.
-   Display this at the start of EVERY response.
-   ```
-
-3. **Standard Summary Content**: Include current work status, completed work, and next steps as usual.
-
-**Why This Matters**:
-- The compaction summary is the ONLY way to pass behavioral requirements across session boundaries
-- Without explicit file read directives, ground rules are forgotten
-- Without the recursive display directive, the rule reminder disappears
-- Loss of these protocols causes rule violations and workflow disruption
-
-**Post-Compaction Checklist for Next Session**:
-- [ ] Read SKILL-Development-Ground-Rules.md
-- [ ] Read SKILL-ReaderWrangler.md
-- [ ] Read CONTRIBUTING.md
-- [ ] Display recursive rule reminder in first response
-- [ ] Apply Rule #1 (Version Management) before any code changes
-- [ ] Apply Rule #2 (Approval Workflow) before any operations
-
----
-
-## Token Monitoring and Proactive Compaction Management
-
-**Purpose**: Prevent mid-task context compaction by actively monitoring token usage and preparing comprehensive summaries before automatic compaction triggers.
-
-### Token Budget
-- **Total tokens**: 200,000
-- **Compaction trigger**: ~20% remaining (40,000 tokens)
-- **Your responsibility**: Monitor usage and prepare summary at 22-25% threshold
-
-### Status Line Format
-Include token status in Rule #0 display at the start of every response:
-
+### NOTIFY-COMPACTION-ACTION
+**Purpose**: Inform user of detected compaction and request logging permission
+**Format**:
 ```
-📋 Ground Rules Active [2025-11-25 10:42:18] | ██░░░ 25% left 🟡
-                                 ↑                ↑       ↑      ↑
-                            timestamp          progress exact  fresh
-```
+🔄 COMPACTION DETECTED: Tokens jumped from XX% → YY%
 
-**With staleness warning (when `timestampStaleCount >= 3`):**
-```
-📋 Ground Rules Active [2025-11-25 10:42:18] | ██░░░ 25% left 🟡 ⚠️ Timestamp service may be stopped - run: python update-timestamp.py
-```
-
-**Components:**
-
-1. **Timestamp** (from `.claude-timestamp` file):
-   - Format: `[YYYY-MM-DD HH:MM:SS]`
-   - Source: Python service (`update-timestamp.py`) writes every 60 seconds
-   - Example: `[2025-11-25 10:42:18]`
-
-2. **Progress bars** (████░): Visual token level
-   - █████ = 100-80% remaining (5 blocks)
-   - ████░ = 79-60% remaining (4 blocks)
-   - ███░░ = 59-40% remaining (3 blocks)
-   - ██░░░ = 39-20% remaining (2 blocks)
-   - █░░░░ = 19-0% remaining (1 block)
-
-3. **Percentage**: Exact number for precision (e.g., "25% left")
-   - **CALCULATION**: `(tokens_remaining / total_tokens) × 100 = percentage_remaining`
-   - **Example**: System says "135323 remaining / 200000 total"
-     - Calculate: 135323 ÷ 200000 = 0.6766 = **67.66% remaining**
-     - Display: `████░ 67% left` (4 blocks for 79-60% range)
-   - **DO NOT** calculate tokens used (total - remaining) / total - that's the WRONG metric
-   - **ALWAYS** calculate tokens remaining / total
-
-4. **Freshness indicator**: Colored dot showing data staleness
-   - 🟢 Fresh: Updated in last 2 responses
-   - 🟡 Recent: 2-4 responses ago
-   - 🟠 Stale: 5-7 responses ago
-   - 🔴 Ancient: 8+ responses ago
-
-5. **Timestamp Staleness Warning** (conditional):
-   - Only appears when timestamp hasn't changed for 3+ consecutive responses
-   - Warning text: `⚠️ Timestamp service may be stopped - run: python update-timestamp.py`
-   - Indicates `update-timestamp.py` may not be running
-
-### Compaction Detection Protocol
-
-**Memory File Mechanism:**
-- File: `.claude-memory` (project root)
-- Format: JSON with structure:
-  ```json
-  {
-    "lastTokenPercent": 48,
-    "lastTimestamp": "2025-11-25 10:42:18",
-    "timestampStaleCount": 0
-  }
-  ```
-- Purpose: Persist state across compaction without user interaction
-- **DO NOT commit to git** (add to `.gitignore`)
-- **Handled automatically by Rule #0** (Start of Response Protocol above)
-
-**Timestamp File Mechanism:**
-- File: `.claude-timestamp` (project root)
-- Format: Plain text timestamp: `2025-11-25 10:42:18`
-- Source: Python service `update-timestamp.py` (run in background)
-- Updated every 60 seconds
-- **DO NOT commit to git** (add to `.gitignore`)
-
-**Notification format when compaction detected:**
-```
-🔄 COMPACTION DETECTED: Tokens jumped from 19% → 100%
-
-📝 Ready to log: [2025-11-24 19:19] Compaction
+📝 Ready to log: [YYYY-MM-DD HH:MM] Compaction
 
 🔔 **Permission to write to Compaction-log.md?**
 - "yes" = Write this one entry
@@ -358,190 +353,705 @@ Include token status in Rule #0 display at the start of every response:
 - "no" = Skip this entry
 ```
 
-**Approval handling:**
-- **"yes"**: Write entry using Write tool, then STOP and continue with response
-- **"yes to all"**: Set session flag `autoLogCompactions = true`, write entry, continue
-- **"no"**: Skip logging, continue with response
-- **Session-only permission**: "yes to all" resets after compaction (requires re-approval in new session)
+**Approval handling**:
+- "yes": Write entry, continue
+- "yes to all": Set session flag, write entry, continue
+- "no": Skip logging, continue
 
-**File format:**
-- File: `Compaction-log.md` (in project root)
-- Format: `[YYYY-MM-DD HH:MM] Compaction`
-- Append to existing file (do not overwrite)
+### CHECK-VERSION-INCREMENTED-ACTION
+**Purpose**: Verify version was incremented before code changes
+**Steps**:
+1. State: "**Checking Ground Rule #1 (Version Management)...**"
+2. Check if version was incremented in current session
+3. If yes: Display verification, proceed
+4. If no: STOP, execute INCREMENT-VERSION-ACTION first
 
-### Threshold-Based Actions
+### INCREMENT-VERSION-ACTION
+**Purpose**: Update version number in modified files
+**Steps**:
+1. Identify which files are being modified
+2. Apply version pattern:
+   - **Starting new work**: Increment version number AND add letter (e.g., v3.2.0 → v3.2.1.a)
+   - **Iterating on work**: Increment letter only (e.g., v3.2.1.a → v3.2.1.b)
+   - **Releasing to main**: Remove letter (e.g., v3.2.1.c → v3.2.1)
+3. Only increment versions in files actually being modified
+   - library-fetcher.js → update FETCHER_VERSION only
+   - amazon-organizer.js → update APP_VERSION only
 
-#### 🟢 Green Zone (>35% remaining)
-**Action**: Normal operation, no special monitoring required
+### CHECK-APPROVAL-ACTION
+**Purpose**: Verify user has given explicit approval for git operation
+**Steps**:
+1. State: "**Checking Ground Rule #2 (Approval Workflow)...**"
+2. Quote user's approval (exact words)
+3. Identify the operation being requested
 
-#### 🟡 Yellow Zone (25-35% remaining)
-**Action**: Caution mode
-- Track estimated token cost of each task before starting
-- Warn user if task might trigger compaction mid-work
-- Example: "⚠️ Warning: This task may use ~8% tokens and trigger compaction"
+### VERIFY-APPROVAL-MATCH-ACTION
+**Purpose**: Ensure git operation matches what user approved
+**Steps**:
+1. Compare operation with approval language:
+   - "Proceed with edits" = Make file edits ONLY, then STOP
+   - "Proceed with commit" = Commit ONLY, then STOP
+   - "Proceed with push" = Push ONLY, then STOP
+   - "Proceed with testing" = Edits + commit + push (for GitHub Pages), then STOP
+   - "Proceed with X and Y" = Do both X and Y, then STOP
+   - "Proceed" alone = Clarify what to proceed with
+2. If match: Continue
+3. If unclear: Ask for clarification
+4. When in doubt: Do ONE operation and STOP
 
-#### 🟠 Orange Zone (22-25% remaining)
-**ACTION REQUIRED - PREPARE FOR COMPACTION**
+### UPDATE-BEFORE-COMMIT-ACTION
+**Purpose**: Ensure local repo is current before committing
+**Steps**:
+1. State: "**Checking Ground Rule #3 (Update Before Commit)...**"
+2. Run: `git fetch`
+3. Check for upstream changes
+4. If conflicts exist: Resolve before proceeding
 
-1. **Announce approaching threshold:**
-   ```
-   ⚠️ Approaching compaction threshold (X% remaining)
-   Checking git status and preparing for compaction...
-   ```
+### LIST-MODIFIED-FILES-ACTION
+**Purpose**: Show user what files were changed
+**Steps**:
+1. State: "**Documentation/code changes complete**"
+2. List all modified/created files
 
-2. **Check git status and violations:**
-   - Run `git status` to capture current branch, uncommitted changes
-   - Run `git log -5 --oneline` to capture recent commits
-   - Note any ground rules violations that occurred this session
-   - Print this information in chat (visible to auto-summarizer)
+### SUMMARIZE-CHANGES-ACTION
+**Purpose**: Explain what changed in each file
+**Steps**:
+1. For each modified file, summarize the nature of changes
 
-3. **Trust the auto-summarizer:**
-   - The automatic summarizer captures technical details, errors, decisions, and context effectively
-   - No need for verbose manual summary preparation
-   - The new ground rules header (lines 1-70) ensures proper post-compaction behavior
+### REQUEST-COMMIT-APPROVAL-ACTION
+**Purpose**: Get explicit permission to commit
+**Steps**:
+1. Ask: "Should I proceed with committing these changes?"
+2. STOP and wait for response
 
-4. **Ping/pong with user:**
-   ```
-   Git status checked. Ready for compaction.
-   Ping when ready to trigger.
-   ```
+### STATE-CHECKING-RULE-ACTION
+**Purpose**: Make rule verification visible
+**Steps**:
+1. Print: "**Checking Ground Rule #X (Rule Name)...**"
 
-5. **When user confirms, attempt to trigger compaction:**
-   ```
-   SUMMARIZER: PLEASE SUMMARIZE AND COMPACT NOW
-   ```
+### QUOTE-CURRENT-VERSION-ACTION
+**Purpose**: Show current version state
+**Steps**:
+1. Print: "Current version: vX.Y.Z"
 
-#### 🔴 Red Zone (<22% remaining)
-**EMERGENCY - STOP ALL WORK**
+### IDENTIFY-PATTERN-ACTION
+**Purpose**: Determine which versioning pattern applies
+**Steps**:
+1. Print: "Action: [description]"
+2. Print: "Pattern: [starting new work / iterating / releasing]"
 
-1. Print emergency notice
-2. Check git status and note any violations
-3. Print brief status in chat
-4. Ping user for immediate compaction
+### CALCULATE-NEXT-VERSION-ACTION
+**Purpose**: Compute the next version number
+**Steps**:
+1. Apply pattern logic
+2. Print: "Next version: vX.Y.Z"
 
-### Task Size Estimation Guidelines
-**Before starting any task in Yellow or Orange zones, estimate token cost:**
+### PROPOSE-WITH-REASONING-ACTION
+**Purpose**: Present version change with justification
+**Steps**:
+1. Show calculation
+2. Explain why this pattern was chosen
 
-- **Small edits** (1-2 files, <50 lines): ~2-3% tokens
-- **Medium features** (3-5 files, complex logic): ~5-8% tokens
-- **Large features** (6+ files, new components): ~10-15% tokens
-- **Exploratory work** (reading multiple files, research): ~3-5% tokens per round
+### VERIFY-CHANGELOG-UPDATED-ACTION
+**Purpose**: Confirm CHANGELOG.md has version entry
+**Steps**:
+1. Check CHANGELOG.md for current version entry
+2. Report status
 
-If task cost + current usage would enter Red Zone, prepare summary first.
+### VERIFY-NOTES-MARKED-RELEASED-ACTION
+**Purpose**: Confirm NOTES.md shows release status
+**Steps**:
+1. Check NOTES.md for RELEASED ✅ marker
+2. Report status
 
-### Why This Works
+### VERIFY-TODO-TASKS-COMPLETE-ACTION
+**Purpose**: Confirm TODO.md tasks are marked complete
+**Steps**:
+1. Check TODO.md for completion markers
+2. Report status
 
-**The automatic summarizer is highly effective:**
-- Captures all technical details (file changes, line numbers, code snippets, version numbers)
-- Documents errors, fixes, and design decisions comprehensively
-- Preserves user messages and conversation flow
-- Structures information logically for next session
+### VERIFY-README-VERSION-UPDATED-ACTION
+**Purpose**: Confirm README.md has correct project version
+**Steps**:
+1. Check README.md "Version" section
+2. Report status
 
-**The new ground rules header (lines 1-70) ensures post-compaction success:**
-- Explicit trigger: "This session is being continued from a previous conversation"
-- Required "Proof of Digestion" checklist display
-- Executable instructions (not passive documentation)
-- More effective than verbose manual summaries
+### SHOW-CHECKLIST-ACTION
+**Purpose**: Display release finalization checklist
+**Steps**:
+1. Print checklist with completion status for:
+   - CHANGELOG.md
+   - NOTES.md
+   - TODO.md
+   - README.md
 
----
+### REMOVE-LETTER-AND-TAG-ACTION
+**Purpose**: Finalize version and create git tag
+**Steps**:
+1. Remove letter from version (e.g., v3.2.1.c → v3.2.1)
+2. Create git tag: `git tag vX.Y.Z`
 
-## Communication Protocol
+### REQUEST-POST-MORTEM-ACTION
+**Purpose**: Initiate post-release review
+**Steps**:
+1. Ask: "Release vX.Y.Z complete. Ready for post-mortem?"
 
-### When to STOP and Ask
-- User says: "should we", "thoughts?", "what do you think?"
-- Before implementing any code change
-- Before any git operation
-- Before creating or modifying files
-- When uncertain about approach
+### CONDUCT-REVIEW-ACTION
+**Purpose**: Perform structured review
+**Questions**:
+- What worked well?
+- What mistakes were made?
+- What lessons learned?
+- Any ground rules need updating?
 
-### Push Back Policy
-- User explicitly welcomes push back on suggestions
-- Challenge ideas if you see potential issues
-- Propose alternative approaches with reasoning
-- Say "I disagree because..." when warranted
+### DOCUMENT-LESSONS-ACTION
+**Purpose**: Capture insights for future reference
+**Steps**:
+1. Add findings to NOTES.md under release entry
 
-### When User Reports a Problem
-**STOP. Do NOT immediately try to fix it.**
+### PROPOSE-RULE-UPDATES-ACTION
+**Purpose**: Suggest ground rules improvements based on patterns
+**Steps**:
+1. If patterns emerge from review, propose specific rule changes
 
-1. **Acknowledge the problem explicitly**
-2. **Ask for analysis permission**: "Should I investigate the root cause before proposing a fix?"
-3. **If yes, perform root cause analysis**:
-   - What happened? (symptom)
-   - Why did it happen? (direct cause)
-   - Why didn't I detect it? (detection failure)
-   - What systemic issues allowed this? (underlying pattern)
-4. **Present findings BEFORE proposing solutions**
-5. **Wait for decision** on whether to fix now or continue with analysis
+### STOP-ACTION
+**Purpose**: Halt current work and await direction
+**Steps**:
+1. Do not proceed with any operations
+2. Wait for user input
 
-### Implicit Problem Signals
-User asking you to "review", "check", or "verify" work you JUST completed is likely an implicit problem report.
+### ACKNOWLEDGE-PROBLEM-ACTION
+**Purpose**: Confirm understanding of reported issue
+**Steps**:
+1. Print: "You're right, the [thing] failed/didn't work."
 
-**Red flags:**
-- "Can you review [files you just worked with]?"
-- "I think [statement about your work] - is that right?"
-- "Please check if [something you should have done]"
+### REQUEST-ANALYSIS-PERMISSION-ACTION
+**Purpose**: Ask permission to investigate before fixing
+**Steps**:
+1. Ask: "Should I investigate the root cause before proposing a fix?"
 
-**Response:** STOP and assess if you completed the work correctly before responding.
+### PERFORM-ROOT-CAUSE-ANALYSIS-ACTION
+**Purpose**: Structured problem investigation
+**Steps**:
+1. What happened? (the symptom)
+2. Why did it happen? (the direct cause)
+3. Why didn't I detect it? (the detection failure)
+4. What systemic issues allowed this? (the underlying pattern)
 
----
+### PRESENT-FINDINGS-ACTION
+**Purpose**: Share analysis results before proposing solutions
+**Steps**:
+1. Display root cause analysis findings
+2. Do NOT propose fixes yet
 
-## Decision Frameworks
+### WAIT-FOR-DECISION-ACTION
+**Purpose**: Get user direction on next steps
+**Steps**:
+1. Ask: "Should I fix now or continue with analysis?"
+2. Wait for response
 
-### Foundation-First Principle
-The user prioritizes fixing foundations before building features. This is deliberate, not a distraction.
+### ADD-TO-SESSION-CHECKLIST-ACTION
+**Purpose**: Track subtasks within current conversation
+**Steps**:
+1. Add item to numbered list format
+2. Assign status icon (✅ ⬜ ⏳)
+3. Indent subtasks appropriately
 
-**When user identifies a foundational issue:**
-1. Don't apologize for "going off track" - this IS the track
-2. Ask: "Should we fix this foundation issue before continuing?"
-3. Wait for explicit decision
+### MARK-CURRENT-ITEM-ACTION
+**Purpose**: Show which task is active
+**Steps**:
+1. Add `← CURRENT` marker to active item
 
-### Ship Fast vs. Build Solid
+### PRINT-CHECKLIST-ACTION
+**Purpose**: Display session checklist
+**Steps**:
+1. Print complete checklist after each task completion
 
-**KEY QUESTION: "Does this affect data correctness or completeness?"**
+### UPDATE-TODO-ACTION
+**Purpose**: Mark tasks complete in TODO.md
+**Steps**:
+1. Mark checkboxes [x]
+2. Update phase status to "COMPLETE" or add completion date
+3. Add commit reference if applicable
+
+### UPDATE-NOTES-ACTION
+**Purpose**: Update session state in NOTES.md
+**Steps**:
+1. Move phase from "IN PROGRESS" to completed section
+2. Add completion date and commit reference
+3. Document lessons learned or findings
+
+### UPDATE-CHANGELOG-ACTION
+**Purpose**: Record changes in CHANGELOG.md
+**Steps**:
+1. Add entry to Unreleased or new version section
+2. Include technical notes if applicable
+
+### VERIFY-CONSISTENCY-ACTION
+**Purpose**: Ensure documentation files are synchronized
+**Steps**:
+1. Check that TODO.md, NOTES.md, and CHANGELOG.md tell same story
+2. Ensure no orphaned references to "in progress" work
+
+### ENGAGE-DISCUSSION-ACTION
+**Purpose**: Participate in discussion without implementing
+**Steps**:
+1. Provide thoughts, suggestions, or alternatives
+2. Do NOT execute any operations
+
+### WAIT-FOR-APPROVAL-ACTION
+**Purpose**: Hold until user gives explicit approval
+**Steps**:
+1. Do not implement suggested changes
+2. Wait for "yes", "go ahead", "proceed", or similar
+
+### EMBRACE-DETOUR-ACTION
+**Purpose**: Accept foundation work as primary track
+**Steps**:
+1. Don't apologize for "going off track"
+2. Acknowledge this IS the track
+
+### ASK-PRIORITY-DECISION-ACTION
+**Purpose**: Get user decision on foundation vs feature work
+**Steps**:
+1. Ask: "Should we fix this foundation issue before continuing with [original task]?"
+
+### WAIT-FOR-EXPLICIT-DECISION-ACTION
+**Purpose**: Hold for clear direction
+**Steps**:
+1. Wait for user to choose: continue with foundation OR return to feature
+
+### CHECK-DOCUMENTATION-UPDATED-ACTION
+**Purpose**: Verify documentation reflects current state
+**Steps**:
+1. Check if CHANGELOG.md needs updating (for code releases only)
+2. Check if NOTES.md needs updating (if work context changed)
+3. Check if TODO.md needs updating (mark completed tasks)
+
+### RANDOM-SAMPLE-ACTION
+**Purpose**: Select representative subset for manual testing
+**Steps**:
+1. Select 10-20 items from missing data set
+
+### MANUAL-EXTRACTION-ACTION
+**Purpose**: Test items individually to find patterns
+**Steps**:
+1. Test each sampled item manually
+
+### ANALYZE-RESULTS-ACTION
+**Purpose**: Determine if issue is extraction vs availability
+**Steps**:
+1. If sample succeeds → Extraction logic incomplete
+2. If sample fails → Investigate API/data availability
+
+### DISCOVER-PATTERNS-ACTION
+**Purpose**: Identify common patterns in successful extractions
+**Steps**:
+1. Examine successful extractions
+2. Document patterns
+
+### IMPLEMENT-FIXES-ACTION
+**Purpose**: Add missing extraction patterns to code
+**Steps**:
+1. Add discovered patterns to production code
+
+### ADD-RAW-LOGGING-ACTION
+**Purpose**: Capture complete API response for debugging
+**Steps**:
+1. Add: `console.log(JSON.stringify(rawResponse, null, 2))`
+2. Mark as TEMPORARY - remove after issue resolved
+
+### EXAMINE-STRUCTURE-ACTION
+**Purpose**: Understand actual API response format
+**Steps**:
+1. Examine raw response data
+2. Don't assume structure based on error presence
+
+### CHECK-PARTIAL-SUCCESS-ACTION
+**Purpose**: Identify if API returned both data and errors
+**Steps**:
+1. Check for data presence despite errors
+2. Log partial errors for monitoring
+3. Only fail if truly no data present
+
+### DOCUMENT-FINDINGS-ACTION
+**Purpose**: Record API behavior for future reference
+**Steps**:
+1. Update GraphQL-API-Reference.md or similar docs
+2. Document partial error patterns
+
+### CREATE-FEATURE-BRANCH-ACTION
+**Purpose**: Start new feature development on isolated branch
+**Steps**:
+1. Create feature branch from main: `git checkout -b feature-name`
+2. Explain workflow:
+   - Make incremental commits with letter versions (v3.1.0.a, v3.1.0.b, etc.)
+   - Push to GitHub when using GitHub Pages testing workflow
+   - When ready to release, use READY-TO-RELEASE-TRIGGER
+
+### CONFIRM-TESTING-WORKFLOW-ACTION
+**Purpose**: Clarify which testing approach to use
+**Steps**:
+1. Ask user: "Which testing workflow?"
+   - **Option A: Local Development** - Test on localhost:8000 (no push required during iterations)
+   - **Option B: GitHub Pages Testing** - Push feature branch, configure repo settings, test on github.io
+2. Document choice for session
+
+### PREPARE-RELEASE-ACTION
+**Purpose**: Complete all steps to finalize and release a feature
+**Steps**:
+1. (Optional) Squash all letter-versioned commits into one
+2. Update to release version (remove letter, e.g., v3.1.0.c → v3.1.0)
+3. Merge to main: `git checkout main && git merge feature-name`
+4. Tag the release: `git tag vX.Y.Z` (use actual version)
+5. Push with tags: `git push origin main --tags`
+
+### FORMAT-COMMIT-MESSAGE-ACTION
+**Purpose**: Create properly formatted commit message
+**Format**:
+```
+Type: Brief description vX.Y.Z.letter
+
+Detailed body explaining WHY, not just what.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Types**: Feat, Fix, Update, Refactor, Docs, Test, Chore, Rename
+
+**Steps**:
+1. Identify change type
+2. Include version in subject line
+3. Write body explaining WHY
+4. Add Claude attribution
+
+### ASSESS-PROJECT-VERSION-IMPACT-ACTION
+**Purpose**: Determine user impact of changes for semantic versioning
+**Steps**:
+1. Ask: "Does this affect data correctness or completeness?"
+2. Ask: "Does this fix a bug users experience?" → Patch
+3. Ask: "Does this add new functionality users can use?" → Minor
+4. Ask: "Does this break existing functionality or require migration?" → Major
+5. Ask: "Is this documentation/meta-work only?" → No increment
+
+### CALCULATE-SEMANTIC-VERSION-ACTION
+**Purpose**: Compute next project version based on impact
+**Steps**:
+1. Check current project version in README.md (NOT file versions)
+2. Apply semantic versioning rule:
+   - **Patch (Z)**: Bug fixes, minor improvements (e.g., v3.1.2 → v3.1.3)
+   - **Minor (Y)**: New features, significant improvements (e.g., v3.1.3 → v3.2.0)
+   - **Major (X)**: Breaking changes, major rewrites (e.g., v3.2.0 → v4.0.0)
+3. State reasoning explicitly
+
+### EXPLAIN-VERSION-INDEPENDENCE-ACTION
+**Purpose**: Clarify that project version ≠ file versions
+**Key Principle**: Project version and file versions are INDEPENDENT
+
+**Explanation**:
+- **Project Version** (README.md): User-facing, tracks releases that change user experience
+- **File Versions** (APP_VERSION, FETCHER_VERSION, etc.): Developer-facing, track individual file changes
+- **Common Mistake**: Assuming project version should match file versions
+- **Reality**: File version v3.2.1 might release as project version v3.1.3 (patch fix)
+
+### POST-COMPACTION-ACTION
+**Purpose**: Ensure ground rules persist across session compaction
+**CRITICAL**: When creating compaction summary, include these directives at the VERY BEGINNING:
+
+**1. Ground Rules File Access Directive:**
+```
+IMMEDIATELY after reading this summary, BEFORE your first response:
+1. Read SKILL-Development-Ground-Rules.md in full
+2. Read SKILL-ReaderWrangler.md in full
+3. Read CONTRIBUTING.md for decision frameworks
+4. These files contain critical behavioral requirements:
+   - Version management protocol
+   - Approval workflow requirements
+   - Ship Fast vs. Build Solid decision framework
+   - Response start protocols (reading memory files, displaying status line)
+```
+
+**2. Standard Summary Content:**
+Include current work status, completed work, and next steps as usual.
+
+**Why This Matters:**
+- Compaction summary is the ONLY way to pass behavioral requirements across session boundaries
+- Without explicit file read directives, ground rules are forgotten
+- Without the protocol reminder, status line display disappears
+- Loss of these protocols causes rule violations
+
+### EVALUATE-IDEA-CRITICALLY-ACTION
+**Purpose**: Apply critical thinking to user suggestions
+**Steps**:
+1. Don't automatically agree - evaluate objectively
+2. Consider edge cases and potential issues
+3. Assess feasibility and maintainability
+
+### IDENTIFY-POTENTIAL-ISSUES-ACTION
+**Purpose**: Surface problems before implementation
+**Steps**:
+1. Check for: security vulnerabilities, performance impacts, breaking changes
+2. Consider: edge cases, error handling, backwards compatibility
+3. Flag concerns explicitly
+
+### PROPOSE-ALTERNATIVES-ACTION
+**Purpose**: Offer better approaches when identified
+**Steps**:
+1. Present alternative approach with reasoning
+2. Compare tradeoffs clearly
+3. Recommend preferred option with justification
+
+### STATE-DISAGREEMENT-ACTION
+**Purpose**: Express professional disagreement when warranted
+**Steps**:
+1. Say "I disagree because..." (not "you're wrong")
+2. Explain reasoning clearly
+3. Propose alternative
+4. Accept user's final decision
+
+### CONSIDER-REMOVAL-ALTERNATIVE-ACTION
+**Purpose**: Simplify by removing rather than adding
+**Steps**:
+1. Ask: "Can we achieve this by REMOVING code instead?"
+2. Identify code that could be deleted
+3. Propose simplification if viable
+
+### QUESTION-NECESSITY-ACTION
+**Purpose**: Challenge scope creep
+**Steps**:
+1. Ask: "Is this feature truly necessary?"
+2. Distinguish between nice-to-have and must-have
+3. Consider: Will this be used? Does it add complexity? Is there a simpler alternative?
+
+### ASSESS-COMPLEXITY-COST-ACTION
+**Purpose**: Evaluate if complexity is justified
+**Steps**:
+1. Estimate implementation complexity
+2. Estimate maintenance burden
+3. Compare cost vs benefit
+4. Recommend simpler approach if cost > benefit
+
+### REVIEW-PAST-LEARNINGS-ACTION
+**Purpose**: Avoid common mistakes and failed approaches before proposing solutions
+**Steps**:
+1. Read CHANGELOG.md Technical Notes section
+2. Check if proposed approach was already tried and failed
+3. If found, warn user and explain why it didn't work
+4. Check if solution adds unnecessary complexity for rare operations
+5. For dev/testing/maintenance features used infrequently (< weekly), prefer simple solutions over complex UIs
+6. Propose alternative that hasn't been exhausted and is appropriately scoped
+
+### ASSESS-DATA-IMPACT-ACTION
+**Purpose**: Determine if data correctness/completeness affected
+**Key Question**: "Does this affect data correctness or completeness?"
+**Steps**:
+1. Check if change involves: data integrity, core functionality, API contracts, state management, error handling
+2. If YES → data is affected → Build Solid required
+3. If NO → cosmetic/polish → Ship Fast acceptable
+
+### DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION
+**Purpose**: Choose appropriate development approach
+**Decision Matrix**:
 
 **Ship Fast When:**
-- UI polish issues
+- UI polish (colors, spacing, minor UX)
 - Nice-to-have features
 - Performance optimizations (unless critical)
 - Edge cases affecting <0.01% with NO data loss
+- Cosmetic improvements
 
-**Build Solid Foundation When:**
-- Data integrity issues (loss, corruption)
-- Core functionality bugs
-- API contract changes
-- State management bugs
-- Error handling gaps
+**Build Solid When:**
+- ✅ Data integrity issues
+- ✅ Core functionality bugs
+- ✅ API contract changes
+- ✅ State management bugs
+- ✅ Error handling gaps
 
-**Why This Project Requires "Build Solid":**
-- Library management - Users trust us with their book collection metadata
-- Long-term use - Built for ongoing use, not a throwaway prototype
-- Data permanence - Books represent purchased content, reading history
+**For This Project:**
+- Library management → Users trust us with their book metadata
+- Long-term use → Not a throwaway prototype
+- Data permanence → Books = purchased content, reading history
+- Cross-session reliability → Must work consistently over time
 
-See CONTRIBUTING.md for detailed examples.
+**Therefore: Default to Build Solid unless clearly cosmetic**
+
+### JUSTIFY-TIME-INVESTMENT-ACTION
+**Purpose**: Explain why thorough approach is worth it
+**When**: Build Solid approach chosen
+**Steps**:
+1. Explain impact: "This affects data correctness/completeness"
+2. Justify time: "Spending X days to achieve Y% coverage"
+3. Document learning: "Investigation discovered Z patterns/behaviors"
+4. Frame positively: "Red herrings are learning - we gained understanding of [system]"
+
+**See CONTRIBUTING.md for detailed examples**
+
+### UPDATE-CHANGELOG-ACTION
+**Purpose**: Document version changes and approaches in CHANGELOG.md
+**Steps**:
+1. Update CHANGELOG.md before finalizing any version
+2. Include Technical Notes section for:
+   - Approaches that didn't work (blind alleys)
+   - Why they failed
+   - What finally worked
+3. This prevents revisiting failed approaches in future sessions
+
+### REVIEW-TECHNICAL-NOTES-ACTION
+**Purpose**: Check if approach was previously attempted and failed
+**Steps**:
+1. Read CHANGELOG.md Technical Notes section
+2. Look for similar approaches
+3. Warn if approach was already tried
+4. Reference what didn't work and why
+
+### UPDATE-NOTES-TABLED-ITEMS-ACTION
+**Purpose**: Record discussion items for future sessions
+**Steps**:
+1. Add item to NOTES.md under "Tabled Items" section
+2. Include context about WHY it was tabled
+3. Include date and any relevant context
+
+### COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION
+**Purpose**: Ensure NOTES.md is backed up with commits
+**Steps**:
+1. Always include NOTES.md in commits (even if only other files changed)
+2. This ensures session state is preserved in git history
+
+### STOP-ACTION
+**Purpose**: Halt execution and wait for user input
+**Steps**:
+1. Do NOT continue with implementation
+2. Do NOT make assumptions about approval
+3. Wait for explicit user response
+
+### ASK-FOR-APPROVAL-ACTION
+**Purpose**: Request explicit permission before operations
+**Steps**:
+1. Clearly state what operation you want to perform
+2. Wait for explicit "yes", "go ahead", "please proceed", or similar
+3. Questions like "should we?" are requests for DISCUSSION, NOT approval
+
+### WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION
+**Purpose**: Ensure approval is clear and unambiguous
+**Approval Language**:
+- "Proceed with edits" = Make file edits ONLY, then STOP
+- "Proceed with commit" = Commit ONLY, then STOP
+- "Proceed with push" = Push ONLY, then STOP
+- "Proceed with testing" = Make edits, commit, push (if GitHub Pages workflow), then STOP
+- "Proceed with X and Y" = Do both X and Y, then STOP
+- "Proceed" alone = Clarify what to proceed with
+- When in doubt, do ONE operation and STOP
+
+### STOP-AND-SELF-ASSESS-ACTION
+**Purpose**: Detect implicit problem signals and review work
+**Steps**:
+1. Ask: "Did I complete this work correctly?"
+2. Review what you did vs. what should have been done
+3. Check relevant protocols (e.g., Phase Completion Protocol)
+4. If gap found, proceed to ACKNOWLEDGE-IF-GAP-FOUND-ACTION
+
+### REVIEW-COMPLETION-PROTOCOL-ACTION
+**Purpose**: Verify all completion steps were executed
+**Steps**:
+1. Check if TODO.md was updated (tasks marked complete)
+2. Check if NOTES.md was updated (phase moved from "IN PROGRESS")
+3. Check if CHANGELOG.md was updated (if code release)
+4. Check documentation consistency
+
+### ACKNOWLEDGE-IF-GAP-FOUND-ACTION
+**Purpose**: Admit mistakes when protocol steps were missed
+**Steps**:
+1. State explicitly: "You're right, I missed updating [files]"
+2. Do NOT make excuses
+3. Proceed to ROOT-CAUSE-ANALYSIS-ACTION
+
+### ROOT-CAUSE-ANALYSIS-ACTION
+**Purpose**: Understand why error occurred and how to prevent recurrence
+**Steps**:
+1. What happened? (the symptom)
+2. Why did it happen? (the direct cause)
+3. Why didn't I detect it? (the detection failure)
+4. What systemic issues allowed this? (the underlying pattern)
+5. Present findings BEFORE proposing solutions
+
+### APPLY-NAMING-CONVENTION-ACTION
+**Purpose**: Use consistent naming for temporary files
+**Naming Patterns**:
+- **Diagnostic Scripts**: `diag-NN-description.js` (NN = 01, 02, 03...)
+- **Test Scripts**: `test-NN-description.js`
+- **Output Files**: `output-NN-description.txt` or `.json`
+**Steps**:
+1. Use two-digit incrementing counter
+2. Use descriptive filename
+3. Follow pattern consistently
+
+### PRINT-FILENAME-IN-OUTPUT-ACTION
+**Purpose**: Verify correct script is running
+**Steps**:
+1. Print script filename in console output header
+2. Format: `Script: filename.js`
+3. Example:
+   ```
+   ========================================
+   DIAGNOSTIC TOOL
+   Script: diag-01-description.js
+   ========================================
+   ```
 
 ---
 
-## Session Management
+## REFERENCE DATA
 
-### Session Checklist Protocol
+**Purpose**: Constants and formats referenced by triggers and actions above.
 
-**Purpose**: Track short-term subtasks within a conversation, separate from TODO.md.
+### TOKEN-BUDGET-REF
+- **Total tokens**: 200,000
+- **Compaction trigger**: ~20% remaining (40,000 tokens)
 
-**Trigger phrases**: "add to checklist", "checklist item", "session task"
+### FILE-PATHS-REF
+- **Memory file**: `.claude-memory` (project root)
+- **Timestamp file**: `.claude-timestamp` (project root)
+- **Compaction log**: `Compaction-log.md` (project root)
 
-**Format Rules:**
-1. Use numbered top-level steps (0, 1, 2...)
-2. Status icons:
-   - ✅ = completed
-   - ⬜ = pending (current or ready to work)
-   - ⏳ = future (blocked or not yet ready)
+### DOCUMENTATION-FILES-REF
+**Purpose**: Files that do NOT require version increment
+
+- README.md
+- CHANGELOG.md
+- TODO.md
+- NOTES.md
+- SKILL-*.md files
+- Build scripts (.bat files)
+- .gitignore
+
+### COMMIT-MESSAGE-FORMAT-REF
+```
+Type: Brief description vX.Y.Z.letter
+
+Detailed body explaining WHY, not just what.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Types**: Feat, Fix, Update, Refactor, Docs, Test, Chore, Rename
+
+### SESSION-CHECKLIST-FORMAT-REF
+**Purpose**: Track short-term subtasks within a conversation (separate from TODO.md long-term roadmap)
+
+**Format Rules**:
+1. Numbered top-level steps (0, 1, 2...)
+2. Status icons: ✅ = completed, ⬜ = pending, ⏳ = future/blocked
 3. Mark current item with `← CURRENT`
-4. Outline format: each subtask level indented ~3 spaces per level
-5. A top-level step is NOT complete until ALL its subtasks are complete
-6. Print the Session Checklist after completing each task
+4. Outline format: ~3 spaces indent per level
+5. Top-level step is NOT complete until ALL subtasks are complete
+6. Print checklist after completing each task
 7. When user gives multiple items, add to checklist and address ONE at a time
 
-**Example:**
+**Example**:
 ```
 Session Checklist:
 0   ✅ **Initial setup**
@@ -554,44 +1064,48 @@ Session Checklist:
 3   ⏳ **Document workflow**
 ```
 
----
+### CLAUDE-SKILLS-MANAGEMENT-REF
+**Purpose**: Describes build process for SKILL-*.md files
 
-## Debugging Protocols
+- **Source files**: `SKILL-Development-Ground-Rules.md`, `SKILL-ReaderWrangler.md`
+- **Required format**: SKILL-*.md files MUST start with YAML frontmatter
+- **Automatic .zip rebuilding**: Git pre-commit hook detects SKILL-*.md changes and rebuilds zips
+- **Build process**: Copy SKILL-*.md to SKILL.md → Zip as SKILL.md → Delete temp file
+- **File inside zip**: MUST be named `SKILL.md` (not the original filename)
+- **Git tracking**: Only source `.md` files are tracked (zips are generated locally, not committed)
+- **Manual build scripts** (backup if hook fails):
+  - `build-skill-ground-rules.bat` creates `SKILL-Development-Ground-Rules.zip`
+  - `build-skill-organizer.bat` creates `SKILL-Amazon-Book-Organizer.zip`
+- **Uploading**: Drag .zip onto Skills page (prompts to replace if name exists)
+- **Note**: Git hook is repository-local (.git/hooks/ not tracked). If cloning, hook must be recreated.
 
-### API Debugging
-**Pattern:** Investigate raw responses before assuming error structures.
-
-1. Add raw response logging FIRST
-2. Examine actual data structure - Don't assume based on error presence
-3. Check for partial success - API may return BOTH data AND errors
-4. Document findings
-
-### Systematic Sampling for Data Gaps
-**When >10% of expected data is missing:**
-
-1. **Random Sample**: Select 10-20 items from missing data set
-2. **Manual Extraction**: Test each item individually
-3. **Analysis**: If sample succeeds → extraction logic incomplete
-4. **Pattern Discovery**: Examine successful extractions for common patterns
-5. **Implementation**: Add missing extraction patterns
-
-### Diagnostic Script Naming
-**All temporary scripts MUST follow this pattern:**
-
-- **Diagnostic Scripts:** `diag-NN-description.js`
-- **Test Scripts:** `test-NN-description.js`
-- **Output Files:** `output-NN-description.txt` or `.json`
-
-Where NN = two-digit incrementing counter (01, 02, 03...)
-
-Every script MUST print its filename in console output header.
+### RELEASE-CHECKLIST-REF
+**Purpose**: Steps before removing version letter (finalizing release)
+1. Verify: CHANGELOG.md updated with version entry
+2. Verify: NOTES.md marked as RELEASED ✅
+3. Verify: TODO.md tasks marked complete
+4. Verify: README.md project version updated
+5. Then remove letter and tag
 
 ---
 
-## General Principles
+## STATUS
 
-- When proposing a change that adds code, consider whether the same goal can be achieved by REMOVING code instead
-- Always prefer simplification over adding complexity
-- Question whether new features are truly necessary
-- Rare operations (dev/testing/maintenance) don't need complex UIs
-- **ALWAYS** review CHANGELOG Technical Notes before suggesting approaches
+**Event-Driven Protocol System - IN PROGRESS**
+
+This file has been restructured as an event-driven system with TRIGGERS and ACTIONS.
+
+**Completed:**
+- ✅ 35+ TRIGGERS defined (events that activate protocols)
+- ✅ 70+ ACTIONS defined (executable protocol implementations)
+- ✅ REFERENCE DATA section (constants, file paths, formats, checklists)
+- ✅ Converted sections: Core Rules, Git Workflow, Commit Messages, Project Versioning, Documentation Standards, Communication Protocol, Session Management, Debugging Protocols, Guiding Principles
+
+**Remaining from PULL-SOURCE:**
+- Token Monitoring details (mostly covered in RESPONSE-START-TRIGGER)
+- Decision Frameworks details (Foundation-First, Ship Fast vs Build Solid context - mostly in CONTRIBUTING.md)
+- General Principles (mostly converted to triggers)
+
+**When complete:**
+- SKILL-Development-Ground-Rules-PULL-SOURCE.md will be deleted
+- This file will be the single source of truth for ground rules
