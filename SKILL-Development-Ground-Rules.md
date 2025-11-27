@@ -3,6 +3,147 @@ name: software-development-ground-rules
 description: Core development workflow rules including version management, approval workflow, git patterns, and communication protocols
 ---
 
+<!-- TOC -->
+
+- [Software Development Ground Rules](#software-development-ground-rules)
+    - [HOW TO USE THIS FILE](#how-to-use-this-file)
+    - [TRIGGERS Events That Activate Protocols](#triggers-events-that-activate-protocols)
+        - [Meta & System Triggers](#meta--system-triggers)
+            - [RESPONSE-START-TRIGGER](#response-start-trigger)
+            - [SESSION-COMPACTION-TRIGGER](#session-compaction-trigger)
+            - [SESSION-CHECKLIST-REQUEST-TRIGGER](#session-checklist-request-trigger)
+        - [Code Development Workflow](#code-development-workflow)
+            - [CODE-CHANGE-TRIGGER](#code-change-trigger)
+            - [VERSION-CHANGE-PROPOSAL-TRIGGER](#version-change-proposal-trigger)
+            - [FILE-CHANGES-COMPLETE-TRIGGER](#file-changes-complete-trigger)
+        - [Decision & Planning Triggers](#decision--planning-triggers)
+            - [DECIDING-APPROACH-TRIGGER](#deciding-approach-trigger)
+            - [BEFORE-PROPOSING-SOLUTION-TRIGGER](#before-proposing-solution-trigger)
+            - [ADDING-CODE-OR-FEATURE-TRIGGER](#adding-code-or-feature-trigger)
+            - [USER-SUGGESTS-IDEA-TRIGGER](#user-suggests-idea-trigger)
+        - [User Interaction Triggers](#user-interaction-triggers)
+            - [WHEN-TO-STOP-AND-ASK-TRIGGER](#when-to-stop-and-ask-trigger)
+            - [DISCUSSION-QUESTION-TRIGGER](#discussion-question-trigger)
+            - [USER-PROBLEM-REPORT-TRIGGER](#user-problem-report-trigger)
+            - [IMPLICIT-PROBLEM-SIGNAL-TRIGGER](#implicit-problem-signal-trigger)
+            - [FOUNDATION-ISSUE-IDENTIFIED-TRIGGER](#foundation-issue-identified-trigger)
+        - [Git Operations](#git-operations)
+            - [GIT-OPERATION-TRIGGER](#git-operation-trigger)
+            - [COMMIT-TRIGGER](#commit-trigger)
+            - [CREATING-COMMIT-MESSAGE-TRIGGER](#creating-commit-message-trigger)
+        - [Feature Development Lifecycle](#feature-development-lifecycle)
+            - [START-NEW-FEATURE-TRIGGER](#start-new-feature-trigger)
+            - [READY-TO-RELEASE-TRIGGER](#ready-to-release-trigger)
+            - [RELEASE-FINALIZATION-TRIGGER](#release-finalization-trigger)
+            - [POST-RELEASE-TRIGGER](#post-release-trigger)
+        - [Task & Documentation Management](#task--documentation-management)
+            - [TASK-COMPLETION-TRIGGER](#task-completion-trigger)
+            - [PROJECT-VERSION-PROPOSAL-TRIGGER](#project-version-proposal-trigger)
+            - [SKILL-FILE-MODIFIED-TRIGGER](#skill-file-modified-trigger)
+            - [USER-SAYS-TABLE-THOUGHT-TRIGGER](#user-says-table-thought-trigger)
+        - [Domain-Specific Patterns](#domain-specific-patterns)
+            - [DATA-GAP-DETECTION-TRIGGER](#data-gap-detection-trigger)
+            - [API-ERROR-TRIGGER](#api-error-trigger)
+            - [CREATE-DIAGNOSTIC-SCRIPT-TRIGGER](#create-diagnostic-script-trigger)
+            - [STALE-TIMESTAMP-TRIGGER](#stale-timestamp-trigger)
+            - [FRESH-TIMESTAMP-TRIGGER](#fresh-timestamp-trigger)
+    - [ACTIONS Protocol Implementations](#actions-protocol-implementations)
+        - [READ-MEMORY-ACTION](#read-memory-action)
+        - [INCREMENT-TIMESTAMP-STALE-CNT-ACTION](#increment-timestamp-stale-cnt-action)
+        - [RESET-TIMESTAMP-STALE-CNT-ACTION](#reset-timestamp-stale-cnt-action)
+        - [UPDATE-MEMORY-ACTION](#update-memory-action)
+        - [DISPLAY-STATUS-LINE-ACTION](#display-status-line-action)
+        - [NOTIFY-COMPACTION-ACTION](#notify-compaction-action)
+        - [CHECK-VERSION-INCREMENTED-ACTION](#check-version-incremented-action)
+        - [INCREMENT-VERSION-ACTION](#increment-version-action)
+        - [CHECK-APPROVAL-ACTION](#check-approval-action)
+        - [VERIFY-APPROVAL-MATCH-ACTION](#verify-approval-match-action)
+        - [UPDATE-BEFORE-COMMIT-ACTION](#update-before-commit-action)
+        - [LIST-MODIFIED-FILES-ACTION](#list-modified-files-action)
+        - [SUMMARIZE-CHANGES-ACTION](#summarize-changes-action)
+        - [REQUEST-COMMIT-APPROVAL-ACTION](#request-commit-approval-action)
+        - [STATE-CHECKING-RULE-ACTION](#state-checking-rule-action)
+        - [QUOTE-CURRENT-VERSION-ACTION](#quote-current-version-action)
+        - [IDENTIFY-PATTERN-ACTION](#identify-pattern-action)
+        - [CALCULATE-NEXT-VERSION-ACTION](#calculate-next-version-action)
+        - [PROPOSE-WITH-REASONING-ACTION](#propose-with-reasoning-action)
+        - [REMOVE-LETTER-AND-TAG-ACTION](#remove-letter-and-tag-action)
+        - [REVIEW-CODE-TODOS-ACTION](#review-code-todos-action)
+        - [VERIFY-RELEASE-DOCS-ACTION](#verify-release-docs-action)
+        - [FINALIZE-RELEASE-TAG-ACTION](#finalize-release-tag-action)
+        - [REQUEST-POST-MORTEM-ACTION](#request-post-mortem-action)
+        - [CONDUCT-REVIEW-ACTION](#conduct-review-action)
+        - [DOCUMENT-LESSONS-ACTION](#document-lessons-action)
+        - [PROPOSE-RULE-UPDATES-ACTION](#propose-rule-updates-action)
+        - [STOP-ACTION](#stop-action)
+        - [ACKNOWLEDGE-PROBLEM-ACTION](#acknowledge-problem-action)
+        - [REQUEST-ANALYSIS-PERMISSION-ACTION](#request-analysis-permission-action)
+        - [PERFORM-ROOT-CAUSE-ANALYSIS-ACTION](#perform-root-cause-analysis-action)
+        - [PRESENT-FINDINGS-ACTION](#present-findings-action)
+        - [WAIT-FOR-DECISION-ACTION](#wait-for-decision-action)
+        - [ADD-TO-SESSION-CHECKLIST-ACTION](#add-to-session-checklist-action)
+        - [MARK-CURRENT-ITEM-ACTION](#mark-current-item-action)
+        - [PRINT-CHECKLIST-ACTION](#print-checklist-action)
+        - [PRINT-SESSION-CHECKLIST-ACTION](#print-session-checklist-action)
+        - [UPDATE-TODO-ACTION](#update-todo-action)
+        - [UPDATE-NOTES-ACTION](#update-notes-action)
+        - [UPDATE-CHANGELOG-ACTION](#update-changelog-action)
+        - [VERIFY-CONSISTENCY-ACTION](#verify-consistency-action)
+        - [ENGAGE-DISCUSSION-ACTION](#engage-discussion-action)
+        - [WAIT-FOR-APPROVAL-ACTION](#wait-for-approval-action)
+        - [EMBRACE-DETOUR-ACTION](#embrace-detour-action)
+        - [ASK-PRIORITY-DECISION-ACTION](#ask-priority-decision-action)
+        - [WAIT-FOR-EXPLICIT-DECISION-ACTION](#wait-for-explicit-decision-action)
+        - [CHECK-DOCUMENTATION-UPDATED-ACTION](#check-documentation-updated-action)
+        - [RANDOM-SAMPLE-ACTION](#random-sample-action)
+        - [MANUAL-EXTRACTION-ACTION](#manual-extraction-action)
+        - [ANALYZE-RESULTS-ACTION](#analyze-results-action)
+        - [DISCOVER-PATTERNS-ACTION](#discover-patterns-action)
+        - [IMPLEMENT-FIXES-ACTION](#implement-fixes-action)
+        - [ADD-RAW-LOGGING-ACTION](#add-raw-logging-action)
+        - [EXAMINE-STRUCTURE-ACTION](#examine-structure-action)
+        - [CHECK-PARTIAL-SUCCESS-ACTION](#check-partial-success-action)
+        - [DOCUMENT-FINDINGS-ACTION](#document-findings-action)
+        - [CREATE-FEATURE-BRANCH-ACTION](#create-feature-branch-action)
+        - [CONFIRM-TESTING-WORKFLOW-ACTION](#confirm-testing-workflow-action)
+        - [PREPARE-RELEASE-ACTION](#prepare-release-action)
+        - [FORMAT-COMMIT-MESSAGE-ACTION](#format-commit-message-action)
+        - [ASSESS-PROJECT-VERSION-IMPACT-ACTION](#assess-project-version-impact-action)
+        - [CALCULATE-SEMANTIC-VERSION-ACTION](#calculate-semantic-version-action)
+        - [EXPLAIN-VERSION-INDEPENDENCE-ACTION](#explain-version-independence-action)
+        - [POST-COMPACTION-ACTION](#post-compaction-action)
+        - [EVALUATE-IDEA-CRITICALLY-ACTION](#evaluate-idea-critically-action)
+        - [IDENTIFY-POTENTIAL-ISSUES-ACTION](#identify-potential-issues-action)
+        - [PROPOSE-ALTERNATIVES-ACTION](#propose-alternatives-action)
+        - [STATE-DISAGREEMENT-ACTION](#state-disagreement-action)
+        - [CONSIDER-REMOVAL-ALTERNATIVE-ACTION](#consider-removal-alternative-action)
+        - [QUESTION-NECESSITY-ACTION](#question-necessity-action)
+        - [ASSESS-COMPLEXITY-COST-ACTION](#assess-complexity-cost-action)
+        - [REVIEW-PAST-LEARNINGS-ACTION](#review-past-learnings-action)
+        - [ASSESS-DATA-IMPACT-ACTION](#assess-data-impact-action)
+        - [DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION](#determine-ship-fast-or-build-solid-action)
+        - [JUSTIFY-TIME-INVESTMENT-ACTION](#justify-time-investment-action)
+        - [UPDATE-CHANGELOG-ACTION](#update-changelog-action)
+        - [REVIEW-TECHNICAL-NOTES-ACTION](#review-technical-notes-action)
+        - [UPDATE-NOTES-TABLED-ITEMS-ACTION](#update-notes-tabled-items-action)
+        - [DOCUMENT-GROUND-RULES-CHANGES-ACTION](#document-ground-rules-changes-action)
+        - [COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION](#commit-notes-with-other-changes-action)
+        - [STOP-ACTION](#stop-action)
+        - [ASK-FOR-APPROVAL-ACTION](#ask-for-approval-action)
+        - [WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION](#wait-for-explicit-confirmation-action)
+        - [STOP-AND-SELF-ASSESS-ACTION](#stop-and-self-assess-action)
+        - [REVIEW-COMPLETION-PROTOCOL-ACTION](#review-completion-protocol-action)
+        - [ACKNOWLEDGE-IF-GAP-FOUND-ACTION](#acknowledge-if-gap-found-action)
+        - [ROOT-CAUSE-ANALYSIS-ACTION](#root-cause-analysis-action)
+        - [APPLY-NAMING-CONVENTION-ACTION](#apply-naming-convention-action)
+        - [PRINT-FILENAME-IN-OUTPUT-ACTION](#print-filename-in-output-action)
+    - [REFERENCE DATA](#reference-data)
+        - [FILE-PATHS-REF](#file-paths-ref)
+        - [DOCUMENTATION-FILES-REF](#documentation-files-ref)
+        - [SESSION-CHECKLIST-FORMAT-REF](#session-checklist-format-ref)
+
+<!-- /TOC -->
+
 # Software Development Ground Rules
 
 ## HOW TO USE THIS FILE
@@ -51,7 +192,7 @@ User input received
 
 ### Meta & System Triggers
 
-### RESPONSE-START-TRIGGER
+#### RESPONSE-START-TRIGGER
 **When**: At the beginning of EVERY Claude response
 **Frequency**: Every single response without exception
 **Actions**:
@@ -59,7 +200,7 @@ User input received
 - UPDATE-MEMORY-ACTION
 - DISPLAY-STATUS-LINE-ACTION
 
-### SESSION-COMPACTION-TRIGGER
+#### SESSION-COMPACTION-TRIGGER
 **When**: Current token percentage is GREATER than lastTokenPercent from .claude-memory (i.e., `currentTokenPercent > lastTokenPercent`)
 **Where**:
 - `currentTokenPercent` = (tokens_remaining / 200000) × 100 from system token budget
@@ -68,7 +209,7 @@ User input received
 - NOTIFY-COMPACTION-ACTION
 - POST-COMPACTION-ACTION
 
-### SESSION-CHECKLIST-REQUEST-TRIGGER
+#### SESSION-CHECKLIST-REQUEST-TRIGGER
 **When**: User says "add to checklist", "checklist item", "session task", or provides current Session Checklist after compaction
 **Actions**:
 - ADD-TO-SESSION-CHECKLIST-ACTION
@@ -77,14 +218,14 @@ User input received
 
 ### Code Development Workflow
 
-### CODE-CHANGE-TRIGGER
+#### CODE-CHANGE-TRIGGER
 **When**: Before making ANY modification to code files
 **Excludes**: Documentation files (see DOCUMENTATION-FILES-REF)
 **Actions**:
 - CHECK-VERSION-INCREMENTED-ACTION
 - INCREMENT-VERSION-ACTION (if not already done)
 
-### VERSION-CHANGE-PROPOSAL-TRIGGER
+#### VERSION-CHANGE-PROPOSAL-TRIGGER
 **When**: Before proposing a version number change
 **Actions**:
 - STATE-CHECKING-RULE-ACTION
@@ -93,7 +234,7 @@ User input received
 - CALCULATE-NEXT-VERSION-ACTION
 - PROPOSE-WITH-REASONING-ACTION
 
-### FILE-CHANGES-COMPLETE-TRIGGER
+#### FILE-CHANGES-COMPLETE-TRIGGER
 **When**: After you finish making file changes and before proposing a commit
 **Actions**:
 - LIST-MODIFIED-FILES-ACTION
@@ -102,26 +243,26 @@ User input received
 
 ### Decision & Planning Triggers
 
-### DECIDING-APPROACH-TRIGGER
+#### DECIDING-APPROACH-TRIGGER
 **When**: When evaluating how to implement a bug fix or feature
 **Actions**:
 - ASSESS-DATA-IMPACT-ACTION
 - DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION
 - JUSTIFY-TIME-INVESTMENT-ACTION (if Build Solid chosen)
 
-### BEFORE-PROPOSING-SOLUTION-TRIGGER
+#### BEFORE-PROPOSING-SOLUTION-TRIGGER
 **When**: Before proposing any approach, fix, or solution to user
 **Actions**:
 - REVIEW-PAST-LEARNINGS-ACTION
 
-### ADDING-CODE-OR-FEATURE-TRIGGER
+#### ADDING-CODE-OR-FEATURE-TRIGGER
 **When**: Before proposing or implementing new code or functionality
 **Actions**:
 - CONSIDER-REMOVAL-ALTERNATIVE-ACTION
 - QUESTION-NECESSITY-ACTION
 - ASSESS-COMPLEXITY-COST-ACTION
 
-### USER-SUGGESTS-IDEA-TRIGGER
+#### USER-SUGGESTS-IDEA-TRIGGER
 **When**: User proposes new approach, feature, or solution
 **Actions**:
 - EVALUATE-IDEA-CRITICALLY-ACTION
@@ -131,21 +272,21 @@ User input received
 
 ### User Interaction Triggers
 
-### WHEN-TO-STOP-AND-ASK-TRIGGER
+#### WHEN-TO-STOP-AND-ASK-TRIGGER
 **When**: Before implementing any code change, git operation, or file creation/modification, OR when uncertain about approach
 **Actions**:
 - STOP-ACTION
 - ASK-FOR-APPROVAL-ACTION
 - WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION
 
-### DISCUSSION-QUESTION-TRIGGER
+#### DISCUSSION-QUESTION-TRIGGER
 **When**: User asks "should we?", "thoughts?", "what do you think?", "your thoughts?"
 **Actions**:
 - STOP-ACTION
 - ENGAGE-DISCUSSION-ACTION
 - WAIT-FOR-APPROVAL-ACTION (do NOT implement)
 
-### USER-PROBLEM-REPORT-TRIGGER
+#### USER-PROBLEM-REPORT-TRIGGER
 **When**: User reports an issue, error, or unexpected behavior
 **Includes**: Explicit reports AND implicit signals ("can you review...", "please check...")
 **Actions**:
@@ -156,7 +297,7 @@ User input received
 - PRESENT-FINDINGS-ACTION
 - WAIT-FOR-DECISION-ACTION
 
-### IMPLICIT-PROBLEM-SIGNAL-TRIGGER
+#### IMPLICIT-PROBLEM-SIGNAL-TRIGGER
 **When**: User asks to "review", "check", or "verify" work you JUST completed
 **Red Flags**: "Can you review [files you just worked with]?", "I think [statement about your work] - is that right?", "Please check if [something you should have done]"
 **Actions**:
@@ -165,7 +306,7 @@ User input received
 - ACKNOWLEDGE-IF-GAP-FOUND-ACTION
 - ROOT-CAUSE-ANALYSIS-ACTION (without being asked)
 
-### FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
+#### FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
 **When**: User identifies foundational issue (rules not working, docs unclear, structure confusing)
 **Actions**:
 - EMBRACE-DETOUR-ACTION
@@ -174,37 +315,37 @@ User input received
 
 ### Git Operations
 
-### GIT-OPERATION-TRIGGER
+#### GIT-OPERATION-TRIGGER
 **When**: Before any git command (commit, push, pull, merge, revert, tag, etc.)
 **Actions**:
 - CHECK-APPROVAL-ACTION
 - VERIFY-APPROVAL-MATCH-ACTION
 
-### COMMIT-TRIGGER
+#### COMMIT-TRIGGER
 **When**: Before executing git commit
 **Actions**:
 - UPDATE-BEFORE-COMMIT-ACTION
 - CHECK-DOCUMENTATION-UPDATED-ACTION
 
-### CREATING-COMMIT-MESSAGE-TRIGGER
+#### CREATING-COMMIT-MESSAGE-TRIGGER
 **When**: Executing git commit
 **Actions**:
 - FORMAT-COMMIT-MESSAGE-ACTION
 
 ### Feature Development Lifecycle
 
-### START-NEW-FEATURE-TRIGGER
+#### START-NEW-FEATURE-TRIGGER
 **When**: After user approves starting a new feature and before making any code changes
 **Actions**:
 - CREATE-FEATURE-BRANCH-ACTION
 - CONFIRM-TESTING-WORKFLOW-ACTION
 
-### READY-TO-RELEASE-TRIGGER
+#### READY-TO-RELEASE-TRIGGER
 **When**: After user confirms feature is ready to merge to main
 **Actions**:
 - PREPARE-RELEASE-ACTION
 
-### RELEASE-FINALIZATION-TRIGGER
+#### RELEASE-FINALIZATION-TRIGGER
 **When**: Before removing version letter (finalizing a release)
 **Actions**:
 - UPDATE-CHANGELOG-ACTION
@@ -213,7 +354,7 @@ User input received
 - VERIFY-RELEASE-DOCS-ACTION
 - FINALIZE-RELEASE-TAG-ACTION
 
-### POST-RELEASE-TRIGGER
+#### POST-RELEASE-TRIGGER
 **When**: After push/tag completes for a code release (project version incremented)
 **Excludes**: Documentation-only changes, letter-version commits
 **Actions**:
@@ -224,7 +365,7 @@ User input received
 
 ### Task & Documentation Management
 
-### TASK-COMPLETION-TRIGGER
+#### TASK-COMPLETION-TRIGGER
 **When**: After you mark any TODO.md item as complete [x]
 **Actions**:
 - UPDATE-TODO-ACTION
@@ -233,19 +374,19 @@ User input received
 - VERIFY-CONSISTENCY-ACTION
 - REQUEST-APPROVAL-ACTION
 
-### PROJECT-VERSION-PROPOSAL-TRIGGER
+#### PROJECT-VERSION-PROPOSAL-TRIGGER
 **When**: Proposing a change to project version (README.md "Version" section)
 **Actions**:
 - ASSESS-PROJECT-VERSION-IMPACT-ACTION
 - CALCULATE-SEMANTIC-VERSION-ACTION
 - EXPLAIN-VERSION-INDEPENDENCE-ACTION
 
-### SKILL-FILE-MODIFIED-TRIGGER
+#### SKILL-FILE-MODIFIED-TRIGGER
 **When**: After modifying any SKILL-*.md file (ground rules, project-specific skills)
 **Actions**:
 - DOCUMENT-GROUND-RULES-CHANGES-ACTION
 
-### USER-SAYS-TABLE-THOUGHT-TRIGGER
+#### USER-SAYS-TABLE-THOUGHT-TRIGGER
 **When**: User says "table that thought", "hold that thought", or similar
 **Actions**:
 - UPDATE-NOTES-TABLED-ITEMS-ACTION
@@ -253,7 +394,7 @@ User input received
 
 ### Domain-Specific Patterns
 
-### DATA-GAP-DETECTION-TRIGGER
+#### DATA-GAP-DETECTION-TRIGGER
 **When**: >10% of expected data is missing or empty
 **Actions**:
 - RANDOM-SAMPLE-ACTION
@@ -262,7 +403,7 @@ User input received
 - DISCOVER-PATTERNS-ACTION
 - IMPLEMENT-FIXES-ACTION
 
-### API-ERROR-TRIGGER
+#### API-ERROR-TRIGGER
 **When**: When encountering API errors or investigating API behavior issues
 **Actions**:
 - ADD-RAW-LOGGING-ACTION
@@ -270,18 +411,18 @@ User input received
 - CHECK-PARTIAL-SUCCESS-ACTION
 - DOCUMENT-FINDINGS-ACTION
 
-### CREATE-DIAGNOSTIC-SCRIPT-TRIGGER
+#### CREATE-DIAGNOSTIC-SCRIPT-TRIGGER
 **When**: Creating temporary diagnostic, test, or output files
 **Actions**:
 - APPLY-NAMING-CONVENTION-ACTION
 - PRINT-FILENAME-IN-OUTPUT-ACTION
 
-### STALE-TIMESTAMP-TRIGGER
+#### STALE-TIMESTAMP-TRIGGER
 **When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) matches `lastTimestamp` from memory
 **Actions**:
 - INCREMENT-TIMESTAMP-STALE-CNT-ACTION
 
-### FRESH-TIMESTAMP-TRIGGER
+#### FRESH-TIMESTAMP-TRIGGER
 **When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) does not match `lastTimestamp` from memory
 **Actions**:
 - RESET-TIMESTAMP-STALE-CNT-ACTION
