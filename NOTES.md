@@ -57,7 +57,7 @@ This file tracks tabled discussion items, work in progress context, and open que
   - Combined actions: UPDATE-CHANGELOG-ACTION, REVIEW-TECHNICAL-NOTES-ACTION, REVIEW-CODE-TODOS-ACTION, VERIFY-RELEASE-DOCS-ACTION, FINALIZE-RELEASE-TAG-ACTION
 - Rationale: Passive language like "about to", "choosing", "debugging" requires manual recognition. Active language like "after you", "when encountering", "before proposing" fires automatically at clear trigger points.
 - User insight: TASK-COMPLETION-TRIGGER didn't fire because "marking a task as complete" was too passive
-- Commits: [pending]
+- Commits: 51e37cb
 
 ## Tabled Items
 
