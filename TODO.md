@@ -14,31 +14,31 @@ _What we're actively working on right now_
 
 **Phase 1: Add GUID + fetchDate to fetchers**
 - [x] Generate GUID in library-fetcher.js, add to JSON metadata (v3.4.0.a)
-- [ ] Generate GUID in collections-fetcher.js, add to JSON metadata
-- [ ] Add `metadata.fetchDate` to Collections JSON (currently missing)
+- [x] Generate GUID in collections-fetcher.js, add to JSON metadata (v1.1.0)
+- [x] Add `metadata.fetchDate` to Collections JSON (v1.1.0)
 
 **Phase 2: Fetcher writes manifest to IndexedDB**
 - [x] Library fetcher: write manifest to IndexedDB after generating JSON (v3.4.0.a)
-- [ ] Collections fetcher: write manifest to IndexedDB after generating JSON
+- [x] Collections fetcher: write manifest to IndexedDB after generating JSON (v1.1.0)
 - [x] Use same IndexedDB database as organizer app (ReaderWranglerManifests)
 
 **Phase 3: App reads from IndexedDB**
-- [ ] On app load: read manifests from IndexedDB
-- [ ] On JSON load: match GUID to find corresponding manifest
-- [ ] Calculate Fetch state from manifest, Load state from JSON metadata
-- [ ] Handle missing/mismatched GUID gracefully
+- [x] On app load: read manifests from IndexedDB (v3.6.1)
+- [x] On JSON load: match GUID to find corresponding manifest (v3.6.1)
+- [x] Calculate Fetch state from manifest, Load state from JSON metadata (v3.6.1)
+- [x] Handle missing/mismatched GUID gracefully (v3.6.1)
 
 **Phase 4: Remove old polling code**
-- [ ] Delete `amazon-manifest.json` file generation
-- [ ] Remove `checkManifest()` function and 60-second timer
-- [ ] Remove `manifestData` React state
-- [ ] Remove `MANIFEST_CHECK_INTERVAL` constant
+- [x] Delete `amazon-manifest.json` file generation (v3.6.1)
+- [x] Remove `checkManifest()` function and 60-second timer (v3.6.1)
+- [x] Remove `manifestData` React state (v3.7.0.m)
+- [x] Remove `MANIFEST_CHECK_INTERVAL` constant (v3.6.1)
 
 **Phase 5: New status bar UI**
 - [x] Remove version from status bar header (v3.7.0.o)
-- [ ] Single-line: "Data Status: ✅" (or ⚠️ or 🛑 or ❓)
-- [ ] Tooltip shows summary
-- [ ] Click opens status dialog with full 25-state details
+- [x] Single-line: "Data Status: ✅" (or ⚠️ or 🛑 or ❓) (v3.7.0)
+- [x] Tooltip shows summary (v3.7.0)
+- [x] Click opens status dialog with full 25-state details (v3.7.0)
 
 ---
 

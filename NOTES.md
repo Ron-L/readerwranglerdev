@@ -88,6 +88,27 @@ This file tracks tabled discussion items, work in progress context, and open que
 
 ## Current Work in Progress
 
+### Status Bar Redesign (v3.7.0) - COMPLETE ✅
+- **Started**: 2025-11-19 (approx)
+- **Completed**: 2025-11-27 (TODO.md updated)
+- **Status**: All 5 phases complete
+- **Goal**: Simplify status display with user-first urgency indicators based on Load state only
+
+**Phases Completed**:
+1. ✅ Phase 1: Add GUID + fetchDate to fetchers (library v3.4.0.a, collections v1.1.0)
+2. ✅ Phase 2: Fetcher writes manifest to IndexedDB (both fetchers)
+3. ✅ Phase 3: App reads from IndexedDB (v3.6.1)
+4. ✅ Phase 4: Remove old polling code (v3.6.1, v3.7.0.m)
+5. ✅ Phase 5: New status bar UI (v3.7.0)
+
+**Key Features**:
+- Single-line "Data Status: ✅/⚠️/🛑/❓" with tooltip
+- Click opens status dialog with full details
+- GUID-based matching between JSON files and IndexedDB manifests
+- Status persists to localStorage across page refresh
+
+**Design Document**: docs/design/STATUS-BAR-REDESIGN.md
+
 ### Timestamp & Token Monitoring System - COMPLETE ✅
 - **Started**: 2025-11-25
 - **Completed**: 2025-11-25
