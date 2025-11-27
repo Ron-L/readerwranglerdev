@@ -18,7 +18,7 @@ This file tracks tabled discussion items, work in progress context, and open que
 - Rationale: Old approach was ambiguous - unclear what "verify" meant (automated vs manual check)
 - User insight: TODO check should run FIRST (may trigger more work, aborting remaining checks)
 - Implements TODO.md item: "grep for TODO comments in code files"
-- Commits: 044695b (REFERENCE DATA optimization), [pending] (release process split)
+- Commits: 044695b (REFERENCE DATA optimization), 83abc5e (release process split)
 
 **[2025-11-26] REFERENCE DATA Section Optimization**
 - Deleted 3 orphaned REFs not referenced by any TRIGGER/ACTION:
@@ -39,7 +39,7 @@ This file tracks tabled discussion items, work in progress context, and open que
 - Added DOCUMENT-GROUND-RULES-CHANGES-ACTION (documents changes in NOTES.md)
 - Protocol: Track SKILL-*.md changes in NOTES.md "Ground Rules Evolution", skip CHANGELOG.md (not user-facing)
 - Rationale: Ground rules are executable code (programs Claude's behavior), needs change tracking like code
-- Commits: [pending]
+- Commits: 83abc5e
 
 ## Tabled Items
 
