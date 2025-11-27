@@ -21,9 +21,25 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Expected impact: 13-33x speedup (2+ hours → 5-10 minutes)
     - Context: Must address before creating training videos/USER-GUIDE updates
 
-**2. 📖 Quick Start Video & Written Guide** - HIGH/LOW (2-4 hours) - See [docs/design/VIDEO-PRODUCTION-PLAN.md](docs/design/VIDEO-PRODUCTION-PLAN.md)
+**2. ⏱️ Enhanced Progress Feedback During Extraction** - HIGH/LOW-MEDIUM (1-2 hours)
+   - Progress counter during enrichment: "847 of 2,322 books (36%)" - 30 min
+   - Visual progress bar with smooth updates - 1 hour
+   - Problem: Users get impatient/confused during lengthy initial extraction (especially enrichment phase)
+   - Impact: Reduces abandonment during first-time setup
+   - Note: Pause/Resume + Recovery moved to Phase 3 Retry Logic (Priority 5, item #3)
 
-**3. 📚 Comprehensive Documentation Hub** - HIGH/MEDIUM (8-12 hours)
+**3. 📖 Quick Start Video & Written Guide** - HIGH/LOW (2-4 hours) - See [docs/design/VIDEO-PRODUCTION-PLAN.md](docs/design/VIDEO-PRODUCTION-PLAN.md)
+
+**4. 🔎 Advanced Filtering** - MEDIUM/MEDIUM (6-8 hours)
+    - Filter by genre/category
+    - Filter by rating
+    - Filter by acquisition date range
+    - Filter by read/unread status (if available from Amazon)
+    - Filter by series
+    - Problem: Hard to find specific subsets in 2,300+ book library
+    - Impact: Improves discoverability for power users
+
+**5. 📚 Comprehensive Documentation Hub** - HIGH/MEDIUM (8-12 hours)
    - Troubleshooting guide (What if scrape fails partway? How to recover?)
    - FAQ (Multiple Amazon accounts? Kindle Unlimited books? Mobile support?)
    - Keyboard shortcuts reference
@@ -32,53 +48,46 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
    - Problem: Users get stuck, have questions, can't find answers
    - Impact: Reduces support burden, improves user confidence
 
-**4. 📱 Mobile Support Clarity** - HIGH/LOW (1 hour)
+**6. 📱 Mobile Support Clarity** - HIGH/LOW (1 hour)
    - Document whether app works on mobile devices
    - Add to FAQ and main page
    - Problem: Major omission for users who browse libraries on phones/tablets
    - Impact: Sets correct expectations
 
-**5. 📋 Changelog Visibility** - MEDIUM/LOW (30 minutes)
+**7. 📋 Changelog Visibility** - MEDIUM/LOW (30 minutes)
    - Link version display (e.g., "v3.6.0") to CHANGELOG.md
    - Problem: Users see version numbers but no context
    - Impact: Transparency about what changed
 
-**6. ✅ Fill in Missing Sections in USER-GUIDE.md** - MEDIUM/LOW (2-3 hours)
+**8. ✅ Fill in Missing Sections in USER-GUIDE.md** - MEDIUM/LOW (2-3 hours)
    - Complete placeholder sections
    - Add screenshots/examples
    - Problem: Partial documentation confuses users
    - Impact: Complete feature documentation
 
-**7. Enhanced Getting Started UX** #Architecture - See [docs/design/ENHANCED-GETTING-STARTED-UX.md](docs/design/ENHANCED-GETTING-STARTED-UX.md)
+**9. Enhanced Getting Started UX** #Architecture - See [docs/design/ENHANCED-GETTING-STARTED-UX.md](docs/design/ENHANCED-GETTING-STARTED-UX.md)
     - Status: Planned (post-rename enhancement)
     - Help menu links, enhanced empty library state
 
 ### 🎯 Priority 2: UX Polish & Error Handling (HIGH Priority, LOW-MEDIUM Complexity)
 
-**1. ⏱️ Enhanced Progress Feedback During Extraction** - HIGH/LOW-MEDIUM (1-2 hours)
-   - Progress counter during enrichment: "847 of 2,322 books (36%)" - 30 min
-   - Visual progress bar with smooth updates - 1 hour
-   - Problem: Users get impatient/confused during lengthy initial extraction (especially enrichment phase)
-   - Impact: Reduces abandonment during first-time setup
-   - Note: Pause/Resume + Recovery moved to Phase 3 Retry Logic (Priority 5, item #3)
-
-**2. 🔄 Extraction Error Recovery** - SHOULD MOVE TO PHASE 3 RETRY LOGIC
+**1. 🔄 Extraction Error Recovery** - SHOULD MOVE TO PHASE 3 RETRY LOGIC
    - Note: This overlaps significantly with Phase 3 Retry Logic (Priority 5, item #3)
    - Recovery, Pause/Resume, and state persistence all belong together
    - Recommend consolidating into Priority 5, item #3 for cohesive implementation
 
-**3. 🐛 Collections Filter Bug Fix** - HIGH/LOW (30m-1h)
+**2. 🐛 Collections Filter Bug Fix** - HIGH/LOW (30m-1h)
    - Collections dropdown still shows old collection names after Clear Everything
    - Problem: UI state not fully cleared
    - Impact: Confusing UX after reset
 
-**4. 🐛 Invalid File Selection Causes Status Timeout** - MEDIUM/LOW (30m-1h)
+**3. 🐛 Invalid File Selection Causes Status Timeout** - MEDIUM/LOW (30m-1h)
    - When user selects wrong JSON file in Load Library dialog, status check hangs
    - Eventually times out with "Library loaded but status check timed out" message
    - Problem: File picker error doesn't cancel the status check operation
    - Impact: Minor UX issue - confusing timeout instead of immediate error
 
-**5. ✨ UX Quick Wins** - MEDIUM/LOW (1-3 hours each)
+**4. ✨ UX Quick Wins** - MEDIUM/LOW (1-3 hours each)
    - Tooltips for control buttons (Backup, Restore, Reset, Clear)
    - First-run Welcome dialog explaining what ReaderWrangler is
    - Column name filtering (search by column name)
@@ -94,22 +103,13 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: After organizing books into columns, can't fine-tune order by meaningful criteria
     - Impact: Completes organization workflow - get books into columns, then order optimally within each
 
-**2. 🔎 Advanced Filtering** - MEDIUM/MEDIUM (6-8 hours)
-    - Filter by genre/category
-    - Filter by rating
-    - Filter by acquisition date range
-    - Filter by read/unread status (if available from Amazon)
-    - Filter by series
-    - Problem: Hard to find specific subsets in 2,300+ book library
-    - Impact: Improves discoverability for power users
-
-**3. 🏷️ Color-Coding/Tagging System** - MEDIUM/MEDIUM (8-10 hours)
+**2. 🏷️ Color-Coding/Tagging System** - MEDIUM/MEDIUM (8-10 hours)
     - Visual distinction beyond columns
     - Tag-based organization
     - Problem: Columns alone may not capture all organizational needs
     - Impact: More flexible organization
 
-**4. 📚 Collections Integration - UI Features** - MEDIUM/MEDIUM (4-8 hours) - See [docs/design/COLLECTIONS-UI.md](docs/design/COLLECTIONS-UI.md)
+**3. 📚 Collections Integration - UI Features** - MEDIUM/MEDIUM (4-8 hours) - See [docs/design/COLLECTIONS-UI.md](docs/design/COLLECTIONS-UI.md)
     - Visual indicators (badges/icons) for collections on book covers
     - Metadata display showing which collections each book belongs to
     - Filtering by collection name
@@ -119,14 +119,14 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: Collections data fetched but not visible in UI
     - Impact: Leverage existing Amazon collections in organizer
 
-**5. 📖 Reading Progress Visualization** - MEDIUM/HIGH (6-10 hours)
+**4. 📖 Reading Progress Visualization** - MEDIUM/HIGH (6-10 hours)
     - Show reading progress percentage/position for each book
     - Implementation guidance: [Amazon Organizer Reading Progress conversation](https://claude.ai/chat/6e6f23c8-b84e-4900-8c64-fecb6a6e0bd1)
-    - Note: Collections data already merged (line 452 NOTES.md), this adds progress visualization
+    - Note: Collections data already merged (line 452 LOG.md), this adds progress visualization
     - Problem: Users can't see reading progress in organizer
     - Impact: Better tracking of currently-reading books
 
-**6. 📖 Enhanced Series Management** - MEDIUM/MEDIUM (6-10 hours)
+**5. 📖 Enhanced Series Management** - MEDIUM/MEDIUM (6-10 hours)
     - Expand current "Collect Series Books" button
     - Automatic series detection
     - Series reading order visualization
@@ -134,7 +134,7 @@ _Based on user requirements + Claude.ai independent review (CLAUDE-AI-REVIEW.md)
     - Problem: Series books scattered across library
     - Impact: Better management for series readers
 
-**7. 🎯 Wishlist Integration - Basic** - MEDIUM/MEDIUM (8-10 hours)
+**6. 🎯 Wishlist Integration - Basic** - MEDIUM/MEDIUM (8-10 hours)
     - Bookmarklet on Amazon book page extracts basic metadata (ASIN, title, author, cover, rating)
     - Appends to existing `amazon-library.json` as new top-level `wishlist` array
     - User selects same library JSON file → app merges wishlist + owned books

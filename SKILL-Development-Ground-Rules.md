@@ -175,6 +175,17 @@ WHEN user provides input:
   3. Continue with user request
 ```
 
+**Debug Tracing:**
+
+When `debugLevel` in `.claude-memory` is set:
+- **Level 1** (triggers only): Log each matched TRIGGER
+- **Level 2** (full): Log each matched TRIGGER and each executed ACTION
+
+Log format: `[timestamp] TRIGGER: <name>` or `[timestamp] ACTION: <name>`
+- Use timestamp from `.claude-timestamp` file
+- Append to `SKILL-Development-Ground-Rules-Log.md`
+- If `debugLevel` is `0`, `false`, or absent: no logging
+
 **Example Flow:**
 ```
 User input received
@@ -527,45 +538,38 @@ User input received
 **Purpose**: Ensure ground rules persist across session compaction
 **CRITICAL**: When creating compaction summary, include these directives at the VERY BEGINNING:
 
-**DEBUG LOGGING (Execute First):**
-1. Write to `SKILL-Development-Ground-Rules-Log.md`:
+**Steps:**
+
+1. **Include execution directive** in compaction summary (IMPERATIVE - NOT OPTIONAL):
    ```
-   [YYYY-MM-DD HH:MM:SS] SESSION-COMPACTION-TRIGGER fired
-   [YYYY-MM-DD HH:MM:SS] POST-COMPACTION-ACTION executed
-   Token jump: XX% → YY%
+   🚨 EXECUTE THESE STEPS IMMEDIATELY BEFORE YOUR FIRST RESPONSE 🚨
+
+   STEP 1: Read and EXECUTE ground rules file
+     → Read and EXECUTE SKILL-Development-Ground-Rules.md in full
+
+   STEP 2: Read and EXECUTE project skills file
+     → Read and EXECUTE SKILL-ReaderWrangler.md in full
+
+   STEP 3: Read decision frameworks (reference, not rules)
+     → Read CONTRIBUTING.md for guidance on Ship Fast vs Build Solid decisions
+
+   STEP 4: EXECUTE RESPONSE-START-TRIGGER
+     → Read .claude-memory file (READ-MEMORY-ACTION)
+     → Calculate current token percentage
+     → Write updated .claude-memory (UPDATE-MEMORY-ACTION)
+     → Display status line at TOP of first response (DISPLAY-STATUS-LINE-ACTION)
+
+   STEP 5: THEN respond to user
+
+   STATUS LINE FORMAT (from DISPLAY-STATUS-LINE-ACTION):
+   📋 Ground Rules Active [YYYY-MM-DD HH:MM:SS] | ████░ XX% left 🟢
+   ---
+
+   DO NOT use old format: "📋 Ground Rules Active - Full rules in..."
+   USE ONLY the format above with progress bars and percentage.
    ```
 
-**1. Immediate Execution Directive (IMPERATIVE - NOT OPTIONAL):**
-```
-🚨 EXECUTE THESE STEPS IMMEDIATELY BEFORE YOUR FIRST RESPONSE 🚨
-
-STEP 1: Read and EXECUTE ground rules file
-  → Read and EXECUTE SKILL-Development-Ground-Rules.md in full
-
-STEP 2: Read and EXECUTE project skills file
-  → Read and EXECUTE SKILL-ReaderWrangler.md in full
-
-STEP 3: Read decision frameworks (reference, not rules)
-  → Read CONTRIBUTING.md for guidance on Ship Fast vs Build Solid decisions
-
-STEP 4: EXECUTE RESPONSE-START-TRIGGER
-  → Read .claude-memory file (READ-MEMORY-ACTION)
-  → Calculate current token percentage
-  → Write updated .claude-memory (UPDATE-MEMORY-ACTION)
-  → Display status line at TOP of first response (DISPLAY-STATUS-LINE-ACTION)
-
-STEP 5: THEN respond to user
-
-STATUS LINE FORMAT (from DISPLAY-STATUS-LINE-ACTION):
-📋 Ground Rules Active [YYYY-MM-DD HH:MM:SS] | ████░ XX% left 🟢
----
-
-DO NOT use old format: "📋 Ground Rules Active - Full rules in..."
-USE ONLY the format above with progress bars and percentage.
-```
-
-**2. Standard Summary Content:**
-Include current work status, completed work, and next steps as usual.
+2. **Include standard summary content**: current work status, completed work, and next steps.
 
 **Why This Matters:**
 - Compaction summary is the ONLY way to pass behavioral requirements across session boundaries
@@ -573,6 +577,7 @@ Include current work status, completed work, and next steps as usual.
 - Without EXECUTE command, protocols are not applied
 - Without the protocol reminder, status line display disappears
 - Loss of these protocols causes rule violations
+- Debug tracing (if enabled) will automatically log this trigger/action via the Execution Protocol
 
 ### Code Development Workflow Actions
 
@@ -1208,6 +1213,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **Memory file**: `.claude-memory` (project root)
 - **Timestamp file**: `.claude-timestamp` (project root)
 - **Compaction log**: `Compaction-log.md` (project root)
+- **Ground rules debug log**: `SKILL-Development-Ground-Rules-Log.md` (project root)
 
 ### DOCUMENTATION-FILES-REF
 
