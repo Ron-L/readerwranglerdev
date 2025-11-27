@@ -58,7 +58,7 @@ This file tracks tabled discussion items, work in progress context, and open que
   - Better onboarding - new developers or post-compaction Claude can understand system flow
 - Rationale: Original organization had related triggers scattered (e.g., COMMIT-TRIGGER and CREATING-COMMIT-MESSAGE-TRIGGER were far apart). Workflow-based grouping mirrors actual development cycle.
 - User requirement: RESPONSE-START-TRIGGER must be first (maintained)
-- Commits: [pending]
+- Commits: c333330
 
 **[2025-11-26] Trigger Language Improvements - Active vs Passive**
 - Updated TASK-COMPLETION-TRIGGER: "Marking a TODO phase/task as complete" → "After you mark any TODO.md item as complete [x]"
