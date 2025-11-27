@@ -95,12 +95,7 @@ User input received
 ### RELEASE-FINALIZATION-TRIGGER
 **When**: Before removing version letter (finalizing a release)
 **Actions**:
-- VERIFY-CHANGELOG-UPDATED-ACTION
-- VERIFY-NOTES-MARKED-RELEASED-ACTION
-- VERIFY-TODO-TASKS-COMPLETE-ACTION
-- VERIFY-README-VERSION-UPDATED-ACTION
-- SHOW-CHECKLIST-ACTION
-- REMOVE-LETTER-AND-TAG-ACTION
+- FINALIZE-RELEASE-ACTION
 
 ### POST-RELEASE-TRIGGER
 **When**: After push/tag completes for a code release (project version incremented)
@@ -452,44 +447,18 @@ User input received
 1. Show calculation
 2. Explain why this pattern was chosen
 
-### VERIFY-CHANGELOG-UPDATED-ACTION
-**Purpose**: Confirm CHANGELOG.md has version entry
-**Steps**:
-1. Check CHANGELOG.md for current version entry
-2. Report status
-
-### VERIFY-NOTES-MARKED-RELEASED-ACTION
-**Purpose**: Confirm NOTES.md shows release status
-**Steps**:
-1. Check NOTES.md for RELEASED ✅ marker
-2. Report status
-
-### VERIFY-TODO-TASKS-COMPLETE-ACTION
-**Purpose**: Confirm TODO.md tasks are marked complete
-**Steps**:
-1. Check TODO.md for completion markers
-2. Report status
-
-### VERIFY-README-VERSION-UPDATED-ACTION
-**Purpose**: Confirm README.md has correct project version
-**Steps**:
-1. Check README.md "Version" section
-2. Report status
-
-### SHOW-CHECKLIST-ACTION
-**Purpose**: Display release finalization checklist
-**Steps**:
-1. Print checklist with completion status for:
-   - CHANGELOG.md
-   - NOTES.md
-   - TODO.md
-   - README.md
-
 ### REMOVE-LETTER-AND-TAG-ACTION
 **Purpose**: Finalize version and create git tag
 **Steps**:
 1. Remove letter from version (e.g., v3.2.1.c → v3.2.1)
 2. Create git tag: `git tag vX.Y.Z`
+
+### FINALIZE-RELEASE-ACTION
+**Purpose**: Complete all release verification and tagging
+**Steps**:
+1. Verify all items in RELEASE-CHECKLIST-REF
+2. If all verified, remove letter and tag release
+3. If any verification fails, STOP and report which item failed
 
 ### REQUEST-POST-MORTEM-ACTION
 **Purpose**: Initiate post-release review
@@ -566,6 +535,13 @@ User input received
 **Purpose**: Display session checklist
 **Steps**:
 1. Print complete checklist after each task completion
+
+### PRINT-SESSION-CHECKLIST-ACTION
+**Purpose**: Display current session task progress in consistent format
+**Steps**:
+1. Use format from SESSION-CHECKLIST-FORMAT-REF
+2. Print all tasks with status icons (✅ ⬜ ⏳)
+3. Mark current task with ← CURRENT
 
 ### UPDATE-TODO-ACTION
 **Purpose**: Mark tasks complete in TODO.md
@@ -1006,17 +982,12 @@ Include current work status, completed work, and next steps as usual.
 
 **Purpose**: Constants and formats referenced by triggers and actions above.
 
-### TOKEN-BUDGET-REF
-- **Total tokens**: 200,000
-- **Compaction trigger**: ~20% remaining (40,000 tokens)
-
 ### FILE-PATHS-REF
 - **Memory file**: `.claude-memory` (project root)
 - **Timestamp file**: `.claude-timestamp` (project root)
 - **Compaction log**: `Compaction-log.md` (project root)
 
 ### DOCUMENTATION-FILES-REF
-**Purpose**: Files that do NOT require version increment
 
 - README.md
 - CHANGELOG.md
@@ -1026,21 +997,7 @@ Include current work status, completed work, and next steps as usual.
 - Build scripts (.bat files)
 - .gitignore
 
-### COMMIT-MESSAGE-FORMAT-REF
-```
-Type: Brief description vX.Y.Z.letter
-
-Detailed body explaining WHY, not just what.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-**Types**: Feat, Fix, Update, Refactor, Docs, Test, Chore, Rename
-
 ### SESSION-CHECKLIST-FORMAT-REF
-**Purpose**: Track short-term subtasks within a conversation (separate from TODO.md long-term roadmap)
 
 **Format Rules**:
 1. Numbered top-level steps (0, 1, 2...)
@@ -1064,23 +1021,8 @@ Session Checklist:
 3   ⏳ **Document workflow**
 ```
 
-### CLAUDE-SKILLS-MANAGEMENT-REF
-**Purpose**: Describes build process for SKILL-*.md files
-
-- **Source files**: `SKILL-Development-Ground-Rules.md`, `SKILL-ReaderWrangler.md`
-- **Required format**: SKILL-*.md files MUST start with YAML frontmatter
-- **Automatic .zip rebuilding**: Git pre-commit hook detects SKILL-*.md changes and rebuilds zips
-- **Build process**: Copy SKILL-*.md to SKILL.md → Zip as SKILL.md → Delete temp file
-- **File inside zip**: MUST be named `SKILL.md` (not the original filename)
-- **Git tracking**: Only source `.md` files are tracked (zips are generated locally, not committed)
-- **Manual build scripts** (backup if hook fails):
-  - `build-skill-ground-rules.bat` creates `SKILL-Development-Ground-Rules.zip`
-  - `build-skill-organizer.bat` creates `SKILL-Amazon-Book-Organizer.zip`
-- **Uploading**: Drag .zip onto Skills page (prompts to replace if name exists)
-- **Note**: Git hook is repository-local (.git/hooks/ not tracked). If cloning, hook must be recreated.
-
 ### RELEASE-CHECKLIST-REF
-**Purpose**: Steps before removing version letter (finalizing release)
+
 1. Verify: CHANGELOG.md updated with version entry
 2. Verify: NOTES.md marked as RELEASED ✅
 3. Verify: TODO.md tasks marked complete
