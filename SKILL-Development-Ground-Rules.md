@@ -423,12 +423,12 @@ User input received
 - PRINT-FILENAME-IN-OUTPUT-ACTION
 
 #### STALE-TIMESTAMP-TRIGGER
-**When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) matches `lastTimestamp` from memory
+**When**: Read the file `.claude-timestamp` (project root - see FILE-PATHS-REF for path) and it matches `lastTimestamp` from memory
 **Actions**:
 - INCREMENT-TIMESTAMP-STALE-CNT-ACTION
 
 #### FRESH-TIMESTAMP-TRIGGER
-**When**: `.claude-timestamp` (project root - see FILE-PATHS-REF for path) does not match `lastTimestamp` from memory
+**When**: Read the file `.claude-timestamp` (project root - see FILE-PATHS-REF for path) and it does not match `lastTimestamp` from memory
 **Actions**:
 - RESET-TIMESTAMP-STALE-CNT-ACTION
 
@@ -462,7 +462,7 @@ User input received
    ```json
    {
      "lastTokenPercent": <currentPercent>,
-     "lastTimestamp": "<timestamp from .claude-timestamp>",
+     "lastTimestamp": "<timestamp from reading the file .claude-timestamp>",
      "timestampStaleCount": <calculated value>
    }
    ```
@@ -476,7 +476,7 @@ User input received
 ```
 
 **Components**:
-- Timestamp from `.claude-timestamp`
+- Timestamp: Read the file `.claude-timestamp`
 - Progress bar based on token percentage (█ = filled, ░ = empty)
   - █████ = 100-80% remaining
   - ████░ = 79-60% remaining
