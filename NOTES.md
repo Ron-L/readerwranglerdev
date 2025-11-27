@@ -41,6 +41,25 @@ This file tracks tabled discussion items, work in progress context, and open que
 - Rationale: Ground rules are executable code (programs Claude's behavior), needs change tracking like code
 - Commits: 83abc5e
 
+**[2025-11-26] TRIGGERS Section Reorganization with Logical Grouping**
+- Added 8 sub-header groups to organize 27 triggers by workflow phase:
+  - **Meta & System Triggers** (3): RESPONSE-START, SESSION-COMPACTION, SESSION-CHECKLIST-REQUEST
+  - **Code Development Workflow** (3): CODE-CHANGE, VERSION-CHANGE-PROPOSAL, FILE-CHANGES-COMPLETE
+  - **Decision & Planning Triggers** (4): DECIDING-APPROACH, BEFORE-PROPOSING-SOLUTION, ADDING-CODE-OR-FEATURE, USER-SUGGESTS-IDEA
+  - **User Interaction Triggers** (5): WHEN-TO-STOP-AND-ASK, DISCUSSION-QUESTION, USER-PROBLEM-REPORT, IMPLICIT-PROBLEM-SIGNAL, FOUNDATION-ISSUE-IDENTIFIED
+  - **Git Operations** (3): GIT-OPERATION, COMMIT, CREATING-COMMIT-MESSAGE
+  - **Feature Development Lifecycle** (4): START-NEW-FEATURE, READY-TO-RELEASE, RELEASE-FINALIZATION, POST-RELEASE
+  - **Task & Documentation Management** (4): TASK-COMPLETION, PROJECT-VERSION-PROPOSAL, SKILL-FILE-MODIFIED, USER-SAYS-TABLE-THOUGHT
+  - **Domain-Specific Patterns** (5): DATA-GAP-DETECTION, API-ERROR, CREATE-DIAGNOSTIC-SCRIPT, STALE-TIMESTAMP, FRESH-TIMESTAMP
+- Benefits:
+  - Easy scanning by category - quickly find triggers by workflow phase
+  - Conceptual clarity - understand which triggers work together
+  - Prevents duplication - related triggers (e.g., git/commit) now adjacent
+  - Better onboarding - new developers or post-compaction Claude can understand system flow
+- Rationale: Original organization had related triggers scattered (e.g., COMMIT-TRIGGER and CREATING-COMMIT-MESSAGE-TRIGGER were far apart). Workflow-based grouping mirrors actual development cycle.
+- User requirement: RESPONSE-START-TRIGGER must be first (maintained)
+- Commits: [pending]
+
 **[2025-11-26] Trigger Language Improvements - Active vs Passive**
 - Updated TASK-COMPLETION-TRIGGER: "Marking a TODO phase/task as complete" → "After you mark any TODO.md item as complete [x]"
 - Updated 8 passive triggers with explicit, active language:

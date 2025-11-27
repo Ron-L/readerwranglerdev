@@ -49,6 +49,8 @@ User input received
 
 ## TRIGGERS (Events That Activate Protocols)
 
+### Meta & System Triggers
+
 ### RESPONSE-START-TRIGGER
 **When**: At the beginning of EVERY Claude response
 **Frequency**: Every single response without exception
@@ -57,12 +59,120 @@ User input received
 - UPDATE-MEMORY-ACTION
 - DISPLAY-STATUS-LINE-ACTION
 
+### SESSION-COMPACTION-TRIGGER
+**When**: Current token percentage is GREATER than lastTokenPercent from .claude-memory (i.e., `currentTokenPercent > lastTokenPercent`)
+**Where**:
+- `currentTokenPercent` = (tokens_remaining / 200000) × 100 from system token budget
+- `lastTokenPercent` = value from `.claude-memory` file (see FILE-PATHS-REF)
+**Actions**:
+- NOTIFY-COMPACTION-ACTION
+- POST-COMPACTION-ACTION
+
+### SESSION-CHECKLIST-REQUEST-TRIGGER
+**When**: User says "add to checklist", "checklist item", "session task", or provides current Session Checklist after compaction
+**Actions**:
+- ADD-TO-SESSION-CHECKLIST-ACTION
+- MARK-CURRENT-ITEM-ACTION
+- PRINT-CHECKLIST-ACTION
+
+### Code Development Workflow
+
 ### CODE-CHANGE-TRIGGER
 **When**: Before making ANY modification to code files
 **Excludes**: Documentation files (see DOCUMENTATION-FILES-REF)
 **Actions**:
 - CHECK-VERSION-INCREMENTED-ACTION
 - INCREMENT-VERSION-ACTION (if not already done)
+
+### VERSION-CHANGE-PROPOSAL-TRIGGER
+**When**: Before proposing a version number change
+**Actions**:
+- STATE-CHECKING-RULE-ACTION
+- QUOTE-CURRENT-VERSION-ACTION
+- IDENTIFY-PATTERN-ACTION
+- CALCULATE-NEXT-VERSION-ACTION
+- PROPOSE-WITH-REASONING-ACTION
+
+### FILE-CHANGES-COMPLETE-TRIGGER
+**When**: After you finish making file changes and before proposing a commit
+**Actions**:
+- LIST-MODIFIED-FILES-ACTION
+- SUMMARIZE-CHANGES-ACTION
+- REQUEST-COMMIT-APPROVAL-ACTION
+
+### Decision & Planning Triggers
+
+### DECIDING-APPROACH-TRIGGER
+**When**: When evaluating how to implement a bug fix or feature
+**Actions**:
+- ASSESS-DATA-IMPACT-ACTION
+- DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION
+- JUSTIFY-TIME-INVESTMENT-ACTION (if Build Solid chosen)
+
+### BEFORE-PROPOSING-SOLUTION-TRIGGER
+**When**: Before proposing any approach, fix, or solution to user
+**Actions**:
+- REVIEW-PAST-LEARNINGS-ACTION
+
+### ADDING-CODE-OR-FEATURE-TRIGGER
+**When**: Before proposing or implementing new code or functionality
+**Actions**:
+- CONSIDER-REMOVAL-ALTERNATIVE-ACTION
+- QUESTION-NECESSITY-ACTION
+- ASSESS-COMPLEXITY-COST-ACTION
+
+### USER-SUGGESTS-IDEA-TRIGGER
+**When**: User proposes new approach, feature, or solution
+**Actions**:
+- EVALUATE-IDEA-CRITICALLY-ACTION
+- IDENTIFY-POTENTIAL-ISSUES-ACTION
+- PROPOSE-ALTERNATIVES-ACTION (if warranted)
+- STATE-DISAGREEMENT-ACTION (when appropriate)
+
+### User Interaction Triggers
+
+### WHEN-TO-STOP-AND-ASK-TRIGGER
+**When**: Before implementing any code change, git operation, or file creation/modification, OR when uncertain about approach
+**Actions**:
+- STOP-ACTION
+- ASK-FOR-APPROVAL-ACTION
+- WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION
+
+### DISCUSSION-QUESTION-TRIGGER
+**When**: User asks "should we?", "thoughts?", "what do you think?", "your thoughts?"
+**Actions**:
+- STOP-ACTION
+- ENGAGE-DISCUSSION-ACTION
+- WAIT-FOR-APPROVAL-ACTION (do NOT implement)
+
+### USER-PROBLEM-REPORT-TRIGGER
+**When**: User reports an issue, error, or unexpected behavior
+**Includes**: Explicit reports AND implicit signals ("can you review...", "please check...")
+**Actions**:
+- STOP-ACTION
+- ACKNOWLEDGE-PROBLEM-ACTION
+- REQUEST-ANALYSIS-PERMISSION-ACTION
+- PERFORM-ROOT-CAUSE-ANALYSIS-ACTION (if approved)
+- PRESENT-FINDINGS-ACTION
+- WAIT-FOR-DECISION-ACTION
+
+### IMPLICIT-PROBLEM-SIGNAL-TRIGGER
+**When**: User asks to "review", "check", or "verify" work you JUST completed
+**Red Flags**: "Can you review [files you just worked with]?", "I think [statement about your work] - is that right?", "Please check if [something you should have done]"
+**Actions**:
+- STOP-AND-SELF-ASSESS-ACTION
+- REVIEW-COMPLETION-PROTOCOL-ACTION
+- ACKNOWLEDGE-IF-GAP-FOUND-ACTION
+- ROOT-CAUSE-ANALYSIS-ACTION (without being asked)
+
+### FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
+**When**: User identifies foundational issue (rules not working, docs unclear, structure confusing)
+**Actions**:
+- EMBRACE-DETOUR-ACTION
+- ASK-PRIORITY-DECISION-ACTION
+- WAIT-FOR-EXPLICIT-DECISION-ACTION
+
+### Git Operations
 
 ### GIT-OPERATION-TRIGGER
 **When**: Before any git command (commit, push, pull, merge, revert, tag, etc.)
@@ -76,21 +186,23 @@ User input received
 - UPDATE-BEFORE-COMMIT-ACTION
 - CHECK-DOCUMENTATION-UPDATED-ACTION
 
-### FILE-CHANGES-COMPLETE-TRIGGER
-**When**: After you finish making file changes and before proposing a commit
+### CREATING-COMMIT-MESSAGE-TRIGGER
+**When**: Executing git commit
 **Actions**:
-- LIST-MODIFIED-FILES-ACTION
-- SUMMARIZE-CHANGES-ACTION
-- REQUEST-COMMIT-APPROVAL-ACTION
+- FORMAT-COMMIT-MESSAGE-ACTION
 
-### VERSION-CHANGE-PROPOSAL-TRIGGER
-**When**: Before proposing a version number change
+### Feature Development Lifecycle
+
+### START-NEW-FEATURE-TRIGGER
+**When**: After user approves starting a new feature and before making any code changes
 **Actions**:
-- STATE-CHECKING-RULE-ACTION
-- QUOTE-CURRENT-VERSION-ACTION
-- IDENTIFY-PATTERN-ACTION
-- CALCULATE-NEXT-VERSION-ACTION
-- PROPOSE-WITH-REASONING-ACTION
+- CREATE-FEATURE-BRANCH-ACTION
+- CONFIRM-TESTING-WORKFLOW-ACTION
+
+### READY-TO-RELEASE-TRIGGER
+**When**: After user confirms feature is ready to merge to main
+**Actions**:
+- PREPARE-RELEASE-ACTION
 
 ### RELEASE-FINALIZATION-TRIGGER
 **When**: Before removing version letter (finalizing a release)
@@ -110,23 +222,7 @@ User input received
 - DOCUMENT-LESSONS-ACTION
 - PROPOSE-RULE-UPDATES-ACTION (if patterns emerge)
 
-### USER-PROBLEM-REPORT-TRIGGER
-**When**: User reports an issue, error, or unexpected behavior
-**Includes**: Explicit reports AND implicit signals ("can you review...", "please check...")
-**Actions**:
-- STOP-ACTION
-- ACKNOWLEDGE-PROBLEM-ACTION
-- REQUEST-ANALYSIS-PERMISSION-ACTION
-- PERFORM-ROOT-CAUSE-ANALYSIS-ACTION (if approved)
-- PRESENT-FINDINGS-ACTION
-- WAIT-FOR-DECISION-ACTION
-
-### SESSION-CHECKLIST-REQUEST-TRIGGER
-**When**: User says "add to checklist", "checklist item", "session task", or provides current Session Checklist after compaction
-**Actions**:
-- ADD-TO-SESSION-CHECKLIST-ACTION
-- MARK-CURRENT-ITEM-ACTION
-- PRINT-CHECKLIST-ACTION
+### Task & Documentation Management
 
 ### TASK-COMPLETION-TRIGGER
 **When**: After you mark any TODO.md item as complete [x]
@@ -137,19 +233,25 @@ User input received
 - VERIFY-CONSISTENCY-ACTION
 - REQUEST-APPROVAL-ACTION
 
-### DISCUSSION-QUESTION-TRIGGER
-**When**: User asks "should we?", "thoughts?", "what do you think?", "your thoughts?"
+### PROJECT-VERSION-PROPOSAL-TRIGGER
+**When**: Proposing a change to project version (README.md "Version" section)
 **Actions**:
-- STOP-ACTION
-- ENGAGE-DISCUSSION-ACTION
-- WAIT-FOR-APPROVAL-ACTION (do NOT implement)
+- ASSESS-PROJECT-VERSION-IMPACT-ACTION
+- CALCULATE-SEMANTIC-VERSION-ACTION
+- EXPLAIN-VERSION-INDEPENDENCE-ACTION
 
-### FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
-**When**: User identifies foundational issue (rules not working, docs unclear, structure confusing)
+### SKILL-FILE-MODIFIED-TRIGGER
+**When**: After modifying any SKILL-*.md file (ground rules, project-specific skills)
 **Actions**:
-- EMBRACE-DETOUR-ACTION
-- ASK-PRIORITY-DECISION-ACTION
-- WAIT-FOR-EXPLICIT-DECISION-ACTION
+- DOCUMENT-GROUND-RULES-CHANGES-ACTION
+
+### USER-SAYS-TABLE-THOUGHT-TRIGGER
+**When**: User says "table that thought", "hold that thought", or similar
+**Actions**:
+- UPDATE-NOTES-TABLED-ITEMS-ACTION
+- COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION
+
+### Domain-Specific Patterns
 
 ### DATA-GAP-DETECTION-TRIGGER
 **When**: >10% of expected data is missing or empty
@@ -167,92 +269,6 @@ User input received
 - EXAMINE-STRUCTURE-ACTION
 - CHECK-PARTIAL-SUCCESS-ACTION
 - DOCUMENT-FINDINGS-ACTION
-
-### START-NEW-FEATURE-TRIGGER
-**When**: After user approves starting a new feature and before making any code changes
-**Actions**:
-- CREATE-FEATURE-BRANCH-ACTION
-- CONFIRM-TESTING-WORKFLOW-ACTION
-
-### READY-TO-RELEASE-TRIGGER
-**When**: After user confirms feature is ready to merge to main
-**Actions**:
-- PREPARE-RELEASE-ACTION
-
-### CREATING-COMMIT-MESSAGE-TRIGGER
-**When**: Executing git commit
-**Actions**:
-- FORMAT-COMMIT-MESSAGE-ACTION
-
-### PROJECT-VERSION-PROPOSAL-TRIGGER
-**When**: Proposing a change to project version (README.md "Version" section)
-**Actions**:
-- ASSESS-PROJECT-VERSION-IMPACT-ACTION
-- CALCULATE-SEMANTIC-VERSION-ACTION
-- EXPLAIN-VERSION-INDEPENDENCE-ACTION
-
-### SESSION-COMPACTION-TRIGGER
-**When**: Current token percentage is GREATER than lastTokenPercent from .claude-memory (i.e., `currentTokenPercent > lastTokenPercent`)
-**Where**:
-- `currentTokenPercent` = (tokens_remaining / 200000) × 100 from system token budget
-- `lastTokenPercent` = value from `.claude-memory` file (see FILE-PATHS-REF)
-**Actions**:
-- NOTIFY-COMPACTION-ACTION
-- POST-COMPACTION-ACTION
-
-### USER-SUGGESTS-IDEA-TRIGGER
-**When**: User proposes new approach, feature, or solution
-**Actions**:
-- EVALUATE-IDEA-CRITICALLY-ACTION
-- IDENTIFY-POTENTIAL-ISSUES-ACTION
-- PROPOSE-ALTERNATIVES-ACTION (if warranted)
-- STATE-DISAGREEMENT-ACTION (when appropriate)
-
-### ADDING-CODE-OR-FEATURE-TRIGGER
-**When**: Before proposing or implementing new code or functionality
-**Actions**:
-- CONSIDER-REMOVAL-ALTERNATIVE-ACTION
-- QUESTION-NECESSITY-ACTION
-- ASSESS-COMPLEXITY-COST-ACTION
-
-### BEFORE-PROPOSING-SOLUTION-TRIGGER
-**When**: Before proposing any approach, fix, or solution to user
-**Actions**:
-- REVIEW-PAST-LEARNINGS-ACTION
-
-### DECIDING-APPROACH-TRIGGER
-**When**: When evaluating how to implement a bug fix or feature
-**Actions**:
-- ASSESS-DATA-IMPACT-ACTION
-- DETERMINE-SHIP-FAST-OR-BUILD-SOLID-ACTION
-- JUSTIFY-TIME-INVESTMENT-ACTION (if Build Solid chosen)
-
-### SKILL-FILE-MODIFIED-TRIGGER
-**When**: After modifying any SKILL-*.md file (ground rules, project-specific skills)
-**Actions**:
-- DOCUMENT-GROUND-RULES-CHANGES-ACTION
-
-### USER-SAYS-TABLE-THOUGHT-TRIGGER
-**When**: User says "table that thought", "hold that thought", or similar
-**Actions**:
-- UPDATE-NOTES-TABLED-ITEMS-ACTION
-- COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION
-
-### WHEN-TO-STOP-AND-ASK-TRIGGER
-**When**: Before implementing any code change, git operation, or file creation/modification, OR when uncertain about approach
-**Actions**:
-- STOP-ACTION
-- ASK-FOR-APPROVAL-ACTION
-- WAIT-FOR-EXPLICIT-CONFIRMATION-ACTION
-
-### IMPLICIT-PROBLEM-SIGNAL-TRIGGER
-**When**: User asks to "review", "check", or "verify" work you JUST completed
-**Red Flags**: "Can you review [files you just worked with]?", "I think [statement about your work] - is that right?", "Please check if [something you should have done]"
-**Actions**:
-- STOP-AND-SELF-ASSESS-ACTION
-- REVIEW-COMPLETION-PROTOCOL-ACTION
-- ACKNOWLEDGE-IF-GAP-FOUND-ACTION
-- ROOT-CAUSE-ANALYSIS-ACTION (without being asked)
 
 ### CREATE-DIAGNOSTIC-SCRIPT-TRIGGER
 **When**: Creating temporary diagnostic, test, or output files
