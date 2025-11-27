@@ -1,4 +1,4 @@
-// ReaderWrangler Bookmarklet Navigation Hub v1.1.2.b
+// ReaderWrangler Bookmarklet Navigation Hub v1.1.2
 // Universal navigator and data fetcher dialog
 //
 // This script creates a navigation dialog when invoked by a bookmarklet.
@@ -13,7 +13,7 @@
 (function() {
     'use strict';
 
-    const NAV_HUB_VERSION = 'v1.1.2.b';
+    const NAV_HUB_VERSION = 'v1.1.2';
 
     // Read TARGET_ENV from window (injected by bookmarklet)
     // Default to 'PROD' for backwards compatibility with old bookmarklets
