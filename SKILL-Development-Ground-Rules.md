@@ -151,6 +151,9 @@ description: Core development workflow rules including version management, appro
 
 # Software Development Ground Rules
 
+⚠️ **EXECUTION REQUIRED**: Do not just read these rules - EXECUTE them.
+Every response MUST fire RESPONSE-START-TRIGGER and display the status line.
+
 ## HOW TO USE THIS FILE
 
 **Execution Protocol:**
@@ -536,14 +539,14 @@ User input received
 ```
 🚨 EXECUTE THESE STEPS IMMEDIATELY BEFORE YOUR FIRST RESPONSE 🚨
 
-STEP 1: Read ground rules file
-  → Read SKILL-Development-Ground-Rules.md in full
+STEP 1: Read and EXECUTE ground rules file
+  → Read and EXECUTE SKILL-Development-Ground-Rules.md in full
 
-STEP 2: Read project skills file
-  → Read SKILL-ReaderWrangler.md in full
+STEP 2: Read and EXECUTE project skills file
+  → Read and EXECUTE SKILL-ReaderWrangler.md in full
 
-STEP 3: Read decision frameworks
-  → Read CONTRIBUTING.md for Ship Fast vs Build Solid framework
+STEP 3: Read decision frameworks (reference, not rules)
+  → Read CONTRIBUTING.md for guidance on Ship Fast vs Build Solid decisions
 
 STEP 4: EXECUTE RESPONSE-START-TRIGGER
   → Read .claude-memory file (READ-MEMORY-ACTION)
