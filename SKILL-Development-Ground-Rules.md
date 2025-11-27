@@ -95,7 +95,9 @@ User input received
 ### RELEASE-FINALIZATION-TRIGGER
 **When**: Before removing version letter (finalizing a release)
 **Actions**:
-- FINALIZE-RELEASE-ACTION
+- REVIEW-CODE-TODOS-ACTION
+- VERIFY-RELEASE-DOCS-ACTION
+- FINALIZE-RELEASE-TAG-ACTION
 
 ### POST-RELEASE-TRIGGER
 **When**: After push/tag completes for a code release (project version incremented)
@@ -228,6 +230,11 @@ User input received
 **Actions**:
 - UPDATE-CHANGELOG-ACTION
 - REVIEW-TECHNICAL-NOTES-ACTION
+
+### SKILL-FILE-MODIFIED-TRIGGER
+**When**: After modifying any SKILL-*.md file (ground rules, project-specific skills)
+**Actions**:
+- DOCUMENT-GROUND-RULES-CHANGES-ACTION
 
 ### USER-SAYS-TABLE-THOUGHT-TRIGGER
 **When**: User says "table that thought", "hold that thought", or similar
@@ -453,12 +460,30 @@ User input received
 1. Remove letter from version (e.g., v3.2.1.c → v3.2.1)
 2. Create git tag: `git tag vX.Y.Z`
 
-### FINALIZE-RELEASE-ACTION
-**Purpose**: Complete all release verification and tagging
+### REVIEW-CODE-TODOS-ACTION
+**Purpose**: Check for temporary TODO comments before release
 **Steps**:
-1. Verify all items in RELEASE-CHECKLIST-REF
-2. If all verified, remove letter and tag release
-3. If any verification fails, STOP and report which item failed
+1. Run: `grep -rn "TODO" *.js *.html 2>/dev/null | grep -v "node_modules"`
+2. If found: Display results with file names and line numbers
+3. Ask user: "Fix these TODOs or proceed with release?"
+4. If user says "fix": STOP and abort release
+5. If user says "proceed": Continue to next action
+
+### VERIFY-RELEASE-DOCS-ACTION
+**Purpose**: Verify all required documentation is updated
+**Steps**:
+1. Check CHANGELOG.md updated with version entry (STOP if missing)
+2. Check NOTES.md marked as RELEASED ✅ (STOP if missing)
+3. Check TODO.md tasks marked complete (STOP if missing)
+4. Check README.md project version updated (STOP if missing)
+5. If all verified: Continue to next action
+6. If any missing: STOP and report which item failed
+
+### FINALIZE-RELEASE-TAG-ACTION
+**Purpose**: Remove version letter and create git tag
+**Steps**:
+1. Remove letter from version (e.g., v3.2.1.c → v3.2.1)
+2. Create git tag: `git tag vX.Y.Z`
 
 ### REQUEST-POST-MORTEM-ACTION
 **Purpose**: Initiate post-release review
@@ -889,6 +914,20 @@ Include current work status, completed work, and next steps as usual.
 2. Include context about WHY it was tabled
 3. Include date and any relevant context
 
+### DOCUMENT-GROUND-RULES-CHANGES-ACTION
+**Purpose**: Track changes to SKILL-*.md files for future reference
+**Steps**:
+1. Add entry to NOTES.md under "Ground Rules Evolution" section
+2. Include: Date, what changed, why it changed, commit hash
+3. Skip CHANGELOG.md (not user-facing product changes)
+4. Format:
+   ```
+   **[YYYY-MM-DD] Brief Title**
+   - Changes made (bullet list)
+   - Rationale: Why this change
+   - Commits: [hash]
+   ```
+
 ### COMMIT-NOTES-WITH-OTHER-CHANGES-ACTION
 **Purpose**: Ensure NOTES.md is backed up with commits
 **Steps**:
@@ -1020,12 +1059,4 @@ Session Checklist:
                ⬜ Push to DEV and test
 3   ⏳ **Document workflow**
 ```
-
-### RELEASE-CHECKLIST-REF
-
-1. Verify: CHANGELOG.md updated with version entry
-2. Verify: NOTES.md marked as RELEASED ✅
-3. Verify: TODO.md tasks marked complete
-4. Verify: README.md project version updated
-5. Then remove letter and tag
 

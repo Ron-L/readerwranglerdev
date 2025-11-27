@@ -6,9 +6,10 @@ _What we're actively working on right now_
 
 ### 1. Development Process Improvements
 
-- [ ] Consider adding "grep for TODO comments in code files" to release procedure in ground rules
+- [x] Consider adding "grep for TODO comments in code files" to release procedure in ground rules
   - Review all in-code TODOs before finalizing release
   - Ensures temporary code doesn't become permanent
+  - **Status**: Implemented in REVIEW-CODE-TODOS-ACTION (runs first during RELEASE-FINALIZATION-TRIGGER)
 
 ### 3. Status Bar Redesign (v3.7.0) - IN PROGRESS
 

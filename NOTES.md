@@ -4,6 +4,43 @@ This file tracks tabled discussion items, work in progress context, and open que
 
 **Purpose:** Session state tracking only. For development rules and workflows, see SKILL-Development-Ground-Rules.md.
 
+## Ground Rules Evolution
+
+### SKILL-Development-Ground-Rules.md Changes
+
+**[2025-11-26] Release Process Protocol Improvements**
+- Split FINALIZE-RELEASE-ACTION into 3 discrete actions:
+  - REVIEW-CODE-TODOS-ACTION (manual review with user decision: fix or proceed)
+  - VERIFY-RELEASE-DOCS-ACTION (automated hard stops for missing docs)
+  - FINALIZE-RELEASE-TAG-ACTION (git tagging)
+- Updated RELEASE-FINALIZATION-TRIGGER to call all 3 actions in sequence
+- Deleted RELEASE-CHECKLIST-REF (consolidated into VERIFY-RELEASE-DOCS-ACTION steps)
+- Rationale: Old approach was ambiguous - unclear what "verify" meant (automated vs manual check)
+- User insight: TODO check should run FIRST (may trigger more work, aborting remaining checks)
+- Implements TODO.md item: "grep for TODO comments in code files"
+- Commits: 044695b (REFERENCE DATA optimization), [pending] (release process split)
+
+**[2025-11-26] REFERENCE DATA Section Optimization**
+- Deleted 3 orphaned REFs not referenced by any TRIGGER/ACTION:
+  - COMMIT-MESSAGE-FORMAT-REF (format kept inline in FORMAT-COMMIT-MESSAGE-ACTION)
+  - TOKEN-BUDGET-REF (values hardcoded in SESSION-COMPACTION-TRIGGER and DISPLAY-STATUS-LINE-ACTION)
+  - CLAUDE-SKILLS-MANAGEMENT-REF (git hook handles automatically, no Claude involvement)
+- Created 2 new ACTIONS:
+  - PRINT-SESSION-CHECKLIST-ACTION (references SESSION-CHECKLIST-FORMAT-REF)
+  - FINALIZE-RELEASE-ACTION (consolidated 6 verification actions, references RELEASE-CHECKLIST-REF) [NOTE: Later split into 3 actions]
+- Removed all Purpose statements from remaining REFs (calling contexts make them clear):
+  - FILE-PATHS-REF, DOCUMENTATION-FILES-REF, SESSION-CHECKLIST-FORMAT-REF, RELEASE-CHECKLIST-REF
+- Token savings: ~400 tokens total
+- Architecture improvement: Event-driven pattern (TRIGGERS → ACTIONS → REFERENCE DATA) fully enforced with forward-only references
+- Commits: 044695b
+
+**[2025-11-26] Ground Rules Change Documentation Protocol**
+- Added SKILL-FILE-MODIFIED-TRIGGER (fires after modifying SKILL-*.md files)
+- Added DOCUMENT-GROUND-RULES-CHANGES-ACTION (documents changes in NOTES.md)
+- Protocol: Track SKILL-*.md changes in NOTES.md "Ground Rules Evolution", skip CHANGELOG.md (not user-facing)
+- Rationale: Ground rules are executable code (programs Claude's behavior), needs change tracking like code
+- Commits: [pending]
+
 ## Tabled Items
 
 ### Column Name Filtering Feature
