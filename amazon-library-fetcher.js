@@ -1,7 +1,12 @@
-// Amazon Library Fetcher v3.4.0 (Combined Pass 1+2 + IndexedDB Manifest + Deduplication + Stats + GUID)
+// Amazon Library Fetcher v3.5.0 (Speed optimized: 0ms delays + batch enrichment)
 // Fetches library books and enriches them with descriptions & reviews
 // Writes manifest to IndexedDB for ReaderWrangler status bar tracking
 // Schema Version: 3.1.0 (Adds GUID for status bar tracking)
+//
+// v3.5.0 Changes:
+// - Removed artificial delays (network RTT provides natural throttling)
+// - Batch enrichment: 30 ASINs per call (was 1 per call)
+// - Expected time: ~1 minute for 2000+ books (was ~2 hours)
 //
 // Instructions:
 // 1. Go to https://www.amazon.com/yourbooks (must be logged in)
@@ -9,7 +14,7 @@
 // 3. Paste this ENTIRE script and press Enter
 // 4. If you have existing data, select amazon-library.json when prompted
 //    (If no existing file, just cancel the dialog - will fetch ALL books)
-// 5. Wait for completion (~5 min first time, ~2-3 hours with enrichment)
+// 5. Wait for completion (~1 minute for full library)
 // 6. Downloads amazon-library.json (manifest saved to browser IndexedDB)
 // 7. Upload library file to organizer!
 //
@@ -17,7 +22,7 @@
 
 async function fetchAmazonLibrary() {
     const PAGE_TITLE = document.title;
-    const FETCHER_VERSION = 'v3.4.0';
+    const FETCHER_VERSION = 'v3.5.0.a';
     const SCHEMA_VERSION = '3.1.0';
 
     console.log('========================================');
@@ -34,8 +39,9 @@ async function fetchAmazonLibrary() {
     }
 
     const PAGE_SIZE = 30;
-    const FETCH_DELAY_MS = 2000; // 2 seconds between library pages
-    const ENRICH_DELAY_MS = 3000; // 3 seconds between enrichment requests
+    const FETCH_DELAY_MS = 0; // No delay - network RTT provides natural throttling
+    const ENRICH_DELAY_MS = 0; // No delay - network RTT provides natural throttling
+    const ENRICH_BATCH_SIZE = 30; // Max ASINs per getProducts call (Amazon limit)
     const LIBRARY_FILENAME = 'amazon-library.json';
     // MANIFEST_FILENAME removed in v3.4.0.a - manifest now written to IndexedDB only
     const startTime = Date.now();
@@ -1350,30 +1356,36 @@ async function fetchAmazonLibrary() {
         stats.timing.pass1End = Date.now();
         console.log(`\n✅ Pass 1 complete: Found ${newBooks.length} new books\n`);
 
-        // Step 4: Enrich new books (Pass 2)
+        // Step 4: Enrich new books (Pass 2) - BATCH MODE
         stats.timing.pass2Start = Date.now();
         console.log('[4/6] Enriching new books with descriptions & reviews...');
         progressUI.updatePhase('Enriching Data', `Fetching descriptions & reviews for ${newBooks.length} books`);
 
-        const estimatedTime = Math.ceil((newBooks.length * ENRICH_DELAY_MS) / 1000 / 60);
-        console.log(`   Estimated time: ~${estimatedTime} minutes\n`);
+        const totalBatches = Math.ceil(newBooks.length / ENRICH_BATCH_SIZE);
+        console.log(`   Batch mode: ${ENRICH_BATCH_SIZE} books per request, ${totalBatches} batches total\n`);
 
         let enrichedCount = 0;
         let errorCount = 0;
         const booksWithoutDescriptions = []; // Track books where description extraction failed
 
-        for (let i = 0; i < newBooks.length; i++) {
-            const book = newBooks[i];
-            const percent = Math.round((i / newBooks.length) * 100);
+        // Process books in batches
+        for (let batchNum = 0; batchNum < totalBatches; batchNum++) {
+            const batchStart = batchNum * ENRICH_BATCH_SIZE;
+            const batchEnd = Math.min(batchStart + ENRICH_BATCH_SIZE, newBooks.length);
+            const batchBooks = newBooks.slice(batchStart, batchEnd);
+            const percent = Math.round((batchStart / newBooks.length) * 100);
             const progressBar = '█'.repeat(Math.floor(percent / 2)) + '░'.repeat(50 - Math.floor(percent / 2));
 
-            console.log(`[${i + 1}/${newBooks.length}] [${progressBar}] ${percent}% - ${book.title.substring(0, 40)}...`);
+            console.log(`[Batch ${batchNum + 1}/${totalBatches}] [${progressBar}] ${percent}% - ${batchBooks.length} books...`);
 
             try {
+                // Build GraphQL-compatible input: [{asin: "X"}, {asin: "Y"}, ...]
+                const inputStr = '[' + batchBooks.map(book => `{asin: "${book.asin}"}`).join(', ') + ']';
+
                 // Wrap fetch logic in retry function
                 const result = await fetchWithRetry(async () => {
                     const query = `query enrichBook {
-                        getProducts(input: [{asin: "${book.asin}"}]) {
+                        getProducts(input: ${inputStr}) {
                             asin
                             description {
                                 sections(filter: {types: PRODUCT_DESCRIPTION}) {
@@ -1446,100 +1458,113 @@ async function fetchAmazonLibrary() {
                     // Check for GraphQL errors - but don't fail immediately
                     if (data.errors) {
                         const errorMsg = data.errors[0]?.message || 'Unknown GraphQL error';
-                        const product = data?.data?.getProducts?.[0];
+                        const products = data?.data?.getProducts || [];
 
-                        if (product) {
-                            // PARTIAL ERROR: We got errors BUT also got data
-                            // Log warning but continue with extraction
+                        if (products.length > 0) {
+                            // PARTIAL ERROR: We got errors BUT also got some data
                             console.log(`   ⚠️  Partial error: ${errorMsg}`);
-                            console.log(`   📦 But got product data - continuing...`);
-                            console.log(`   🔍 Error path: ${data.errors[0]?.path?.join(' → ') || 'N/A'}`);
+                            console.log(`   📦 Got ${products.length}/${batchBooks.length} products - continuing...`);
 
-                            // Log raw error details for debugging future issues
-                            console.log(`   📄 Raw error details:`, JSON.stringify(data.errors, null, 2));
-
-                            // Track this partial error for statistics
+                            // Track partial errors
                             stats.partialErrorBooks.push({
-                                position: i + 1,
-                                title: book.title,
-                                asin: book.asin,
+                                batch: batchNum + 1,
                                 errorMessage: errorMsg,
-                                errorPath: data.errors[0]?.path?.join(' → ') || 'N/A'
+                                productsReturned: products.length,
+                                productsRequested: batchBooks.length
                             });
 
-                            // Continue to extract from product data
-                            return { product, partialError: true };
+                            return { products, partialError: true };
                         } else {
                             // TOTAL FAILURE: Errors and NO data
                             console.log(`   ❌ Total failure: ${errorMsg}`);
-                            console.log(`   📄 Raw response dump:`, JSON.stringify(data, null, 2));
                             return { apiError: true, errorMessage: errorMsg };
                         }
                     }
 
-                    const product = data?.data?.getProducts?.[0];
+                    const products = data?.data?.getProducts || [];
 
-                    if (!product) {
-                        console.log(`   ⚠️  No product data in response`);
-                        console.log(`   📄 Raw response dump:`, JSON.stringify(data, null, 2));
+                    if (products.length === 0) {
+                        console.log(`   ⚠️  No products in response`);
                         return { noData: true };
                     }
 
-                    // Success - return product
-                    return { product };
-                }, book.title);
+                    // Success - return all products
+                    return { products };
+                }, `Batch ${batchNum + 1}`);
 
-                // Extract product from successful result
-                const product = result.product;
+                // Process each product in the batch
+                const products = result.products || [];
 
-                // Extract data - using shared functions
-                let description = extractDescription(product);
-
-                // Fallback to AI summary if no traditional description
-                if (!description) {
-                    description = extractAISummary(product);
-                    if (description) {
-                        stats.aiSummariesUsed.push({ title: book.title, asin: book.asin });
-                        console.log(`   📝 Using AI summary (${description.length} chars)`);
+                // Create ASIN lookup map for efficient matching
+                const productMap = new Map();
+                for (const product of products) {
+                    if (product.asin) {
+                        productMap.set(product.asin, product);
                     }
                 }
 
-                const topReviews = extractReviews(product);
+                // Match products back to books and extract data
+                let batchEnriched = 0;
+                for (let i = 0; i < batchBooks.length; i++) {
+                    const bookIndex = batchStart + i;
+                    const book = batchBooks[i];
+                    const product = productMap.get(book.asin);
 
-                // Track books without descriptions
-                if (!description) {
-                    booksWithoutDescriptions.push({
-                        asin: book.asin,
-                        title: book.title,
-                        authors: book.authors
-                    });
-
-                    const descSection = product.description?.sections?.[0];
-                    if (descSection) {
-                        console.log(`   ⚠️  No description extracted. Structure: ${JSON.stringify(descSection).substring(0, 200)}...`);
+                    if (!product) {
+                        console.log(`   ⚠️  No data for: ${book.title.substring(0, 40)}...`);
+                        errorCount++;
+                        continue;
                     }
+
+                    // Extract data - using shared functions
+                    let description = extractDescription(product);
+
+                    // Fallback to AI summary if no traditional description
+                    if (!description) {
+                        description = extractAISummary(product);
+                        if (description) {
+                            stats.aiSummariesUsed.push({ title: book.title, asin: book.asin });
+                        }
+                    }
+
+                    const topReviews = extractReviews(product);
+
+                    // Track books without descriptions
+                    if (!description) {
+                        booksWithoutDescriptions.push({
+                            asin: book.asin,
+                            title: book.title,
+                            authors: book.authors
+                        });
+                    }
+
+                    // Update book
+                    newBooks[bookIndex].description = description;
+                    newBooks[bookIndex].topReviews = topReviews;
+
+                    // Update rating if fresher
+                    if (product.customerReviewsSummary?.rating?.value) {
+                        newBooks[bookIndex].rating = product.customerReviewsSummary.rating.value;
+                        newBooks[bookIndex].reviewCount = product.customerReviewsSummary.count?.displayString || null;
+                    }
+
+                    batchEnriched++;
+                    enrichedCount++;
                 }
 
-                // Update book
-                newBooks[i].description = description;
-                newBooks[i].topReviews = topReviews;
-
-                // Update rating if fresher
-                if (product.customerReviewsSummary?.rating?.value) {
-                    newBooks[i].rating = product.customerReviewsSummary.rating.value;
-                    newBooks[i].reviewCount = product.customerReviewsSummary.count?.displayString || null;
-                }
-
-                enrichedCount++;
-                console.log(`   ✅ ${description.length} chars, ${topReviews.length} reviews`);
+                console.log(`   ✅ Enriched ${batchEnriched}/${batchBooks.length} books in batch`);
 
             } catch (error) {
-                stats.apiErrorBooks.push({ title: book.title, asin: book.asin });
-                console.log(`   ❌ Failed after ${MAX_RETRIES} retries: ${error.message}`);
-                errorCount++;
+                // Batch failed - log all books in batch as errors
+                for (const book of batchBooks) {
+                    stats.apiErrorBooks.push({ title: book.title, asin: book.asin });
+                }
+                console.log(`   ❌ Batch failed after ${MAX_RETRIES} retries: ${error.message}`);
+                errorCount += batchBooks.length;
             }
 
-            if (i < newBooks.length - 1) {
+            // Delay between batches (if configured)
+            if (batchNum < totalBatches - 1 && ENRICH_DELAY_MS > 0) {
                 await new Promise(resolve => setTimeout(resolve, ENRICH_DELAY_MS));
             }
         }
@@ -1699,12 +1724,10 @@ async function fetchAmazonLibrary() {
 
         if (stats.partialErrorBooks.length > 0) {
             console.log('⚠️  PARTIAL ERRORS (Got data anyway)');
-            console.log(`   Books with partial errors:    ${stats.partialErrorBooks.length}`);
+            console.log(`   Batches with partial errors:  ${stats.partialErrorBooks.length}`);
             stats.partialErrorBooks.forEach(item => {
-                console.log(`      • [${item.position}] ${item.title.substring(0, 50)}`);
-                console.log(`        ASIN: ${item.asin}`);
+                console.log(`      • Batch ${item.batch}: ${item.productsReturned}/${item.productsRequested} products returned`);
                 console.log(`        Error: ${item.errorMessage}`);
-                console.log(`        Path: ${item.errorPath}`);
             });
             console.log('');
         }
