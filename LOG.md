@@ -10,6 +10,26 @@ For current work, see TODO.md. For development rules, see SKILL-Development-Grou
 
 ---
 
+## [2025-12-11] @RULES Trigger Reorganization for Better Compliance
+
+Reorganized TRIGGERS section into two categories to improve protocol compliance:
+
+**Always-Evaluate Triggers** (scan user message every response):
+- Added "Keyword Checklist" at top of section for explicit scanning
+- Includes: DISCUSSION-QUESTION-TRIGGER, USER-SAYS-TABLE-THOUGHT-TRIGGER, SESSION-CHECKLIST-REQUEST-TRIGGER, USER-PROBLEM-REPORT-TRIGGER, IMPLICIT-PROBLEM-SIGNAL-TRIGGER, USER-SUGGESTS-IDEA-TRIGGER, FOUNDATION-ISSUE-IDENTIFIED-TRIGGER
+
+**State-Dependent Triggers** (evaluate when context applies):
+- System State Triggers (RESPONSE-START, SESSION-COMPACTION, STALE/FRESH-TIMESTAMP)
+- Before Code Changes, Before Decisions, Before Git Operations
+- Feature Development Lifecycle, Task and Documentation Management
+- Domain-Specific Patterns
+
+**Rationale**: Claude was missing keyword-based triggers because they weren't being systematically scanned. The new structure makes explicit that user-message triggers must be checked EVERY response.
+
+**Commits**: [pending]
+
+---
+
 ## [2025-11-27] Status Bar Redesign (v3.7.0) - COMPLETE
 
 **Goal**: Simplify status display with user-first urgency indicators based on Load state only
