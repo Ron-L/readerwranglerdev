@@ -33,6 +33,8 @@ description: Core development workflow rules including version management, appro
                 - [GIT-OPERATION-TRIGGER](#git-operation-trigger)
                 - [COMMIT-TRIGGER](#commit-trigger)
                 - [CREATING-COMMIT-MESSAGE-TRIGGER](#creating-commit-message-trigger)
+            - [Before Testing](#before-testing)
+                - [READY-TO-TEST-TRIGGER](#ready-to-test-trigger)
             - [Feature Development Lifecycle](#feature-development-lifecycle)
                 - [START-NEW-FEATURE-TRIGGER](#start-new-feature-trigger)
                 - [READY-TO-RELEASE-TRIGGER](#ready-to-release-trigger)
@@ -97,6 +99,7 @@ description: Core development workflow rules including version management, appro
             - [UPDATE-BEFORE-COMMIT-ACTION](#update-before-commit-action)
             - [CHECK-DOCUMENTATION-UPDATED-ACTION](#check-documentation-updated-action)
             - [FORMAT-COMMIT-MESSAGE-ACTION](#format-commit-message-action)
+            - [VERIFY-CODE-COMMITTED-ACTION](#verify-code-committed-action)
         - [Feature Development Lifecycle Actions](#feature-development-lifecycle-actions)
             - [CREATE-FEATURE-BRANCH-ACTION](#create-feature-branch-action)
             - [CONFIRM-TESTING-WORKFLOW-ACTION](#confirm-testing-workflow-action)
@@ -377,6 +380,13 @@ These triggers depend on **WHAT CLAUDE IS DOING** or **SYSTEM STATE**. Evaluate 
 **When**: Executing git commit
 **Actions**:
 - FORMAT-COMMIT-MESSAGE-ACTION
+
+#### Before Testing
+
+##### READY-TO-TEST-TRIGGER
+**When**: Before user tests code changes on external systems (Amazon, GitHub Pages, browser, etc.)
+**Actions**:
+- VERIFY-CODE-COMMITTED-ACTION
 
 #### Feature Development Lifecycle
 
@@ -836,6 +846,19 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 2. Include version in subject line
 3. Write body explaining WHY
 4. Add Claude attribution
+
+#### VERIFY-CODE-COMMITTED-ACTION
+**Purpose**: Ensure tested code matches a committed version for traceability
+**Steps**:
+1. Check if code changes are committed (run `git status`)
+2. If uncommitted changes exist:
+   - Ask: "Should I commit before you test? This ensures the version number in your test output matches a specific commit."
+   - Wait for user decision
+3. If committed:
+   - Confirm version and commit hash: "Code is committed as [version] (commit [hash])"
+   - User can now test knowing exact code state
+
+**Rationale**: When testing outputs include version numbers (e.g., "Amazon Collections Fetcher v1.2.0.a"), committing first creates traceability between test results and code state.
 
 ### Feature Development Lifecycle Actions
 
