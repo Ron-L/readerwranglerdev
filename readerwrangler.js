@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.150";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.151";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9214,6 +9214,9 @@
                                                                     setBreadcrumbDropTargetId(null); // v5.0.0-alpha.83
                                                                 }}
                                                                 onClick={(e) => {
+                                                                    // v5.0.0-alpha.151 - Skip selection when editing folder name
+                                                                    if (editingFolderId === folder.id) return;
+
                                                                     // Clear book selection when selecting folder
                                                                     setExplorerSelectedBooks(new Set());
                                                                     if (e.ctrlKey || e.metaKey) {
@@ -9228,6 +9231,9 @@
                                                                     }
                                                                 }}
                                                                 onDoubleClick={() => {
+                                                                    // v5.0.0-alpha.151 - Skip navigation when editing folder name
+                                                                    if (editingFolderId === folder.id) return;
+
                                                                     // Navigate into folder
                                                                     navigateToFolder(folder.id);
                                                                     // Expand parent if collapsed
