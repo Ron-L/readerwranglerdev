@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.135";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.136";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -218,7 +218,6 @@
             const [navHistoryIndex, setNavHistoryIndex] = useState(0); // v5.0.0-alpha.92 - Current position in history
             const [bookTooltip, setBookTooltip] = useState(null); // v5.0.0-alpha.98 - Tooltip for All Books view { bookId, x, y }
             const [folderContextMenu, setFolderContextMenu] = useState(null); // v5.0.0-alpha.133 - Folder context menu { folderId, x, y }
-            const [contextSubmenu, setContextSubmenu] = useState(null); // v5.0.0-alpha.135 - Context menu submenu state (for "Move to")
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
