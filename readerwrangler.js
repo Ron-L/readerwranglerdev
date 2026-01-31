@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.144";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.145";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1878,6 +1878,194 @@
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
             }, [folderContextMenu]);
+
+            // v5.0.0-alpha.145 - Keyboard shortcuts for folder operations (Phase 6)
+            useEffect(() => {
+                const handleKeyboard = (e) => {
+                    // Skip if user is typing in an input/textarea
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                    // Skip if dialog or context menu is open
+                    if (folderContextMenu || folderPropertiesDialog) return;
+
+                    const currentFolder = folders.find(f => f.id === selectedFolderId);
+                    if (!currentFolder) return;
+
+                    const isSpecialFolder = ['__all__', '__inbox__', '__library__'].includes(currentFolder.id);
+
+                    // Ctrl+X - Cut folder
+                    if (e.ctrlKey && e.key === 'x' && !isSpecialFolder) {
+                        e.preventDefault();
+                        setFolderClipboard({ items: [currentFolder.id], operation: 'cut' });
+                        console.log(`✂️ Cut folder "${currentFolder.name}"`);
+                    }
+
+                    // Ctrl+C - Copy folder
+                    if (e.ctrlKey && e.key === 'c' && !isSpecialFolder) {
+                        e.preventDefault();
+                        setFolderClipboard({ items: [currentFolder.id], operation: 'copy' });
+                        console.log(`📋 Copied folder "${currentFolder.name}"`);
+                    }
+
+                    // Ctrl+V - Paste into current folder
+                    if (e.ctrlKey && e.key === 'v' && folderClipboard.items.length > 0 && !isSpecialFolder) {
+                        e.preventDefault();
+
+                        const folderId = folderClipboard.items[0];
+                        const folderToPaste = folders.find(f => f.id === folderId);
+                        if (!folderToPaste) return;
+
+                        // Check for circular reference
+                        const isDescendantOf = (targetId, ancestorId) => {
+                            if (!targetId || !ancestorId) return false;
+                            let current = folders.find(f => f.id === targetId);
+                            while (current) {
+                                if (current.id === ancestorId) return true;
+                                current = folders.find(f => f.id === current.parentId);
+                            }
+                            return false;
+                        };
+
+                        if (currentFolder.id === folderId || isDescendantOf(currentFolder.id, folderId)) {
+                            alert("Cannot paste folder into itself or its descendants");
+                            return;
+                        }
+
+                        if (folderClipboard.operation === 'cut') {
+                            // Move folder
+                            recordAction({
+                                type: 'CUT_PASTE_FOLDER',
+                                folderId: folderId,
+                                oldParentId: folderToPaste.parentId,
+                                newParentId: currentFolder.id
+                            });
+                            setFolders(prev => prev.map(f =>
+                                f.id === folderId ? { ...f, parentId: currentFolder.id } : f
+                            ));
+                            setFolderClipboard({ items: [], operation: null });
+                            console.log(`📌 Pasted (moved) "${folderToPaste.name}" into "${currentFolder.name}"`);
+                        } else if (folderClipboard.operation === 'copy') {
+                            // Deep copy folder
+                            const copyFolderRecursive = (sourceFolderId, newParentId) => {
+                                const sourceFolder = folders.find(f => f.id === sourceFolderId);
+                                if (!sourceFolder) return null;
+
+                                const newId = '__folder__' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                const newFolder = {
+                                    ...sourceFolder,
+                                    id: newId,
+                                    name: sourceFolder.name + ' (Copy)',
+                                    parentId: newParentId,
+                                    created: Date.now()
+                                };
+
+                                const children = folders.filter(f => f.parentId === sourceFolderId);
+                                return { folder: newFolder, children: children.map(child => copyFolderRecursive(child.id, newId)) };
+                            };
+
+                            const copyTree = copyFolderRecursive(folderId, currentFolder.id);
+                            if (copyTree) {
+                                const flattenCopyTree = (tree) => {
+                                    const result = [tree.folder];
+                                    tree.children.forEach(child => {
+                                        if (child) result.push(...flattenCopyTree(child));
+                                    });
+                                    return result;
+                                };
+                                const newFolders = flattenCopyTree(copyTree);
+
+                                recordAction({
+                                    type: 'COPY_PASTE_FOLDER',
+                                    newFolderIds: newFolders.map(f => f.id)
+                                });
+                                setFolders(prev => [...prev, ...newFolders]);
+                                console.log(`📌 Pasted (copied) "${folderToPaste.name}" into "${currentFolder.name}"`);
+                            }
+                        }
+                    }
+
+                    // Delete - Delete current folder
+                    if (e.key === 'Delete' && !isSpecialFolder) {
+                        e.preventDefault();
+
+                        const hasChildren = folders.some(f => f.parentId === currentFolder.id);
+                        const hasBooks = currentFolder.bookIds && currentFolder.bookIds.length > 0;
+
+                        let confirmMsg = `Delete folder "${currentFolder.name}"?`;
+                        if (hasBooks && hasChildren) {
+                            confirmMsg = `Delete folder "${currentFolder.name}" and its ${currentFolder.bookIds.length} book(s) and subfolders? Books will move to parent folder.`;
+                        } else if (hasBooks) {
+                            confirmMsg = `Delete folder "${currentFolder.name}" and its ${currentFolder.bookIds.length} book(s)? Books will move to parent folder.`;
+                        } else if (hasChildren) {
+                            confirmMsg = `Delete folder "${currentFolder.name}" and all its subfolders?`;
+                        }
+
+                        if (!confirm(confirmMsg)) return;
+
+                        // Collect all folders to delete (folder + descendants)
+                        const getAllDescendantIds = (folderId) => {
+                            const children = folders.filter(f => f.parentId === folderId);
+                            let allIds = children.map(c => c.id);
+                            children.forEach(child => {
+                                allIds = [...allIds, ...getAllDescendantIds(child.id)];
+                            });
+                            return allIds;
+                        };
+
+                        const descendantIds = getAllDescendantIds(currentFolder.id);
+                        const foldersToDelete = [currentFolder, ...folders.filter(f => descendantIds.includes(f.id))];
+
+                        // Move orphaned books to parent
+                        const orphanedBookIds = [];
+                        foldersToDelete.forEach(folder => {
+                            if (folder.bookIds) orphanedBookIds.push(...folder.bookIds);
+                        });
+
+                        recordAction({
+                            type: 'DELETE_FOLDER',
+                            folderId: currentFolder.id,
+                            deletedFolders: foldersToDelete,
+                            orphanedBookIds: orphanedBookIds,
+                            newParentId: currentFolder.parentId
+                        });
+
+                        const folderIdsToDelete = new Set(foldersToDelete.map(f => f.id));
+
+                        // Move orphaned books to parent folder
+                        if (orphanedBookIds.length > 0) {
+                            setFolders(prev => {
+                                const updated = prev.filter(f => !folderIdsToDelete.has(f.id));
+                                const parentFolder = updated.find(f => f.id === currentFolder.parentId);
+                                if (parentFolder) {
+                                    return updated.map(f =>
+                                        f.id === parentFolder.id
+                                            ? { ...f, bookIds: [...new Set([...(f.bookIds || []), ...orphanedBookIds])] }
+                                            : f
+                                    );
+                                }
+                                return updated;
+                            });
+                        } else {
+                            setFolders(prev => prev.filter(f => !folderIdsToDelete.has(f.id)));
+                        }
+
+                        // Navigate to parent or All Books
+                        if (selectedFolderId === currentFolder.id || folderIdsToDelete.has(selectedFolderId)) {
+                            navigateToFolder(currentFolder.parentId || '__all__');
+                        }
+
+                        console.log(`🗑️ Deleted folder "${currentFolder.name}" and ${foldersToDelete.length - 1} descendants`);
+                    }
+
+                    // Enter - Open/navigate to folder (if not already viewing it)
+                    // This is useful when focused on a folder in the tree but viewing a different folder
+                    // For now, skipping this as it's not as clear when it would be useful
+                    // Users can click or use context menu "Open" instead
+                };
+
+                window.addEventListener('keydown', handleKeyboard);
+                return () => window.removeEventListener('keydown', handleKeyboard);
+            }, [selectedFolderId, folders, folderClipboard, folderContextMenu, folderPropertiesDialog]);
 
             const saveSettings = (newSettings) => {
                 setSettings(newSettings);
