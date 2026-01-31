@@ -2495,7 +2495,23 @@
                     a.download = 'amazon-library.json';
                     a.click();
                     URL.revokeObjectURL(url);
-                    console.log('📥 amazon-library.json download triggered (use for future fetcher runs)');
+
+                    // Show helpful guidance (matches fetcher UX)
+                    console.log('\n========================================');
+                    console.log('📥 LIBRARY FILE REGENERATED');
+                    console.log('========================================');
+                    console.log(`   ✅ amazon-library.json (${mergedBooks.length} books)`);
+                    console.log('');
+                    console.log('👉 Next steps:');
+                    console.log('   1. Find amazon-library.json in your Downloads folder');
+                    console.log('   2. Keep it somewhere you can find it (Desktop, Documents, etc.)');
+                    console.log('   3. Use this file for future Library Fetcher runs');
+                    console.log('');
+                    console.log('💡 Why this file matters:');
+                    console.log('   - Ensures future fetcher runs update ALL your books');
+                    console.log('   - Includes wishlist books that may not be in fresh fetches');
+                    console.log('   - Prevents stale price data for orphaned wishlist items');
+                    console.log('========================================\n');
                 }
 
                 // Reset all filters when loading new library (v3.8.0.g, updated v3.8.0.k)
