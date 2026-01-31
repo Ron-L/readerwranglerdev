@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.131";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.132";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -783,6 +783,9 @@
             const isCopyDragRef = useRef(false);
             const dragTooltipRef = useRef(null);
 
+            // v5.0.0-alpha.132 - Tooltip hide delay (prevents tooltip from disappearing when moving cursor to it)
+            const tooltipHideTimeoutRef = useRef(null);
+
             // v3.14.0.r - Row-based grid index for O(log R) drop position lookup
             // Structure: { columnId: { rowBoundaries: [y1, y2, ...], rows: [{type, startIndex, items, top, bottom}, ...], columnRect } }
             const columnIndexRef = useRef({});
@@ -1133,6 +1136,15 @@
                     setShowMigrationDialog(true);
                 }
             }, [syncStatus, books.length, columns, folders]);
+
+            // v5.0.0-alpha.132 - Cleanup tooltip timeout on unmount
+            useEffect(() => {
+                return () => {
+                    if (tooltipHideTimeoutRef.current) {
+                        clearTimeout(tooltipHideTimeoutRef.current);
+                    }
+                };
+            }, []);
 
             // Auto-save organization
             // v4.16.0.ab - Guard: Skip save while loading to prevent race condition
@@ -9047,10 +9059,20 @@
                                                             style={explorerReorderTarget === index ? { borderTop: `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}` } : {}}
                                                             draggable="true"
                                                             onMouseEnter={selectedFolderId === '__all__' ? (e) => {
+                                                                // Clear any pending hide timeout
+                                                                if (tooltipHideTimeoutRef.current) {
+                                                                    clearTimeout(tooltipHideTimeoutRef.current);
+                                                                    tooltipHideTimeoutRef.current = null;
+                                                                }
                                                                 const rect = e.currentTarget.getBoundingClientRect();
                                                                 setBookTooltip({ bookId: book.id, x: rect.left, y: rect.top });
                                                             } : undefined}
-                                                            onMouseLeave={selectedFolderId === '__all__' ? () => setBookTooltip(null) : undefined}
+                                                            onMouseLeave={selectedFolderId === '__all__' ? () => {
+                                                                // v5.0.0-alpha.132 - Delay hide to allow cursor to reach tooltip
+                                                                tooltipHideTimeoutRef.current = setTimeout(() => {
+                                                                    setBookTooltip(null);
+                                                                }, 150);
+                                                            } : undefined}
                                                             onDragStart={(e) => {
                                                                 e.stopPropagation();
                                                                 e.dataTransfer.effectAllowed = 'copyMove';
@@ -9393,10 +9415,20 @@
                                                         style={explorerReorderTarget === index ? { outline: `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}`, outlineOffset: '2px' } : {}}
                                                         draggable="true"
                                                         onMouseEnter={selectedFolderId === '__all__' ? (e) => {
+                                                            // Clear any pending hide timeout
+                                                            if (tooltipHideTimeoutRef.current) {
+                                                                clearTimeout(tooltipHideTimeoutRef.current);
+                                                                tooltipHideTimeoutRef.current = null;
+                                                            }
                                                             const rect = e.currentTarget.getBoundingClientRect();
                                                             setBookTooltip({ bookId: book.id, x: rect.left, y: rect.top });
                                                         } : undefined}
-                                                        onMouseLeave={selectedFolderId === '__all__' ? () => setBookTooltip(null) : undefined}
+                                                        onMouseLeave={selectedFolderId === '__all__' ? () => {
+                                                            // v5.0.0-alpha.132 - Delay hide to allow cursor to reach tooltip
+                                                            tooltipHideTimeoutRef.current = setTimeout(() => {
+                                                                setBookTooltip(null);
+                                                            }, 150);
+                                                        } : undefined}
                                                         onDragStart={(e) => {
                                                             e.stopPropagation();
                                                             e.dataTransfer.effectAllowed = 'copyMove';
@@ -10738,8 +10770,21 @@
                                     top: `${bookTooltip.y}px`,
                                     maxWidth: '300px'
                                 }}
-                                onMouseEnter={() => {}}
-                                onMouseLeave={() => setBookTooltip(null)}>
+                                onMouseEnter={() => {
+                                    // v5.0.0-alpha.132 - Cancel hide timeout when cursor enters tooltip
+                                    if (tooltipHideTimeoutRef.current) {
+                                        clearTimeout(tooltipHideTimeoutRef.current);
+                                        tooltipHideTimeoutRef.current = null;
+                                    }
+                                }}
+                                onMouseLeave={() => {
+                                    // v5.0.0-alpha.132 - Hide immediately when leaving tooltip
+                                    if (tooltipHideTimeoutRef.current) {
+                                        clearTimeout(tooltipHideTimeoutRef.current);
+                                        tooltipHideTimeoutRef.current = null;
+                                    }
+                                    setBookTooltip(null);
+                                }}>
                                 <div className="font-semibold text-gray-700 mb-1">Found in:</div>
                                 <div className="flex flex-col gap-1">
                                     {containingFolders.map(folder => (
