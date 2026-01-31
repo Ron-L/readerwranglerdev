@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.141";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.142";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -220,6 +220,7 @@
             const [folderContextMenu, setFolderContextMenu] = useState(null); // v5.0.0-alpha.133 - Folder context menu { folderId, x, y }
             const [submenuExpandedFolders, setSubmenuExpandedFolders] = useState(new Set()); // v5.0.0-alpha.138 - Expanded folders in Move to submenu
             const [folderClipboard, setFolderClipboard] = useState({ items: [], operation: null }); // v5.0.0-alpha.141 - Clipboard for cut/copy/paste
+            const [folderPropertiesDialog, setFolderPropertiesDialog] = useState(null); // v5.0.0-alpha.142 - Folder properties dialog { folderId }
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -11279,12 +11280,167 @@
 
                                 <div className="border-t border-gray-200 my-1"></div>
 
-                                {/* Folder Properties - placeholder for Phase 5 */}
-                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                {/* Folder Properties - v5.0.0-alpha.142 */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                    onClick={() => {
+                                        setFolderPropertiesDialog({ folderId: folder.id });
+                                        setFolderContextMenu(null);
+                                    }}>
                                     <span>ℹ️</span>
                                     <span>Folder Properties</span>
                                 </div>
                             </div>
+                        );
+                    })()}
+
+                    {/* Folder Properties Dialog - v5.0.0-alpha.142 */}
+                    {folderPropertiesDialog && (() => {
+                        const folder = folders.find(f => f.id === folderPropertiesDialog.folderId);
+                        if (!folder) return null;
+
+                        const isSpecialFolder = ['__all__', '__inbox__', '__library__'].includes(folder.id);
+
+                        // Calculate folder statistics
+                        const getAllDescendantIds = (folderId) => {
+                            const children = folders.filter(f => f.parentId === folderId);
+                            let allIds = children.map(c => c.id);
+                            children.forEach(child => {
+                                allIds = [...allIds, ...getAllDescendantIds(child.id)];
+                            });
+                            return allIds;
+                        };
+
+                        const getAllBooksInFolder = (folderId) => {
+                            return books.filter(b => b.folderIds && b.folderIds.includes(folderId));
+                        };
+
+                        const directChildren = folders.filter(f => f.parentId === folder.id);
+                        const allDescendantIds = getAllDescendantIds(folder.id);
+                        const directBooks = getAllBooksInFolder(folder.id);
+                        const totalBooks = directBooks.length;
+                        const ownedBooks = directBooks.filter(b => !b.onWishlist).length;
+                        const wishlistBooks = directBooks.filter(b => b.onWishlist).length;
+
+                        // Calculate recursive total
+                        const recursiveBookIds = new Set();
+                        [folder.id, ...allDescendantIds].forEach(fid => {
+                            getAllBooksInFolder(fid).forEach(b => recursiveBookIds.add(b.id));
+                        });
+                        const recursiveTotalBooks = recursiveBookIds.size;
+
+                        const [editedName, setEditedName] = React.useState(folder.name);
+
+                        const handleSave = () => {
+                            if (!editedName.trim()) {
+                                alert('Folder name cannot be empty');
+                                return;
+                            }
+
+                            // Check for duplicate names at same level
+                            const siblings = folders.filter(f => f.parentId === folder.parentId && f.id !== folder.id);
+                            if (siblings.some(f => f.name === editedName.trim())) {
+                                alert('A folder with this name already exists at this level');
+                                return;
+                            }
+
+                            // Update folder
+                            setFolders(prev => prev.map(f =>
+                                f.id === folder.id ? { ...f, name: editedName.trim(), modified: Date.now() } : f
+                            ));
+
+                            setFolderPropertiesDialog(null);
+                            console.log(`💾 Updated folder "${folder.name}" → "${editedName.trim()}"`);
+                        };
+
+                        return (
+                            <>
+                                {/* Backdrop */}
+                                <div
+                                    className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                    onClick={() => setFolderPropertiesDialog(null)}
+                                />
+
+                                {/* Dialog */}
+                                <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+                                    <div
+                                        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md pointer-events-auto"
+                                        onClick={(e) => e.stopPropagation()}>
+                                        <h2 className="text-xl font-semibold mb-4">Folder Properties</h2>
+
+                                        {/* Name */}
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                            {isSpecialFolder ? (
+                                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-gray-700">
+                                                    {folder.name}
+                                                    <span className="ml-2 text-xs text-gray-500">(System folder)</span>
+                                                </div>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    value={editedName}
+                                                    onChange={(e) => setEditedName(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Metadata */}
+                                        <div className="space-y-2 mb-4 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Created:</span>
+                                                <span className="text-gray-900">
+                                                    {folder.created ? new Date(folder.created).toLocaleDateString() : 'Unknown'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Modified:</span>
+                                                <span className="text-gray-900">
+                                                    {folder.modified ? new Date(folder.modified).toLocaleDateString() : 'Never'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Statistics */}
+                                        <div className="border-t border-gray-200 pt-4 mb-4 space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Books:</span>
+                                                <span className="text-gray-900">
+                                                    {totalBooks} total ({ownedBooks} owned, {wishlistBooks} wishlist)
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Subfolders:</span>
+                                                <span className="text-gray-900">{directChildren.length}</span>
+                                            </div>
+                                            {allDescendantIds.length > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Total books (recursive):</span>
+                                                    <span className="text-gray-900">{recursiveTotalBooks}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Buttons */}
+                                        <div className="flex gap-2 justify-end">
+                                            <button
+                                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                                                onClick={() => setFolderPropertiesDialog(null)}>
+                                                Cancel
+                                            </button>
+                                            {!isSpecialFolder && (
+                                                <button
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                                    onClick={handleSave}>
+                                                    Save
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
                         );
                     })()}
 
