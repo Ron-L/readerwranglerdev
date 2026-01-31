@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.137";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.138";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -218,6 +218,7 @@
             const [navHistoryIndex, setNavHistoryIndex] = useState(0); // v5.0.0-alpha.92 - Current position in history
             const [bookTooltip, setBookTooltip] = useState(null); // v5.0.0-alpha.98 - Tooltip for All Books view { bookId, x, y }
             const [folderContextMenu, setFolderContextMenu] = useState(null); // v5.0.0-alpha.133 - Folder context menu { folderId, x, y }
+            const [submenuExpandedFolders, setSubmenuExpandedFolders] = useState(new Set()); // v5.0.0-alpha.138 - Expanded folders in Move to submenu
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -10914,12 +10915,10 @@
 
                                         {/* Submenu */}
                                         {contextSubmenu === 'move-to' && (() => {
-                                            // v5.0.0-alpha.137 - Local state for expanded folders
-                                            const [expandedFolders, setExpandedFolders] = React.useState(new Set());
-
+                                            // v5.0.0-alpha.138 - Use top-level state for expanded folders
                                             const toggleExpand = (folderId, e) => {
                                                 e.stopPropagation();
-                                                setExpandedFolders(prev => {
+                                                setSubmenuExpandedFolders(prev => {
                                                     const next = new Set(prev);
                                                     if (next.has(folderId)) {
                                                         next.delete(folderId);
@@ -10940,7 +10939,7 @@
                                                             child.id !== folder.id &&
                                                             !isDescendantOf(child.id, folder.id)
                                                         );
-                                                        const isExpanded = expandedFolders.has(f.id);
+                                                        const isExpanded = submenuExpandedFolders.has(f.id);
 
                                                         return (
                                                             <React.Fragment key={f.id}>
