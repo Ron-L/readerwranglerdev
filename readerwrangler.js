@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.133";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.134";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -199,6 +199,7 @@
             const [explorerCoverCols, setExplorerCoverCols] = useState(56); // Slider value (4-60), actual cols = 64-value
             const [editingFolderId, setEditingFolderId] = useState(null); // Folder being renamed
             const [editingFolderName, setEditingFolderName] = useState(''); // Folder rename input
+            const [isPlaceholderMode, setIsPlaceholderMode] = useState(false); // v5.0.0-alpha.134 - Placeholder text mode for new folder rename
             const [explorerDragBookId, setExplorerDragBookId] = useState(null); // Book being dragged in Explorer
             const [explorerDropTargetId, setExplorerDropTargetId] = useState(null); // Folder being dragged over
             const [explorerSelectedBooks, setExplorerSelectedBooks] = useState(new Set()); // Multi-select in Explorer
@@ -8139,31 +8140,57 @@
                                                                 value={editingFolderName}
                                                                 onChange={(e) => setEditingFolderName(e.target.value)}
                                                                 onBlur={() => {
-                                                                    if (editingFolderName.trim()) {
+                                                                    // v5.0.0-alpha.134 - Keep placeholder text if user didn't type
+                                                                    const finalName = (isPlaceholderMode || !editingFolderName.trim())
+                                                                        ? editingFolderName
+                                                                        : editingFolderName.trim();
+                                                                    if (finalName) {
                                                                         setFolders(prev => prev.map(f =>
-                                                                            f.id === folder.id ? { ...f, name: editingFolderName.trim() } : f
+                                                                            f.id === folder.id ? { ...f, name: finalName } : f
                                                                         ));
                                                                     }
                                                                     setEditingFolderId(null);
                                                                     setEditingFolderName('');
+                                                                    setIsPlaceholderMode(false);
                                                                 }}
                                                                 onKeyDown={(e) => {
+                                                                    // v5.0.0-alpha.134 - Clear placeholder on first character typed
+                                                                    if (isPlaceholderMode && e.key.length === 1) {
+                                                                        // Printable character typed - clear placeholder first
+                                                                        setEditingFolderName('');
+                                                                        setIsPlaceholderMode(false);
+                                                                        // Let the character be inserted by default behavior
+                                                                        return;
+                                                                    }
+
                                                                     if (e.key === 'Enter') {
-                                                                        if (editingFolderName.trim()) {
+                                                                        // v5.0.0-alpha.134 - Keep placeholder text if user didn't type
+                                                                        const finalName = (isPlaceholderMode || !editingFolderName.trim())
+                                                                            ? editingFolderName
+                                                                            : editingFolderName.trim();
+                                                                        if (finalName) {
                                                                             setFolders(prev => prev.map(f =>
-                                                                                f.id === folder.id ? { ...f, name: editingFolderName.trim() } : f
+                                                                                f.id === folder.id ? { ...f, name: finalName } : f
                                                                             ));
                                                                         }
                                                                         setEditingFolderId(null);
                                                                         setEditingFolderName('');
+                                                                        setIsPlaceholderMode(false);
                                                                     } else if (e.key === 'Escape') {
                                                                         setEditingFolderId(null);
                                                                         setEditingFolderName('');
+                                                                        setIsPlaceholderMode(false);
+                                                                    }
+                                                                }}
+                                                                onFocus={(e) => {
+                                                                    // v5.0.0-alpha.134 - Position cursor at start in placeholder mode
+                                                                    if (isPlaceholderMode) {
+                                                                        e.target.setSelectionRange(0, 0);
                                                                     }
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 autoFocus
-                                                                className="flex-1 px-1 py-0.5 text-sm border border-blue-400 rounded outline-none"
+                                                                className={`flex-1 px-1 py-0.5 text-sm border border-blue-400 rounded outline-none ${isPlaceholderMode ? 'text-gray-400' : ''}`}
                                                             />
                                                         ) : (
                                                             <>
@@ -8207,6 +8234,7 @@
                                                                         navigateToFolder(newFolder.id);
                                                                         setEditingFolderId(newFolder.id);
                                                                         setEditingFolderName('New Subfolder');
+                                                                        setIsPlaceholderMode(true); // v5.0.0-alpha.134 - Show as placeholder
                                                                     }}
                                                                     className="opacity-0 group-hover:opacity-100 text-blue-500 hover:text-blue-700 px-1"
                                                                     title="New subfolder">
@@ -10817,6 +10845,7 @@
                                         navigateToFolder(newFolder.id);
                                         setEditingFolderId(newFolder.id);
                                         setEditingFolderName('New Subfolder');
+                                        setIsPlaceholderMode(true); // v5.0.0-alpha.134 - Show as placeholder
                                         setFolderContextMenu(null);
                                     }}>
                                     <span>➕</span>
