@@ -2496,7 +2496,19 @@
                     a.click();
                     URL.revokeObjectURL(url);
 
-                    // Show helpful guidance (matches fetcher UX)
+                    // Show GUI notification (matches fetcher UX)
+                    alert(
+                        '✅ Backup Restored!\n\n' +
+                        `📥 Library file regenerated (${mergedBooks.length} books)\n\n` +
+                        '👉 Next steps:\n' +
+                        '   1. Find amazon-library.json in your Downloads folder\n' +
+                        '   2. Keep it somewhere you can find it\n' +
+                        '   3. Use this file for future Library Fetcher runs\n\n' +
+                        '💡 This file ensures future fetches update ALL your books,\n' +
+                        'including wishlist items.'
+                    );
+
+                    // Show helpful guidance (console backup)
                     console.log('\n========================================');
                     console.log('📥 LIBRARY FILE REGENERATED');
                     console.log('========================================');
