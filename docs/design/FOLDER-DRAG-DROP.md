@@ -1501,6 +1501,10 @@ const PriceGoalDialog = ({ folderId, onClose }) => {
 - [x] **Sort persistence per folder** - Remember sort settings per folder
 - [x] **Checkbox selection** - Hover-reveal checkboxes for book/folder selection (v5.0.0-alpha.119-124)
 
+### Pending - Bugs
+- [x] **Library Fetcher fetched bad price** - RESOLVED: B0079XPUOW was API bad data (now correct), B003K15PAQ was orphaned wishlist book (stale data). Fixed by triggering amazon-library.json download when restoring backup (v5.0.0-alpha.126)
+- [ ] **Right panel tooltip unreachable** - When user moves cursor over tooltip with link, tooltip disappears
+
 ### Pending - Features
 - [ ] **Left panel context menu** - Replace placeholder "type action" dialog with proper visual context menu. Items: Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete Folder, Properties.
 - [ ] **Right panel context menu** - Full parity with Columns app: Move to, Copy to, Open in Amazon, Copy Titles, Set Price Goal, Cut/Copy/Paste, Hide/Delete Books, Delete Folder, Properties. Enables wishlist filtering + bulk price goal workflow.

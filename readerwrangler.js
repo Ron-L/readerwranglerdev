@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.125";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.126";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -2430,6 +2430,73 @@
                 // Save to IndexedDB (returns merged books including preserved orphan wishlists)
                 const mergedBooks = await saveBooksToIndexedDB(processedBooks);
                 setBooks(mergedBooks);
+
+                // v5.0.0-alpha.126: When restoring backup, trigger download of amazon-library.json
+                // This ensures future fetcher runs can update all books (fixes orphaned wishlist data hole)
+                if (organizationFromFile !== null) {
+                    // Build amazon-library.json format from restored books
+                    const libraryData = {
+                        schemaVersion: "2.3",
+                        books: {
+                            fetchDate: metadata.fetchDate || new Date().toISOString(),
+                            fetcherVersion: metadata.fetcherVersion || "backup-restore",
+                            totalBooks: mergedBooks.length,
+                            items: mergedBooks.map(book => ({
+                                asin: book.asin,
+                                onWishlist: book.onWishlist || false,
+                                ownershipType: book.ownershipType || 'purchased',
+                                isHidden: book.isHidden || false,
+                                addedToWishlist: book.addedToWishlist || '',
+                                title: book.title,
+                                authors: book.author,
+                                coverUrl: book.coverUrl,
+                                rating: book.rating,
+                                reviewCount: book.ratingCount,
+                                series: book.series,
+                                seriesPosition: book.seriesPosition,
+                                acquisitionDate: book.acquired,
+                                description: book.description,
+                                topReviews: book.topReviews,
+                                binding: book.binding,
+                                currentPrice: book.currentPrice,
+                                listPrice: book.listPrice,
+                                priceFetchedAt: book.priceFetchedAt,
+                                targetPrice: book.targetPrice,
+                                priceTrigger: book.priceTrigger,
+                                genres: book.genres
+                            }))
+                        }
+                    };
+
+                    // Add collections if available
+                    if (collections && collections.size > 0) {
+                        const collectionItems = mergedBooks
+                            .filter(book => book.collections || book.readStatus)
+                            .map(book => ({
+                                asin: book.asin,
+                                readStatus: book.readStatus || 'UNKNOWN',
+                                collections: book.collections || []
+                            }));
+
+                        libraryData.collections = {
+                            fetchDate: parsedData.collections?.fetchDate || new Date().toISOString(),
+                            fetcherVersion: parsedData.collections?.fetcherVersion || "backup-restore",
+                            totalBooksScanned: collectionItems.length,
+                            booksWithCollections: collectionItems.filter(b => b.collections.length > 0).length,
+                            items: collectionItems
+                        };
+                    }
+
+                    // Trigger download
+                    const blob = new Blob([JSON.stringify(libraryData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'amazon-library.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    console.log('📥 amazon-library.json download triggered (use for future fetcher runs)');
+                }
 
                 // Reset all filters when loading new library (v3.8.0.g, updated v3.8.0.k)
                 setSearchTerm('');
