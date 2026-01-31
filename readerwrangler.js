@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.148";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.149";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9270,7 +9270,11 @@
                                                                 <td className="p-2 text-center text-xl">{folder.id === '__inbox__' ? '📥' : '📁'}</td>
                                                                 <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>
                                                                     {/* v5.0.0-alpha.147 - Inline editing in right panel */}
-                                                                    {editingFolderId === folder.id ? (
+                                                                    {(() => {
+                                                                        const isEditing = editingFolderId === folder.id;
+                                                                        console.log('[DEBUG] Rendering folder row - folder.id:', folder.id, 'editingFolderId:', editingFolderId, 'isEditing:', isEditing);
+                                                                        return isEditing;
+                                                                    })() ? (
                                                                         <input
                                                                             type="text"
                                                                             value={editingFolderName}
@@ -11249,6 +11253,7 @@
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         onClick={() => {
+                                            console.log('[DEBUG] Rename clicked - folder.id:', folder.id, 'folder.name:', folder.name);
                                             setEditingFolderId(folder.id);
                                             setEditingFolderName(folder.name);
                                             setIsPlaceholderMode(false); // v5.0.0-alpha.148 - Not placeholder when renaming
