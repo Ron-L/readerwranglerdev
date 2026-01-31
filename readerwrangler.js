@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.136";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.137";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -10894,17 +10894,19 @@
 
                                 <div className="border-t border-gray-200 my-1"></div>
 
-                                {/* Move to - v5.0.0-alpha.135 */}
+                                {/* Move to - v5.0.0-alpha.137 */}
                                 {!isSpecialFolder && (
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
                                         onMouseEnter={() => setContextSubmenu('move-to')}
                                         onMouseLeave={(e) => {
-                                            // Keep submenu open if moving to submenu
-                                            const relatedTarget = e.relatedTarget;
-                                            if (!relatedTarget || !relatedTarget.closest('.context-submenu')) {
-                                                setContextSubmenu(null);
-                                            }
+                                            // v5.0.0-alpha.137 - Delay before closing to allow crossing gap
+                                            setTimeout(() => {
+                                                const activeElement = document.querySelector('.context-submenu:hover');
+                                                if (!activeElement) {
+                                                    setContextSubmenu(null);
+                                                }
+                                            }, 300);
                                         }}>
                                         <span>➡️</span>
                                         <span>Move to</span>
@@ -10912,41 +10914,93 @@
 
                                         {/* Submenu */}
                                         {contextSubmenu === 'move-to' && (() => {
-                                            // Build folder tree excluding current folder and descendants
+                                            // v5.0.0-alpha.137 - Local state for expanded folders
+                                            const [expandedFolders, setExpandedFolders] = React.useState(new Set());
+
+                                            const toggleExpand = (folderId, e) => {
+                                                e.stopPropagation();
+                                                setExpandedFolders(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(folderId)) {
+                                                        next.delete(folderId);
+                                                    } else {
+                                                        next.add(folderId);
+                                                    }
+                                                    return next;
+                                                });
+                                            };
+
+                                            // Build folder tree with collapse/expand
                                             const buildFolderTree = (parentId, depth = 0) => {
                                                 return folders
                                                     .filter(f => f.parentId === parentId && f.id !== folder.id && !isDescendantOf(f.id, folder.id))
-                                                    .map(f => (
-                                                        <React.Fragment key={f.id}>
-                                                            <div
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                                style={{ paddingLeft: `${16 + depth * 16}px` }}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    moveFolder(folder.id, f.id);
-                                                                }}>
-                                                                <span>{f.id === folder.parentId ? '✓' : '📁'}</span>
-                                                                <span>{f.name}</span>
-                                                            </div>
-                                                            {buildFolderTree(f.id, depth + 1)}
-                                                        </React.Fragment>
-                                                    ));
+                                                    .map(f => {
+                                                        const hasChildren = folders.some(child =>
+                                                            child.parentId === f.id &&
+                                                            child.id !== folder.id &&
+                                                            !isDescendantOf(child.id, folder.id)
+                                                        );
+                                                        const isExpanded = expandedFolders.has(f.id);
+
+                                                        return (
+                                                            <React.Fragment key={f.id}>
+                                                                <div
+                                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                                                                    style={{ paddingLeft: `${8 + depth * 16}px` }}>
+                                                                    {/* Chevron */}
+                                                                    <span
+                                                                        className="w-4 text-center cursor-pointer select-none"
+                                                                        onClick={(e) => hasChildren && toggleExpand(f.id, e)}>
+                                                                        {hasChildren ? (isExpanded ? '▼' : '▶') : ' '}
+                                                                    </span>
+                                                                    {/* Folder icon and name */}
+                                                                    <div
+                                                                        className="flex items-center gap-2 flex-1"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            moveFolder(folder.id, f.id);
+                                                                        }}>
+                                                                        <span>{f.id === folder.parentId ? '✓' : '📁'}</span>
+                                                                        <span>{f.name}</span>
+                                                                    </div>
+                                                                </div>
+                                                                {/* Children only if expanded */}
+                                                                {hasChildren && isExpanded && buildFolderTree(f.id, depth + 1)}
+                                                            </React.Fragment>
+                                                        );
+                                                    });
                                             };
+
+                                            // v5.0.0-alpha.137 - Calculate submenu position (avoid bottom overflow)
+                                            const submenuRef = React.useRef(null);
+                                            React.useEffect(() => {
+                                                if (submenuRef.current) {
+                                                    const rect = submenuRef.current.getBoundingClientRect();
+                                                    const viewportHeight = window.innerHeight;
+                                                    if (rect.bottom > viewportHeight - 20) {
+                                                        // Flip to show above if near bottom
+                                                        const overflow = rect.bottom - viewportHeight + 20;
+                                                        submenuRef.current.style.top = `-${overflow}px`;
+                                                    }
+                                                }
+                                            }, []);
 
                                             return (
                                                 <div
-                                                    className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+                                                    ref={submenuRef}
+                                                    className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto"
                                                     onMouseEnter={() => setContextSubmenu('move-to')}
                                                     onMouseLeave={() => setContextSubmenu(null)}
                                                     onClick={(e) => e.stopPropagation()}>
 
                                                     {/* Root option */}
                                                     <div
-                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             moveFolder(folder.id, null);
                                                         }}>
+                                                        <span className="w-4"></span>
                                                         <span>{folder.parentId === null ? '✓' : '📁'}</span>
                                                         <span>Root</span>
                                                     </div>
