@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.142";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.143";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -221,6 +221,7 @@
             const [submenuExpandedFolders, setSubmenuExpandedFolders] = useState(new Set()); // v5.0.0-alpha.138 - Expanded folders in Move to submenu
             const [folderClipboard, setFolderClipboard] = useState({ items: [], operation: null }); // v5.0.0-alpha.141 - Clipboard for cut/copy/paste
             const [folderPropertiesDialog, setFolderPropertiesDialog] = useState(null); // v5.0.0-alpha.142 - Folder properties dialog { folderId }
+            const [folderPropertiesEditedName, setFolderPropertiesEditedName] = useState(''); // v5.0.0-alpha.143 - Edited name in properties dialog
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -11284,6 +11285,7 @@
                                 <div
                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                     onClick={() => {
+                                        setFolderPropertiesEditedName(folder.name); // v5.0.0-alpha.143 - Initialize edited name
                                         setFolderPropertiesDialog({ folderId: folder.id });
                                         setFolderContextMenu(null);
                                     }}>
@@ -11329,28 +11331,27 @@
                         });
                         const recursiveTotalBooks = recursiveBookIds.size;
 
-                        const [editedName, setEditedName] = React.useState(folder.name);
-
+                        // v5.0.0-alpha.143 - Use top-level state for edited name to avoid hooks violation
                         const handleSave = () => {
-                            if (!editedName.trim()) {
+                            if (!folderPropertiesEditedName.trim()) {
                                 alert('Folder name cannot be empty');
                                 return;
                             }
 
                             // Check for duplicate names at same level
                             const siblings = folders.filter(f => f.parentId === folder.parentId && f.id !== folder.id);
-                            if (siblings.some(f => f.name === editedName.trim())) {
+                            if (siblings.some(f => f.name === folderPropertiesEditedName.trim())) {
                                 alert('A folder with this name already exists at this level');
                                 return;
                             }
 
                             // Update folder
                             setFolders(prev => prev.map(f =>
-                                f.id === folder.id ? { ...f, name: editedName.trim(), modified: Date.now() } : f
+                                f.id === folder.id ? { ...f, name: folderPropertiesEditedName.trim(), modified: Date.now() } : f
                             ));
 
                             setFolderPropertiesDialog(null);
-                            console.log(`💾 Updated folder "${folder.name}" → "${editedName.trim()}"`);
+                            console.log(`💾 Updated folder "${folder.name}" → "${folderPropertiesEditedName.trim()}"`);
                         };
 
                         return (
@@ -11380,8 +11381,8 @@
                                                 <input
                                                     type="text"
                                                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    value={editedName}
-                                                    onChange={(e) => setEditedName(e.target.value)}
+                                                    value={folderPropertiesEditedName}
+                                                    onChange={(e) => setFolderPropertiesEditedName(e.target.value)}
                                                     autoFocus
                                                 />
                                             )}
