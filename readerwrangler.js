@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.143";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.144";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -222,6 +222,7 @@
             const [folderClipboard, setFolderClipboard] = useState({ items: [], operation: null }); // v5.0.0-alpha.141 - Clipboard for cut/copy/paste
             const [folderPropertiesDialog, setFolderPropertiesDialog] = useState(null); // v5.0.0-alpha.142 - Folder properties dialog { folderId }
             const [folderPropertiesEditedName, setFolderPropertiesEditedName] = useState(''); // v5.0.0-alpha.143 - Edited name in properties dialog
+            const [dialogDrag, setDialogDrag] = useState(null); // v5.0.0-alpha.144 - Dragging state { isDragging, offsetX, offsetY, dialogX, dialogY }
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -1840,6 +1841,30 @@
                 window.addEventListener('keydown', handleEsc);
                 return () => window.removeEventListener('keydown', handleEsc);
             }, [folderClipboard]);
+
+            // v5.0.0-alpha.144 - Handle dialog dragging
+            useEffect(() => {
+                if (!dialogDrag?.isDragging) return;
+
+                const handleMouseMove = (e) => {
+                    setDialogDrag(prev => ({
+                        ...prev,
+                        dialogX: e.clientX - prev.offsetX,
+                        dialogY: e.clientY - prev.offsetY
+                    }));
+                };
+
+                const handleMouseUp = () => {
+                    setDialogDrag(prev => ({ ...prev, isDragging: false }));
+                };
+
+                window.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mouseup', handleMouseUp);
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                };
+            }, [dialogDrag?.isDragging]);
 
             // v5.0.0-alpha.133 - Close folder context menu on click outside
             useEffect(() => {
@@ -10910,12 +10935,32 @@
                             console.log(`📁 Moved "${folderToMove.name}" to "${targetName}"`);
                         };
 
+                        // v5.0.0-alpha.144 - Viewport-aware positioning
+                        const menuWidth = 200;
+                        const menuHeight = 400; // Approximate max height
+                        let menuX = folderContextMenu.x;
+                        let menuY = folderContextMenu.y;
+
+                        // Adjust if off-screen right
+                        if (menuX + menuWidth > window.innerWidth) {
+                            menuX = window.innerWidth - menuWidth - 10;
+                        }
+
+                        // Adjust if off-screen bottom
+                        if (menuY + menuHeight > window.innerHeight) {
+                            menuY = window.innerHeight - menuHeight - 10;
+                        }
+
+                        // Ensure not off-screen left/top
+                        menuX = Math.max(10, menuX);
+                        menuY = Math.max(10, menuY);
+
                         return (
                             <div
                                 className="fixed bg-white border border-gray-300 shadow-lg rounded z-50 py-1 min-w-[200px]"
                                 style={{
-                                    left: `${folderContextMenu.x}px`,
-                                    top: `${folderContextMenu.y}px`
+                                    left: `${menuX}px`,
+                                    top: `${menuY}px`
                                 }}
                                 onClick={(e) => e.stopPropagation()}>
 
@@ -11287,6 +11332,14 @@
                                     onClick={() => {
                                         setFolderPropertiesEditedName(folder.name); // v5.0.0-alpha.143 - Initialize edited name
                                         setFolderPropertiesDialog({ folderId: folder.id });
+                                        // v5.0.0-alpha.144 - Initialize dialog position (centered)
+                                        setDialogDrag({
+                                            isDragging: false,
+                                            offsetX: 0,
+                                            offsetY: 0,
+                                            dialogX: window.innerWidth / 2 - 224, // 224 = half of max-w-md (448px)
+                                            dialogY: window.innerHeight / 2 - 200 // Approximate half height
+                                        });
                                         setFolderContextMenu(null);
                                     }}>
                                     <span>ℹ️</span>
@@ -11313,8 +11366,10 @@
                             return allIds;
                         };
 
+                        // v5.0.0-alpha.144 - Fix: Use folder.bookIds, not b.folderIds
                         const getAllBooksInFolder = (folderId) => {
-                            return books.filter(b => b.folderIds && b.folderIds.includes(folderId));
+                            const bookIds = getFolderBookIds(folderId);
+                            return books.filter(b => bookIds.includes(b.id));
                         };
 
                         const directChildren = folders.filter(f => f.parentId === folder.id);
@@ -11345,9 +11400,9 @@
                                 return;
                             }
 
-                            // Update folder
+                            // Update folder - v5.0.0-alpha.144: Removed modified timestamp (not tracked)
                             setFolders(prev => prev.map(f =>
-                                f.id === folder.id ? { ...f, name: folderPropertiesEditedName.trim(), modified: Date.now() } : f
+                                f.id === folder.id ? { ...f, name: folderPropertiesEditedName.trim() } : f
                             ));
 
                             setFolderPropertiesDialog(null);
@@ -11362,12 +11417,30 @@
                                     onClick={() => setFolderPropertiesDialog(null)}
                                 />
 
-                                {/* Dialog */}
-                                <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-                                    <div
-                                        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md pointer-events-auto"
-                                        onClick={(e) => e.stopPropagation()}>
-                                        <h2 className="text-xl font-semibold mb-4">Folder Properties</h2>
+                                {/* Dialog - v5.0.0-alpha.144: Draggable */}
+                                <div
+                                    className="bg-white rounded-lg shadow-xl w-full max-w-md pointer-events-auto fixed z-50"
+                                    style={{
+                                        left: `${dialogDrag?.dialogX || 0}px`,
+                                        top: `${dialogDrag?.dialogY || 0}px`,
+                                        cursor: dialogDrag?.isDragging ? 'grabbing' : 'default'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}>
+                                    <h2
+                                        className="text-xl font-semibold mb-4 p-6 pb-0 cursor-grab active:cursor-grabbing select-none"
+                                        onMouseDown={(e) => {
+                                            const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                                            setDialogDrag({
+                                                isDragging: true,
+                                                offsetX: e.clientX - rect.left,
+                                                offsetY: e.clientY - rect.top,
+                                                dialogX: rect.left,
+                                                dialogY: rect.top
+                                            });
+                                        }}>
+                                        Folder Properties
+                                    </h2>
+                                    <div className="px-6 pb-6">
 
                                         {/* Name */}
                                         <div className="mb-4">
@@ -11388,23 +11461,7 @@
                                             )}
                                         </div>
 
-                                        {/* Metadata */}
-                                        <div className="space-y-2 mb-4 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Created:</span>
-                                                <span className="text-gray-900">
-                                                    {folder.created ? new Date(folder.created).toLocaleDateString() : 'Unknown'}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Modified:</span>
-                                                <span className="text-gray-900">
-                                                    {folder.modified ? new Date(folder.modified).toLocaleDateString() : 'Never'}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Statistics */}
+                                        {/* Statistics - v5.0.0-alpha.144: Removed created/modified dates */}
                                         <div className="border-t border-gray-200 pt-4 mb-4 space-y-2 text-sm">
                                             <div className="flex justify-between">
                                                 <span className="text-gray-600">Books:</span>
