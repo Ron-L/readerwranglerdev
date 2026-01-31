@@ -1,12 +1,97 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.129";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.130";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
         // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, formatRelativeTime - see uiHelpers.js
         // buildCoverUrlMap, populateCoverCache - see storage.js
+
+        // v5.0.0-alpha.130: Reusable info dialog for large messages (avoids alert() scrollbar issues)
+        function showInfoDialog(title, message) {
+            return new Promise((resolve) => {
+                // Create overlay
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                `;
+
+                // Create dialog
+                const dialog = document.createElement('div');
+                dialog.style.cssText = `
+                    background: white;
+                    border-radius: 8px;
+                    padding: 24px;
+                    max-width: 600px;
+                    width: 90%;
+                    max-height: 80vh;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                `;
+
+                // Create title
+                const titleEl = document.createElement('h2');
+                titleEl.textContent = title;
+                titleEl.style.cssText = `
+                    margin: 0 0 16px 0;
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: #333;
+                `;
+
+                // Create message
+                const messageEl = document.createElement('div');
+                messageEl.style.cssText = `
+                    margin-bottom: 24px;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: #555;
+                    white-space: pre-line;
+                `;
+                messageEl.textContent = message;
+
+                // Create OK button
+                const button = document.createElement('button');
+                button.textContent = 'OK';
+                button.style.cssText = `
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 10px 24px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    float: right;
+                `;
+                button.onmouseover = () => button.style.background = '#0056b3';
+                button.onmouseout = () => button.style.background = '#007bff';
+
+                button.onclick = () => {
+                    document.body.removeChild(overlay);
+                    resolve();
+                };
+
+                // Assemble dialog
+                dialog.appendChild(titleEl);
+                dialog.appendChild(messageEl);
+                dialog.appendChild(button);
+                overlay.appendChild(dialog);
+
+                // Show dialog
+                document.body.appendChild(overlay);
+            });
+        }
 
         function ReaderWrangler() {
             const [books, setBooks] = useState([]);
@@ -2487,16 +2572,20 @@
                         };
                     }
 
-                    // Show GUI notification FIRST (before file picker appears)
-                    alert(
-                        '✅ Backup Restored!\n\n' +
+                    // Show GUI notification FIRST (before file picker appears) - v5.0.0-alpha.130
+                    await showInfoDialog(
+                        '✅ Backup Restored!',
                         `📥 Library file regenerated (${mergedBooks.length} books)\n\n` +
-                        '👉 Next steps:\n' +
-                        '   1. Save amazon-library.json when prompted\n' +
-                        '   2. Keep it somewhere you can find it\n' +
-                        '   3. Use this file for future Library Fetcher runs\n\n' +
-                        '💡 This file ensures future fetches update ALL your books,\n' +
-                        'including wishlist items.'
+                        `⚠️ IMPORTANT: When the save dialog appears:\n\n` +
+                        `   • REPLACE your existing amazon-library.json file\n` +
+                        `   • Do NOT save as "amazon-library (1).json"\n` +
+                        `   • Do NOT create a copy with a different name\n\n` +
+                        `If your browser suggests "amazon-library (1).json", that means the file already exists. ` +
+                        `Navigate to that folder and REPLACE the existing file.\n\n` +
+                        `💡 Why this matters:\n\n` +
+                        `This regenerated file contains ALL your books (owned + wishlist). ` +
+                        `Using it for future Library Fetcher runs ensures ALL your books get updated, ` +
+                        `preventing stale data for wishlist items.`
                     );
 
                     // Trigger download AFTER user acknowledges
