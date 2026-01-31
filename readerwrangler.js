@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.134";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.135";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -218,6 +218,7 @@
             const [navHistoryIndex, setNavHistoryIndex] = useState(0); // v5.0.0-alpha.92 - Current position in history
             const [bookTooltip, setBookTooltip] = useState(null); // v5.0.0-alpha.98 - Tooltip for All Books view { bookId, x, y }
             const [folderContextMenu, setFolderContextMenu] = useState(null); // v5.0.0-alpha.133 - Folder context menu { folderId, x, y }
+            const [contextSubmenu, setContextSubmenu] = useState(null); // v5.0.0-alpha.135 - Context menu submenu state (for "Move to")
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -3716,6 +3717,16 @@
                         }));
                         showToast(`Undo: ${action.description}`, 'info');
                         break;
+                    case 'MOVE_FOLDER':
+                        // v5.0.0-alpha.135 - Undo single folder move: restore old parent
+                        console.log('[UNDO MOVE_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.folderId) {
+                                return { ...folder, parentId: action.oldParentId };
+                            }
+                            return folder;
+                        }));
+                        break;
                     case 'REORDER_FOLDER':
                         // v5.0.0-alpha.79 - Undo folder reorder: restore old order
                         console.log('[UNDO REORDER_FOLDER] Action:', JSON.stringify(action, null, 2));
@@ -4013,6 +4024,16 @@
                             return folder;
                         }));
                         showToast(`Redo: ${action.description}`, 'info');
+                        break;
+                    case 'MOVE_FOLDER':
+                        // v5.0.0-alpha.135 - Redo single folder move: apply new parent
+                        console.log('[REDO MOVE_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.folderId) {
+                                return { ...folder, parentId: action.newParentId };
+                            }
+                            return folder;
+                        }));
                         break;
                     case 'REORDER_FOLDER':
                         // v5.0.0-alpha.79 - Redo folder reorder: apply new order
@@ -10776,6 +10797,67 @@
                         const hasChildren = folders.some(f => f.parentId === folder.id);
                         const hasBooks = folder.bookIds && folder.bookIds.length > 0;
 
+                        // v5.0.0-alpha.135 - Helper: Check if targetId is a descendant of folderId
+                        const isDescendantOf = (targetId, ancestorId) => {
+                            if (!targetId || !ancestorId) return false;
+                            let current = folders.find(f => f.id === targetId);
+                            while (current) {
+                                if (current.id === ancestorId) return true;
+                                current = folders.find(f => f.id === current.parentId);
+                            }
+                            return false;
+                        };
+
+                        // v5.0.0-alpha.135 - Helper: Move folder to new parent
+                        const moveFolder = (folderId, targetParentId) => {
+                            const folderToMove = folders.find(f => f.id === folderId);
+                            if (!folderToMove) return;
+
+                            // Prevent circular reference
+                            if (targetParentId && (targetParentId === folderId || isDescendantOf(targetParentId, folderId))) {
+                                alert("Cannot move folder into itself or its descendants");
+                                return;
+                            }
+
+                            // Check for large moves
+                            const getAllDescendants = (fid) => {
+                                const children = folders.filter(f => f.parentId === fid);
+                                let descendants = [...children];
+                                children.forEach(child => {
+                                    descendants = [...descendants, ...getAllDescendants(child.id)];
+                                });
+                                return descendants;
+                            };
+                            const descendants = getAllDescendants(folderId);
+                            if (descendants.length > 20) {
+                                if (!window.confirm(`Move folder with ${descendants.length} subfolders?`)) {
+                                    return;
+                                }
+                            }
+
+                            const oldParentId = folderToMove.parentId;
+
+                            // Record undo
+                            recordAction({
+                                type: 'MOVE_FOLDER',
+                                folderId: folderId,
+                                oldParentId: oldParentId,
+                                newParentId: targetParentId
+                            });
+
+                            // Update folder's parent
+                            setFolders(prev => prev.map(f =>
+                                f.id === folderId ? { ...f, parentId: targetParentId } : f
+                            ));
+
+                            setFolderContextMenu(null);
+                            setContextSubmenu(null);
+
+                            const targetFolder = folders.find(f => f.id === targetParentId);
+                            const targetName = targetFolder?.name || 'Root';
+                            console.log(`📁 Moved "${folderToMove.name}" to "${targetName}"`);
+                        };
+
                         return (
                             <div
                                 className="fixed bg-white border border-gray-300 shadow-lg rounded z-50 py-1 min-w-[200px]"
@@ -10813,12 +10895,70 @@
 
                                 <div className="border-t border-gray-200 my-1"></div>
 
-                                {/* Move to - placeholder for Phase 3 */}
-                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
-                                    <span>➡️</span>
-                                    <span>Move to</span>
-                                    <span className="ml-auto">▶</span>
-                                </div>
+                                {/* Move to - v5.0.0-alpha.135 */}
+                                {!isSpecialFolder && (
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                        onMouseEnter={() => setContextSubmenu('move-to')}
+                                        onMouseLeave={(e) => {
+                                            // Keep submenu open if moving to submenu
+                                            const relatedTarget = e.relatedTarget;
+                                            if (!relatedTarget || !relatedTarget.closest('.context-submenu')) {
+                                                setContextSubmenu(null);
+                                            }
+                                        }}>
+                                        <span>➡️</span>
+                                        <span>Move to</span>
+                                        <span className="ml-auto">▶</span>
+
+                                        {/* Submenu */}
+                                        {contextSubmenu === 'move-to' && (() => {
+                                            // Build folder tree excluding current folder and descendants
+                                            const buildFolderTree = (parentId, depth = 0) => {
+                                                return folders
+                                                    .filter(f => f.parentId === parentId && f.id !== folder.id && !isDescendantOf(f.id, folder.id))
+                                                    .map(f => (
+                                                        <React.Fragment key={f.id}>
+                                                            <div
+                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                                style={{ paddingLeft: `${16 + depth * 16}px` }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    moveFolder(folder.id, f.id);
+                                                                }}>
+                                                                <span>{f.id === folder.parentId ? '✓' : '📁'}</span>
+                                                                <span>{f.name}</span>
+                                                            </div>
+                                                            {buildFolderTree(f.id, depth + 1)}
+                                                        </React.Fragment>
+                                                    ));
+                                            };
+
+                                            return (
+                                                <div
+                                                    className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+                                                    onMouseEnter={() => setContextSubmenu('move-to')}
+                                                    onMouseLeave={() => setContextSubmenu(null)}
+                                                    onClick={(e) => e.stopPropagation()}>
+
+                                                    {/* Root option */}
+                                                    <div
+                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            moveFolder(folder.id, null);
+                                                        }}>
+                                                        <span>{folder.parentId === null ? '✓' : '📁'}</span>
+                                                        <span>Root</span>
+                                                    </div>
+
+                                                    {/* Folder tree */}
+                                                    {buildFolderTree(null)}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
 
                                 {/* Create Subfolder */}
                                 <div
