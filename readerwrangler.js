@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.152";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.153";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -11255,13 +11255,11 @@
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         onClick={() => {
-                                            // v5.0.0-alpha.152 - Close menu first, then set editing state after event loop
+                                            // v5.0.0-alpha.153 - Simple state update (editing happens in left panel tree)
+                                            setEditingFolderId(folder.id);
+                                            setEditingFolderName(folder.name);
+                                            setIsPlaceholderMode(false);
                                             setFolderContextMenu(null);
-                                            setTimeout(() => {
-                                                setEditingFolderId(folder.id);
-                                                setEditingFolderName(folder.name);
-                                                setIsPlaceholderMode(false);
-                                            }, 0);
                                         }}>
                                         <span>✏️</span>
                                         <span>Rename</span>
