@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.132";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.133";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -216,6 +216,7 @@
             const [navHistory, setNavHistory] = useState(['__all__']); // v5.0.0-alpha.92 - Navigation history stack
             const [navHistoryIndex, setNavHistoryIndex] = useState(0); // v5.0.0-alpha.92 - Current position in history
             const [bookTooltip, setBookTooltip] = useState(null); // v5.0.0-alpha.98 - Tooltip for All Books view { bookId, x, y }
+            const [folderContextMenu, setFolderContextMenu] = useState(null); // v5.0.0-alpha.133 - Folder context menu { folderId, x, y }
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -1811,6 +1812,30 @@
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
             }, [columnMenuOpen]);
+
+            // v5.0.0-alpha.133 - Close folder context menu on Esc key
+            useEffect(() => {
+                const handleEsc = (e) => {
+                    if (e.key === 'Escape' && folderContextMenu) {
+                        setFolderContextMenu(null);
+                    }
+                };
+                window.addEventListener('keydown', handleEsc);
+                return () => window.removeEventListener('keydown', handleEsc);
+            }, [folderContextMenu]);
+
+            // v5.0.0-alpha.133 - Close folder context menu on click outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (folderContextMenu && !e.target.closest('.fixed')) {
+                        setFolderContextMenu(null);
+                    }
+                };
+                if (folderContextMenu) {
+                    document.addEventListener('mousedown', handleClickOutside);
+                    return () => document.removeEventListener('mousedown', handleClickOutside);
+                }
+            }, [folderContextMenu]);
 
             const saveSettings = (newSettings) => {
                 setSettings(newSettings);
@@ -8084,102 +8109,13 @@
                                                             setExplorerIsCopyDrag(false);
                                                         }}
                                                         onContextMenu={(e) => {
+                                                            // v5.0.0-alpha.133 - Show visual context menu (replaces prompt)
                                                             e.preventDefault();
-                                                            navigateToFolder(folder.id);
-                                                            const action = window.prompt('Enter action: rename, delete, or subfolder', 'rename');
-                                                            if (action === 'rename') {
-                                                                setEditingFolderId(folder.id);
-                                                                setEditingFolderName(folder.name);
-                                                            } else if (action === 'subfolder') {
-                                                                // v5.0.0-alpha.51 - Create subfolder within this folder
-                                                                const newFolder = {
-                                                                    id: `folder-${Date.now()}`,
-                                                                    name: 'New Subfolder',
-                                                                    parentId: folder.id,
-                                                                    bookIds: [],
-                                                                    childFolderIds: [],
-                                                                    collapsed: false
-                                                                };
-                                                                // Record action for undo
-                                                                recordAction({
-                                                                    type: 'CREATE_FOLDER',
-                                                                    folderId: newFolder.id,
-                                                                    parentId: folder.id,
-                                                                    folder: { ...newFolder }
-                                                                });
-                                                                // Expand parent and add subfolder in single update
-                                                                setFolders(prev => [
-                                                                    ...prev.map(f => f.id === folder.id ? { ...f, collapsed: false } : f),
-                                                                    newFolder
-                                                                ]);
-                                                                navigateToFolder(newFolder.id);
-                                                                setEditingFolderId(newFolder.id);
-                                                                setEditingFolderName('New Subfolder');
-                                                                console.log(`📁 Created subfolder in "${folder.name}"`);
-                                                            } else if (action === 'delete') {
-                                                                if (window.confirm(`Delete folder "${folder.name}"?`)) {
-                                                                    // v5.0.0-alpha.55 - Move orphaned books up one level before deleting
-                                                                    const getAllDescendants = (folderId, allFolders) => {
-                                                                        const children = allFolders.filter(f => f.parentId === folderId);
-                                                                        let descendants = [...children];
-                                                                        children.forEach(child => {
-                                                                            descendants = [...descendants, ...getAllDescendants(child.id, allFolders)];
-                                                                        });
-                                                                        return descendants;
-                                                                    };
-                                                                    const descendants = getAllDescendants(folder.id, folders);
-                                                                    const foldersToDelete = [folder, ...descendants];
-                                                                    const folderIdsToDelete = new Set(foldersToDelete.map(f => f.id));
-                                                                    const folderIndices = foldersToDelete.map(f => folders.findIndex(x => x.id === f.id));
-
-                                                                    // Determine destination for orphaned books: parent folder or Inbox
-                                                                    const destinationId = folder.parentId || '__inbox__';
-                                                                    const destinationFolder = folders.find(f => f.id === destinationId);
-                                                                    const destinationName = destinationFolder?.name || 'Inbox';
-
-                                                                    // Collect all books from folders being deleted
-                                                                    const allOrphanedBookIds = foldersToDelete.flatMap(f => f.bookIds || []);
-                                                                    const uniqueOrphanedBookIds = [...new Set(allOrphanedBookIds)];
-
-                                                                    // Record action for undo (includes orphan relocation info)
-                                                                    recordAction({
-                                                                        type: 'DELETE_FOLDERS',
-                                                                        deletedFolders: foldersToDelete.map(f => ({ ...f })),
-                                                                        folderIndices: folderIndices,
-                                                                        orphanedBooks: uniqueOrphanedBookIds,
-                                                                        orphanDestination: destinationId
-                                                                    });
-
-                                                                    // Move orphaned books to destination, then delete folders
-                                                                    setFolders(prev => {
-                                                                        let updated = prev.map(f => {
-                                                                            if (f.id === destinationId && uniqueOrphanedBookIds.length > 0) {
-                                                                                // Add orphaned books to destination (at top)
-                                                                                const existingIds = new Set(f.bookIds || []);
-                                                                                const newBookIds = uniqueOrphanedBookIds.filter(id => !existingIds.has(id));
-                                                                                return { ...f, bookIds: [...newBookIds, ...(f.bookIds || [])] };
-                                                                            }
-                                                                            return f;
-                                                                        });
-                                                                        // Remove deleted folders
-                                                                        return updated.filter(f => !folderIdsToDelete.has(f.id));
-                                                                    });
-
-                                                                    // v5.0.0-alpha.58 - Navigate to parent folder instead of All Books
-                                                                    if (selectedFolderId === folder.id || folderIdsToDelete.has(selectedFolderId)) {
-                                                                        setSelectedFolderId(destinationId);
-                                                                    }
-
-                                                                    // Show toast with result
-                                                                    if (uniqueOrphanedBookIds.length > 0) {
-                                                                        const bookWord = uniqueOrphanedBookIds.length === 1 ? 'book' : 'books';
-                                                                        showToast(`Deleted "${folder.name}" — ${uniqueOrphanedBookIds.length} ${bookWord} moved to ${destinationName}`, window.innerWidth / 2, 100);
-                                                                    } else {
-                                                                        showToast(`Deleted "${folder.name}"`, window.innerWidth / 2, 100);
-                                                                    }
-                                                                    console.log(`🗑️ Deleted folder "${folder.name}"${descendants.length > 0 ? ` and ${descendants.length} subfolder(s)` : ''}${uniqueOrphanedBookIds.length > 0 ? `, moved ${uniqueOrphanedBookIds.length} books to ${destinationName}` : ''}`);
-                                                                }
-                                                            }
+                                                            setFolderContextMenu({
+                                                                folderId: folder.id,
+                                                                x: e.clientX,
+                                                                y: e.clientY
+                                                            });
                                                         }}>
                                                         {/* Expand/collapse chevron for folders with children */}
                                                         {hasChildren ? (
@@ -10798,6 +10734,189 @@
                                             {folder.id === '__inbox__' ? '📥 ' : '📁 '}{folder.name}
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* v5.0.0-alpha.133 - Folder context menu (left panel) */}
+                    {folderContextMenu && (() => {
+                        const folder = folders.find(f => f.id === folderContextMenu.folderId);
+                        if (!folder) return null;
+
+                        const isSpecialFolder = ['__all__', '__inbox__', '__my__'].includes(folder.id);
+                        const hasChildren = folders.some(f => f.parentId === folder.id);
+                        const hasBooks = folder.bookIds && folder.bookIds.length > 0;
+
+                        return (
+                            <div
+                                className="fixed bg-white border border-gray-300 shadow-lg rounded z-50 py-1 min-w-[200px]"
+                                style={{
+                                    left: `${folderContextMenu.x}px`,
+                                    top: `${folderContextMenu.y}px`
+                                }}
+                                onClick={(e) => e.stopPropagation()}>
+
+                                {/* Open */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                    onClick={() => {
+                                        navigateToFolder(folder.id);
+                                        setFolderContextMenu(null);
+                                    }}>
+                                    <span>📂</span>
+                                    <span>Open</span>
+                                </div>
+
+                                {/* Rename */}
+                                {!isSpecialFolder && (
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                        onClick={() => {
+                                            setEditingFolderId(folder.id);
+                                            setEditingFolderName(folder.name);
+                                            setFolderContextMenu(null);
+                                        }}>
+                                        <span>✏️</span>
+                                        <span>Rename</span>
+                                        <span className="ml-auto text-gray-400 text-xs">F2</span>
+                                    </div>
+                                )}
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Move to - placeholder for Phase 3 */}
+                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                    <span>➡️</span>
+                                    <span>Move to</span>
+                                    <span className="ml-auto">▶</span>
+                                </div>
+
+                                {/* Create Subfolder */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                    onClick={() => {
+                                        const newFolder = {
+                                            id: `folder-${Date.now()}`,
+                                            name: 'New Subfolder',
+                                            parentId: folder.id,
+                                            bookIds: [],
+                                            childFolderIds: [],
+                                            collapsed: false
+                                        };
+                                        recordAction({
+                                            type: 'CREATE_FOLDER',
+                                            folderId: newFolder.id,
+                                            parentId: folder.id,
+                                            folder: { ...newFolder }
+                                        });
+                                        setFolders(prev => [
+                                            ...prev.map(f => f.id === folder.id ? { ...f, collapsed: false } : f),
+                                            newFolder
+                                        ]);
+                                        navigateToFolder(newFolder.id);
+                                        setEditingFolderId(newFolder.id);
+                                        setEditingFolderName('New Subfolder');
+                                        setFolderContextMenu(null);
+                                    }}>
+                                    <span>➕</span>
+                                    <span>Create Subfolder</span>
+                                </div>
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Cut - placeholder for Phase 4 */}
+                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                    <span>✂️</span>
+                                    <span>Cut</span>
+                                    <span className="ml-auto text-xs">Ctrl+X</span>
+                                </div>
+
+                                {/* Copy - placeholder for Phase 4 */}
+                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                    <span>📋</span>
+                                    <span>Copy</span>
+                                    <span className="ml-auto text-xs">Ctrl+C</span>
+                                </div>
+
+                                {/* Paste - placeholder for Phase 4 */}
+                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                    <span>📌</span>
+                                    <span>Paste</span>
+                                    <span className="ml-auto text-xs">Ctrl+V</span>
+                                </div>
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Delete Folder */}
+                                {!isSpecialFolder && (
+                                    <div
+                                        className="px-4 py-2 hover:bg-red-50 cursor-pointer flex items-center gap-3 text-red-600"
+                                        onClick={() => {
+                                            setFolderContextMenu(null);
+                                            if (window.confirm(`Delete folder "${folder.name}"?`)) {
+                                                const getAllDescendants = (folderId, allFolders) => {
+                                                    const children = allFolders.filter(f => f.parentId === folderId);
+                                                    let descendants = [...children];
+                                                    children.forEach(child => {
+                                                        descendants = [...descendants, ...getAllDescendants(child.id, allFolders)];
+                                                    });
+                                                    return descendants;
+                                                };
+                                                const descendants = getAllDescendants(folder.id, folders);
+                                                const foldersToDelete = [folder, ...descendants];
+                                                const folderIdsToDelete = new Set(foldersToDelete.map(f => f.id));
+                                                const folderIndices = foldersToDelete.map(f => folders.findIndex(x => x.id === f.id));
+
+                                                const destinationId = folder.parentId || '__inbox__';
+                                                const destinationFolder = folders.find(f => f.id === destinationId);
+                                                const destinationName = destinationFolder?.name || 'Inbox';
+
+                                                const allOrphanedBookIds = foldersToDelete.flatMap(f => f.bookIds || []);
+                                                const uniqueOrphanedBookIds = [...new Set(allOrphanedBookIds)];
+
+                                                recordAction({
+                                                    type: 'DELETE_FOLDERS',
+                                                    deletedFolders: foldersToDelete.map(f => ({ ...f })),
+                                                    folderIndices: folderIndices,
+                                                    movedBooks: uniqueOrphanedBookIds.map(bookId => ({
+                                                        bookId,
+                                                        fromFolderId: foldersToDelete.find(f => f.bookIds?.includes(bookId))?.id,
+                                                        toFolderId: destinationId
+                                                    }))
+                                                });
+
+                                                setFolders(prev => prev
+                                                    .filter(f => !folderIdsToDelete.has(f.id))
+                                                    .map(f => {
+                                                        if (f.id === destinationId) {
+                                                            return {
+                                                                ...f,
+                                                                bookIds: [...(f.bookIds || []), ...uniqueOrphanedBookIds]
+                                                            };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+
+                                                if (selectedFolderId && folderIdsToDelete.has(selectedFolderId)) {
+                                                    navigateToFolder(destinationId);
+                                                }
+
+                                                console.log(`🗑️ Deleted "${folder.name}" and ${descendants.length} descendant(s), moved ${uniqueOrphanedBookIds.length} book(s) to "${destinationName}"`);
+                                            }
+                                        }}>
+                                        <span>🗑️</span>
+                                        <span>Delete Folder</span>
+                                    </div>
+                                )}
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Folder Properties - placeholder for Phase 5 */}
+                                <div className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3">
+                                    <span>ℹ️</span>
+                                    <span>Folder Properties</span>
                                 </div>
                             </div>
                         );
