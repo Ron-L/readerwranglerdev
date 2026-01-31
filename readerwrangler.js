@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.146";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.147";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9115,18 +9115,31 @@
                                                                 className={`group cursor-pointer border-b border-gray-100 ${explorerSelectedFolders.has(folder.id) ? 'bg-blue-50' : 'hover:bg-gray-100'}`}
                                                                 style={(() => {
                                                                     // v5.0.0-alpha.73 - Phase C: Visual feedback (blue=valid, red=invalid)
-                                                                    if (!explorerFolderDragTarget) return {};
-                                                                    if (explorerFolderDragTarget.type === 'reorder' && explorerFolderDragTarget.index === folderIndex) {
-                                                                        // Reorder: blue if allowed (custom mode), red if not
-                                                                        const color = canReorderFolders ? '#3b82f6' : '#ef4444';
-                                                                        return explorerFolderDragTarget.position === 'before'
-                                                                            ? { borderTop: `3px solid ${color}` }
-                                                                            : { borderBottom: `3px solid ${color}` };
+                                                                    // v5.0.0-alpha.147 - Add cut opacity feedback
+                                                                    const styles = {};
+
+                                                                    // Drag target feedback
+                                                                    if (explorerFolderDragTarget) {
+                                                                        if (explorerFolderDragTarget.type === 'reorder' && explorerFolderDragTarget.index === folderIndex) {
+                                                                            // Reorder: blue if allowed (custom mode), red if not
+                                                                            const color = canReorderFolders ? '#3b82f6' : '#ef4444';
+                                                                            if (explorerFolderDragTarget.position === 'before') {
+                                                                                styles.borderTop = `3px solid ${color}`;
+                                                                            } else {
+                                                                                styles.borderBottom = `3px solid ${color}`;
+                                                                            }
+                                                                        }
+                                                                        if (explorerFolderDragTarget.type === 'reparent' && explorerFolderDragTarget.folderId === folder.id) {
+                                                                            styles.backgroundColor = '#dbeafe'; // blue-100 (reparent always valid)
+                                                                        }
                                                                     }
-                                                                    if (explorerFolderDragTarget.type === 'reparent' && explorerFolderDragTarget.folderId === folder.id) {
-                                                                        return { backgroundColor: '#dbeafe' }; // blue-100 (reparent always valid)
+
+                                                                    // Cut folder visual feedback
+                                                                    if (folderClipboard.operation === 'cut' && folderClipboard.items.includes(folder.id)) {
+                                                                        styles.opacity = 0.5;
                                                                     }
-                                                                    return {};
+
+                                                                    return styles;
                                                                 })()}
                                                                 draggable={isDraggable}
                                                                 onDragStart={isDraggable ? (e) => {
@@ -9255,7 +9268,66 @@
                                                                     </div>
                                                                 </td>
                                                                 <td className="p-2 text-center text-xl">{folder.id === '__inbox__' ? '📥' : '📁'}</td>
-                                                                <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>{folder.name}</td>
+                                                                <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>
+                                                                    {/* v5.0.0-alpha.147 - Inline editing in right panel */}
+                                                                    {editingFolderId === folder.id ? (
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editingFolderName}
+                                                                            onChange={(e) => setEditingFolderName(e.target.value)}
+                                                                            onBlur={() => {
+                                                                                const finalName = (isPlaceholderMode || !editingFolderName.trim())
+                                                                                    ? editingFolderName
+                                                                                    : editingFolderName.trim();
+                                                                                if (finalName) {
+                                                                                    setFolders(prev => prev.map(f =>
+                                                                                        f.id === folder.id ? { ...f, name: finalName } : f
+                                                                                    ));
+                                                                                }
+                                                                                setEditingFolderId(null);
+                                                                                setEditingFolderName('');
+                                                                                setIsPlaceholderMode(false);
+                                                                            }}
+                                                                            onKeyDown={(e) => {
+                                                                                if (isPlaceholderMode && e.key.length === 1) {
+                                                                                    setEditingFolderName('');
+                                                                                    setIsPlaceholderMode(false);
+                                                                                    return;
+                                                                                }
+                                                                                if (e.key === 'Enter') {
+                                                                                    const finalName = (isPlaceholderMode || !editingFolderName.trim())
+                                                                                        ? editingFolderName
+                                                                                        : editingFolderName.trim();
+                                                                                    if (finalName) {
+                                                                                        setFolders(prev => prev.map(f =>
+                                                                                            f.id === folder.id ? { ...f, name: finalName } : f
+                                                                                        ));
+                                                                                    }
+                                                                                    setEditingFolderId(null);
+                                                                                    setEditingFolderName('');
+                                                                                    setIsPlaceholderMode(false);
+                                                                                } else if (e.key === 'Escape') {
+                                                                                    setEditingFolderId(null);
+                                                                                    setEditingFolderName('');
+                                                                                    setIsPlaceholderMode(false);
+                                                                                }
+                                                                            }}
+                                                                            onFocus={(e) => {
+                                                                                if (isPlaceholderMode) {
+                                                                                    e.target.setSelectionRange(0, 0);
+                                                                                } else {
+                                                                                    e.target.select();
+                                                                                }
+                                                                            }}
+                                                                            autoFocus
+                                                                            className="w-full px-1 py-0.5 border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                            style={{ color: isPlaceholderMode ? '#9ca3af' : 'inherit' }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                    ) : (
+                                                                        folder.name
+                                                                    )}
+                                                                </td>
                                                                 {visibleColumns.author && <td className="p-2 text-gray-400" style={{ width: `var(--col-author, ${columnWidths.author}px)` }}>—</td>}
                                                                 {visibleColumns.rating && <td className="p-2 text-gray-400" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }}>—</td>}
                                                                 {visibleColumns.dateAdded && <td className="p-2 text-gray-400" style={{ width: `var(--col-dateAdded, ${columnWidths.dateAdded}px)` }}>—</td>}
