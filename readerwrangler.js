@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.128";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.129";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -2487,7 +2487,19 @@
                         };
                     }
 
-                    // Trigger download
+                    // Show GUI notification FIRST (before file picker appears)
+                    alert(
+                        '✅ Backup Restored!\n\n' +
+                        `📥 Library file regenerated (${mergedBooks.length} books)\n\n` +
+                        '👉 Next steps:\n' +
+                        '   1. Save amazon-library.json when prompted\n' +
+                        '   2. Keep it somewhere you can find it\n' +
+                        '   3. Use this file for future Library Fetcher runs\n\n' +
+                        '💡 This file ensures future fetches update ALL your books,\n' +
+                        'including wishlist items.'
+                    );
+
+                    // Trigger download AFTER user acknowledges
                     const blob = new Blob([JSON.stringify(libraryData, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -2495,18 +2507,6 @@
                     a.download = 'amazon-library.json';
                     a.click();
                     URL.revokeObjectURL(url);
-
-                    // Show GUI notification (matches fetcher UX)
-                    alert(
-                        '✅ Backup Restored!\n\n' +
-                        `📥 Library file regenerated (${mergedBooks.length} books)\n\n` +
-                        '👉 Next steps:\n' +
-                        '   1. Find amazon-library.json in your Downloads folder\n' +
-                        '   2. Keep it somewhere you can find it\n' +
-                        '   3. Use this file for future Library Fetcher runs\n\n' +
-                        '💡 This file ensures future fetches update ALL your books,\n' +
-                        'including wishlist items.'
-                    );
 
                     // Show helpful guidance (console backup)
                     console.log('\n========================================');
