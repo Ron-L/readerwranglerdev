@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.138";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.139";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -10970,23 +10970,10 @@
                                                     });
                                             };
 
-                                            // v5.0.0-alpha.137 - Calculate submenu position (avoid bottom overflow)
-                                            const submenuRef = React.useRef(null);
-                                            React.useEffect(() => {
-                                                if (submenuRef.current) {
-                                                    const rect = submenuRef.current.getBoundingClientRect();
-                                                    const viewportHeight = window.innerHeight;
-                                                    if (rect.bottom > viewportHeight - 20) {
-                                                        // Flip to show above if near bottom
-                                                        const overflow = rect.bottom - viewportHeight + 20;
-                                                        submenuRef.current.style.top = `-${overflow}px`;
-                                                    }
-                                                }
-                                            }, []);
-
+                                            // v5.0.0-alpha.139 - Removed hooks (useRef/useEffect) from conditional render
+                                            // TODO: Add viewport boundary detection properly later
                                             return (
                                                 <div
-                                                    ref={submenuRef}
                                                     className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto"
                                                     onMouseEnter={() => setContextSubmenu('move-to')}
                                                     onMouseLeave={() => setContextSubmenu(null)}
