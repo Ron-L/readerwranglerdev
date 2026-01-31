@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.139";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.140";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -10901,13 +10901,13 @@
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
                                         onMouseEnter={() => setContextSubmenu('move-to')}
                                         onMouseLeave={(e) => {
-                                            // v5.0.0-alpha.137 - Delay before closing to allow crossing gap
+                                            // v5.0.0-alpha.140 - Increased timeout to 600ms for slower mouse movement
                                             setTimeout(() => {
                                                 const activeElement = document.querySelector('.context-submenu:hover');
                                                 if (!activeElement) {
                                                     setContextSubmenu(null);
                                                 }
-                                            }, 300);
+                                            }, 600);
                                         }}>
                                         <span>➡️</span>
                                         <span>Move to</span>
