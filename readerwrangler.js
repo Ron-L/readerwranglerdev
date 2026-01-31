@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.130";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.131";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -2576,12 +2576,12 @@
                     await showInfoDialog(
                         '✅ Backup Restored!',
                         `📥 Library file regenerated (${mergedBooks.length} books)\n\n` +
-                        `⚠️ IMPORTANT: When the save dialog appears:\n\n` +
-                        `   • REPLACE your existing amazon-library.json file\n` +
-                        `   • Do NOT save as "amazon-library (1).json"\n` +
-                        `   • Do NOT create a copy with a different name\n\n` +
-                        `If your browser suggests "amazon-library (1).json", that means the file already exists. ` +
-                        `Navigate to that folder and REPLACE the existing file.\n\n` +
+                        `⚠️ IMPORTANT: Replace your existing amazon-library.json file\n\n` +
+                        `When the save dialog appears:\n` +
+                        `   • Navigate to where you keep amazon-library.json\n` +
+                        `   • If browser suggests "amazon-library (1).json",\n` +
+                        `     change it back to "amazon-library.json"\n` +
+                        `   • Save to replace the existing file\n\n` +
                         `💡 Why this matters:\n\n` +
                         `This regenerated file contains ALL your books (owned + wishlist). ` +
                         `Using it for future Library Fetcher runs ensures ALL your books get updated, ` +
