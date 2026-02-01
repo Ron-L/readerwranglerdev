@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.165.1";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.166";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -4015,6 +4015,32 @@
                         console.log('[UNDO COPY_PASTE_FOLDER] Action:', JSON.stringify(action, null, 2));
                         setFolders(prev => prev.filter(folder => !action.newFolderIds.includes(folder.id)));
                         break;
+                    case 'MOVE_BOOKS_TO_FOLDER':
+                        // v5.0.0-alpha.166 - Undo book move: restore books to original folder
+                        console.log('[UNDO MOVE_BOOKS_TO_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.fromFolderId) {
+                                // Add books back to source folder (at top)
+                                return { ...folder, bookIds: [...action.bookIds, ...folder.bookIds] };
+                            }
+                            if (folder.id === action.toFolderId) {
+                                // Remove books from target folder
+                                return { ...folder, bookIds: folder.bookIds.filter(id => !action.bookIds.includes(id)) };
+                            }
+                            return folder;
+                        }));
+                        break;
+                    case 'COPY_BOOKS_TO_FOLDER':
+                        // v5.0.0-alpha.166 - Undo book copy: remove books from target folder
+                        console.log('[UNDO COPY_BOOKS_TO_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.toFolderId) {
+                                // Remove books from target folder
+                                return { ...folder, bookIds: folder.bookIds.filter(id => !action.bookIds.includes(id)) };
+                            }
+                            return folder;
+                        }));
+                        break;
                     case 'REORDER_FOLDER':
                         // v5.0.0-alpha.79 - Undo folder reorder: restore old order
                         console.log('[UNDO REORDER_FOLDER] Action:', JSON.stringify(action, null, 2));
@@ -4340,6 +4366,34 @@
                         // For now, this is a limitation - we can't redo copy operations
                         // TODO: Store copied folder data in action for proper redo
                         showToast('Cannot redo copy operation', 'warning');
+                        break;
+                    case 'MOVE_BOOKS_TO_FOLDER':
+                        // v5.0.0-alpha.166 - Redo book move: move books to target folder again
+                        console.log('[REDO MOVE_BOOKS_TO_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.fromFolderId) {
+                                // Remove books from source folder
+                                return { ...folder, bookIds: folder.bookIds.filter(id => !action.bookIds.includes(id)) };
+                            }
+                            if (folder.id === action.toFolderId) {
+                                // Add books to target folder (at top)
+                                return { ...folder, bookIds: [...action.bookIds, ...folder.bookIds] };
+                            }
+                            return folder;
+                        }));
+                        break;
+                    case 'COPY_BOOKS_TO_FOLDER':
+                        // v5.0.0-alpha.166 - Redo book copy: add books to target folder again
+                        console.log('[REDO COPY_BOOKS_TO_FOLDER] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.toFolderId) {
+                                // Add books to target folder (filter out duplicates first)
+                                const existingIds = new Set(folder.bookIds);
+                                const newBooks = action.bookIds.filter(id => !existingIds.has(id));
+                                return { ...folder, bookIds: [...newBooks, ...folder.bookIds] };
+                            }
+                            return folder;
+                        }));
                         break;
                     case 'REORDER_FOLDER':
                         // v5.0.0-alpha.79 - Redo folder reorder: apply new order
@@ -11724,11 +11778,12 @@
                         );
                     })()}
 
-                    {/* v5.0.0-alpha.165 - Explorer Book Context Menu (Phase 1: Basic structure) */}
+                    {/* v5.0.0-alpha.165 - Explorer Book Context Menu */}
                     {explorerBookContextMenu && (() => {
+                        // v5.0.0-alpha.166 - Phase 2: Full implementation with Move to / Copy to submenus
+
                         // Calculate menu position to avoid going off-screen
-                        // v5.0.0-alpha.165.1 - Phase 1 has only 3 items (~120px), will increase to ~400px in later phases
-                        const menuHeight = 120;
+                        const menuHeight = 200; // v5.0.0-alpha.166 - Increased for Phase 2 items
                         const menuWidth = 220;
                         const viewportHeight = window.innerHeight;
                         const viewportWidth = window.innerWidth;
@@ -11741,6 +11796,140 @@
                         const left = explorerBookContextMenu.x + menuWidth > viewportWidth
                             ? Math.max(10, explorerBookContextMenu.x - menuWidth)
                             : explorerBookContextMenu.x;
+
+                        // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
+
+                        // Move books to target folder
+                        const handleMoveToFolder = (targetFolderId) => {
+                            const selectedBookIds = Array.from(explorerSelectedBooks);
+                            const currentFolderId = selectedFolderId;
+
+                            // Remove books from current folder
+                            setFolders(prev => prev.map(f => {
+                                if (f.id === currentFolderId) {
+                                    return {
+                                        ...f,
+                                        bookIds: f.bookIds.filter(id => !selectedBookIds.includes(id))
+                                    };
+                                }
+                                if (f.id === targetFolderId) {
+                                    // Add to target folder (at top)
+                                    return {
+                                        ...f,
+                                        bookIds: [...selectedBookIds, ...f.bookIds]
+                                    };
+                                }
+                                return f;
+                            }));
+
+                            // Record undo
+                            recordAction({
+                                type: 'MOVE_BOOKS_TO_FOLDER',
+                                bookIds: selectedBookIds,
+                                fromFolderId: currentFolderId,
+                                toFolderId: targetFolderId
+                            });
+
+                            // Clear selection and close menu
+                            setExplorerSelectedBooks(new Set());
+                            setExplorerBookContextMenu(null);
+                            setContextSubmenu(null);
+
+                            const targetFolder = folders.find(f => f.id === targetFolderId);
+                            console.log(`📚 Moved ${selectedBookIds.length} book(s) to "${targetFolder?.name || 'Unknown'}"`);
+                        };
+
+                        // Copy books to target folder
+                        const handleCopyToFolder = (targetFolderId) => {
+                            const selectedBookIds = Array.from(explorerSelectedBooks);
+
+                            // Add books to target folder (keep in source)
+                            setFolders(prev => prev.map(f => {
+                                if (f.id === targetFolderId) {
+                                    // Filter out duplicates, then add new books at top
+                                    const existingIds = new Set(f.bookIds);
+                                    const newBooks = selectedBookIds.filter(id => !existingIds.has(id));
+                                    return {
+                                        ...f,
+                                        bookIds: [...newBooks, ...f.bookIds]
+                                    };
+                                }
+                                return f;
+                            }));
+
+                            // Record undo
+                            recordAction({
+                                type: 'COPY_BOOKS_TO_FOLDER',
+                                bookIds: selectedBookIds,
+                                toFolderId: targetFolderId
+                            });
+
+                            // Clear selection and close menu
+                            setExplorerSelectedBooks(new Set());
+                            setExplorerBookContextMenu(null);
+                            setContextSubmenu(null);
+
+                            const targetFolder = folders.find(f => f.id === targetFolderId);
+                            console.log(`📋 Copied ${selectedBookIds.length} book(s) to "${targetFolder?.name || 'Unknown'}"`);
+                        };
+
+                        // Build folder tree for submenu (reused for both Move to and Copy to)
+                        const buildFolderTree = (parentId, depth = 0) => {
+                            return folders
+                                .filter(f => f.parentId === parentId && !['__all__'].includes(f.id)) // Exclude special folders
+                                .map(f => {
+                                    const hasChildren = folders.some(child =>
+                                        child.parentId === f.id &&
+                                        !['__all__'].includes(child.id)
+                                    );
+                                    const isExpanded = submenuExpandedFolders.has(f.id);
+                                    const isCurrentFolder = f.id === selectedFolderId;
+
+                                    return (
+                                        <React.Fragment key={f.id}>
+                                            <div
+                                                className={`px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 ${isCurrentFolder ? 'bg-blue-50' : ''}`}
+                                                style={{ paddingLeft: `${8 + depth * 16}px` }}>
+                                                {/* Chevron */}
+                                                <span
+                                                    className="w-4 text-center cursor-pointer select-none"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (hasChildren) {
+                                                            setSubmenuExpandedFolders(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(f.id)) {
+                                                                    next.delete(f.id);
+                                                                } else {
+                                                                    next.add(f.id);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }
+                                                    }}>
+                                                    {hasChildren ? (isExpanded ? '▼' : '▶') : ' '}
+                                                </span>
+                                                {/* Folder icon and name */}
+                                                <div
+                                                    className="flex items-center gap-2 flex-1"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (contextSubmenu === 'move-to') {
+                                                            handleMoveToFolder(f.id);
+                                                        } else if (contextSubmenu === 'copy-to') {
+                                                            handleCopyToFolder(f.id);
+                                                        }
+                                                    }}>
+                                                    <span>{isCurrentFolder ? '✓' : '📁'}</span>
+                                                    <span>{f.name}</span>
+                                                </div>
+                                            </div>
+                                            {/* Children only if expanded */}
+                                            {hasChildren && isExpanded && buildFolderTree(f.id, depth + 1)}
+                                        </React.Fragment>
+                                    );
+                                });
+                        };
 
                         return (
                             <div
@@ -11755,16 +11944,67 @@
                                     {explorerSelectedBooks.size} book{explorerSelectedBooks.size !== 1 ? 's' : ''} selected
                                 </div>
 
-                                {/* Phase 1: Placeholder items - full implementation in Phase 2-5 */}
-                                <button
-                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center gap-2"
-                                    onClick={() => {
-                                        setExplorerBookContextMenu(null);
-                                        alert('Move to functionality will be implemented in Phase 2');
+                                {/* Move to - v5.0.0-alpha.166 Phase 2 */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                    onMouseEnter={() => setContextSubmenu('move-to')}
+                                    onMouseLeave={(e) => {
+                                        setTimeout(() => {
+                                            const activeElement = document.querySelector('.context-submenu:hover');
+                                            if (!activeElement) {
+                                                setContextSubmenu(null);
+                                            }
+                                        }, 600);
                                     }}>
-                                    📁 Move to
-                                </button>
+                                    <span>📁</span>
+                                    <span>Move to</span>
+                                    <span className="ml-auto">▶</span>
 
+                                    {/* Submenu */}
+                                    {contextSubmenu === 'move-to' && (
+                                        <div
+                                            className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                            onMouseEnter={() => setContextSubmenu('move-to')}
+                                            onMouseLeave={() => setContextSubmenu(null)}
+                                            onClick={(e) => e.stopPropagation()}>
+                                            {/* Folder tree */}
+                                            {buildFolderTree(null)}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Copy to - v5.0.0-alpha.166 Phase 2 */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                    onMouseEnter={() => setContextSubmenu('copy-to')}
+                                    onMouseLeave={(e) => {
+                                        setTimeout(() => {
+                                            const activeElement = document.querySelector('.context-submenu:hover');
+                                            if (!activeElement) {
+                                                setContextSubmenu(null);
+                                            }
+                                        }, 600);
+                                    }}>
+                                    <span>📋</span>
+                                    <span>Copy to</span>
+                                    <span className="ml-auto">▶</span>
+
+                                    {/* Submenu */}
+                                    {contextSubmenu === 'copy-to' && (
+                                        <div
+                                            className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                            onMouseEnter={() => setContextSubmenu('copy-to')}
+                                            onMouseLeave={() => setContextSubmenu(null)}
+                                            onClick={(e) => e.stopPropagation()}>
+                                            {/* Folder tree */}
+                                            {buildFolderTree(null)}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Phase 3 placeholder */}
                                 <button
                                     className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center gap-2"
                                     onClick={() => {
