@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.153";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.154";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -243,6 +243,14 @@
                 delta: 80
             });
             const [resizingColumn, setResizingColumn] = useState(null); // v5.0.0-alpha.109 - { columnId, startX, startWidth }
+
+            // v5.0.0-alpha.154 - Diagnostic logging for editingFolderId changes
+            useEffect(() => {
+                console.log('[EFFECT] editingFolderId changed:', editingFolderId, 'editingFolderName:', editingFolderName);
+                if (editingFolderId !== null) {
+                    console.log('[EFFECT] Stack trace for setting editingFolderId:', new Error().stack);
+                }
+            }, [editingFolderId, editingFolderName]);
 
             // v5.0.0 - Special folders
             const FOLDER_ALL_BOOKS = { id: '__all__', name: 'All Books', virtual: true, icon: '📚' };
@@ -8931,6 +8939,37 @@
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-auto px-4 pb-4">
+                                    {/* v5.0.0-alpha.154 - DIAGNOSTIC: Test button to isolate inline edit trigger */}
+                                    <div className="mb-2 p-2 bg-yellow-100 border border-yellow-400 rounded">
+                                        <button
+                                            onClick={() => {
+                                                // Find first folder in displayed items
+                                                const childFolders = selectedFolderId === '__library__'
+                                                    ? [getInboxFolder(), ...getChildFolders(null).filter(f => f.id !== '__inbox__')].filter(Boolean)
+                                                    : selectedFolderId === '__all__' ? [] : getChildFolders(selectedFolderId);
+
+                                                if (childFolders.length > 0) {
+                                                    const firstFolder = childFolders[0];
+                                                    console.log('[TEST BUTTON] Attempting to edit folder:', firstFolder.id, firstFolder.name);
+                                                    console.log('[TEST BUTTON] Before setState - editingFolderId:', editingFolderId);
+                                                    setEditingFolderId(firstFolder.id);
+                                                    setEditingFolderName(firstFolder.name);
+                                                    console.log('[TEST BUTTON] After setState called - waiting for next render');
+                                                    // Use setTimeout to log state after React processes the update
+                                                    setTimeout(() => {
+                                                        console.log('[TEST BUTTON] After timeout - editingFolderId should be:', firstFolder.id);
+                                                    }, 0);
+                                                } else {
+                                                    console.log('[TEST BUTTON] No folders found to edit');
+                                                }
+                                            }}
+                                            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm font-medium">
+                                            🔬 TEST: Edit First Folder (Diagnostic)
+                                        </button>
+                                        <span className="ml-2 text-xs text-gray-700">
+                                            Click to directly set inline edit state (bypassing context menu)
+                                        </span>
+                                    </div>
                                     {explorerView === 'list' ? (
                                         <table className="text-sm" style={{
                                             tableLayout: 'fixed',
@@ -9275,8 +9314,14 @@
                                                                 </td>
                                                                 <td className="p-2 text-center text-xl">{folder.id === '__inbox__' ? '📥' : '📁'}</td>
                                                                 <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>
-                                                                    {/* v5.0.0-alpha.147 - Inline editing in right panel */}
-                                                                    {editingFolderId === folder.id ? (
+                                                                    {/* v5.0.0-alpha.154 - Enhanced diagnostic logging */}
+                                                                    {(() => {
+                                                                        const isEditing = editingFolderId === folder.id;
+                                                                        if (isEditing) {
+                                                                            console.log(`[RENDER] Folder ${folder.id} (${folder.name}) - EDITING MODE - editingFolderId:`, editingFolderId, 'editingFolderName:', editingFolderName);
+                                                                        }
+                                                                        return isEditing;
+                                                                    })() ? (
                                                                         <input
                                                                             type="text"
                                                                             value={editingFolderName}
