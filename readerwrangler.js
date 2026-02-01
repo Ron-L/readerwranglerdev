@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167.2";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12052,20 +12052,31 @@
                                             {/* Open in Amazon */}
                                             <div
                                                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // v5.0.0-alpha.167.1 - Fixed to open all selected books
                                                     if (count > 10) {
                                                         alert('Too many books selected. Please select 10 or fewer to open in Amazon.');
-                                                    } else if (count > 3) {
-                                                        if (window.confirm(`Open ${count} tabs in Amazon?`)) {
-                                                            selectedBooksArray.forEach(book => {
-                                                                window.open(getAmazonUrl(book.asin), '_blank');
-                                                            });
-                                                        }
-                                                    } else {
-                                                        selectedBooksArray.forEach(book => {
-                                                            window.open(getAmazonUrl(book.asin), '_blank');
-                                                        });
+                                                        setExplorerBookContextMenu(null);
+                                                        setContextSubmenu(null);
+                                                        return;
                                                     }
+
+                                                    if (count > 3) {
+                                                        if (!window.confirm(`Open ${count} tabs in Amazon?`)) {
+                                                            setExplorerBookContextMenu(null);
+                                                            setContextSubmenu(null);
+                                                            return;
+                                                        }
+                                                    }
+
+                                                    // v5.0.0-alpha.167.2 - Open all books with staggered delays to avoid popup blocker
+                                                    selectedBooksArray.forEach((book, index) => {
+                                                        setTimeout(() => {
+                                                            window.open(getAmazonUrl(book.asin), '_blank');
+                                                        }, index * 100); // 100ms delay between each tab
+                                                    });
+
                                                     setExplorerBookContextMenu(null);
                                                     setContextSubmenu(null);
                                                 }}>
@@ -12090,10 +12101,11 @@
                                             {count === 1 ? (
                                                 <div
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                    onClick={() => {
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         const book = selectedBooksArray[0];
-                                                        // Open modal with note editor
-                                                        setSelectedBook(book);
+                                                        // Open modal with note editor (v5.0.0-alpha.167.1 - Fixed to use openBookModal)
+                                                        openBookModal(book, null);
                                                         setNoteEditContent(book.userNote || '');
                                                         setIsEditingNote(true);
                                                         setExplorerBookContextMenu(null);
@@ -12136,11 +12148,14 @@
                                                         onMouseLeave={() => setContextSubmenu(null)}
                                                         onClick={(e) => e.stopPropagation()}>
                                                         {/* Preset prices */}
-                                                        {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => (
-                                                            <div
-                                                                key={price}
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                                onClick={async () => {
+                                                        {/* v5.0.0-alpha.167.1 - Show current price goal in bold */}
+                                                        {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => {
+                                                            const hasThisGoal = selectedBooksArray.some(b => b.priceTrigger === price);
+                                                            return (
+                                                                <div
+                                                                    key={price}
+                                                                    className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${hasThisGoal ? 'font-bold' : ''}`}
+                                                                    onClick={async () => {
                                                                     const selectedBookIds = Array.from(explorerSelectedBooks);
                                                                     setBooks(prev => {
                                                                         const updated = prev.map(b =>
@@ -12167,7 +12182,8 @@
                                                                 }}>
                                                                 ${price.toFixed(2)}
                                                             </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                         <div
                                                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                                             onClick={() => {
