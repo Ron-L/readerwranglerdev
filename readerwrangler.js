@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167.5";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167.6";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -233,7 +233,8 @@
                 dateAdded: true,
                 price: true,
                 priceGoal: true,
-                delta: true
+                delta: true,
+                amazon: false // v5.0.0-alpha.167.6 - Amazon link column (hidden by default)
             });
             const [explorerColumnMenuOpen, setExplorerColumnMenuOpen] = useState(false); // v5.0.0-alpha.104 - Explorer column chooser menu
             const [explorerColumnMenuPos, setExplorerColumnMenuPos] = useState(null); // v5.0.0-alpha.107 - Context menu position { x, y } or null
@@ -244,7 +245,8 @@
                 dateAdded: 112,
                 price: 80,
                 priceGoal: 80,
-                delta: 80
+                delta: 80,
+                amazon: 70 // v5.0.0-alpha.167.6 - Amazon link column width
             });
             const [resizingColumn, setResizingColumn] = useState(null); // v5.0.0-alpha.109 - { columnId, startX, startWidth }
 
@@ -9020,6 +9022,15 @@
                                                                 />
                                                                 Under
                                                             </label>
+                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={visibleColumns.amazon}
+                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, amazon: !prev.amazon }))}
+                                                                    className="cursor-pointer"
+                                                                />
+                                                                Amazon
+                                                            </label>
                                                         </div>
                                                         <div className="mt-3 pt-2 border-t border-gray-200">
                                                             <button
@@ -9030,7 +9041,8 @@
                                                                         dateAdded: true,
                                                                         price: true,
                                                                         priceGoal: true,
-                                                                        delta: true
+                                                                        delta: true,
+                                                                        amazon: true
                                                                     });
                                                                 }}
                                                                 className="text-xs text-blue-600 hover:text-blue-800">
@@ -9053,7 +9065,8 @@
                                                 (visibleColumns.dateAdded ? columnWidths.dateAdded : 0) +
                                                 (visibleColumns.price ? columnWidths.price : 0) +
                                                 (visibleColumns.priceGoal ? columnWidths.priceGoal : 0) +
-                                                (visibleColumns.delta ? columnWidths.delta : 0)}px`
+                                                (visibleColumns.delta ? columnWidths.delta : 0) +
+                                                (visibleColumns.amazon ? columnWidths.amazon : 0)}px`
                                         }}>
                                             <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-200">
                                                 <tr className="text-left text-gray-600"
@@ -9175,6 +9188,12 @@
                                                                 }}
                                                                 title="Drag to resize"
                                                             />
+                                                        </th>
+                                                    )}
+                                                    {/* v5.0.0-alpha.167.6 - Amazon link column */}
+                                                    {visibleColumns.amazon && (
+                                                        <th className="p-2 text-center" style={{ width: `${columnWidths.amazon}px` }}>
+                                                            Amazon
                                                         </th>
                                                     )}
                                                     {/* v5.0.0-alpha.113 - Spacer column to absorb extra space */}
@@ -9454,6 +9473,7 @@
                                                                 {visibleColumns.price && <td className="p-2 text-gray-400" style={{ width: `var(--col-price, ${columnWidths.price}px)` }}>—</td>}
                                                                 {visibleColumns.priceGoal && <td className="p-2 text-gray-400" style={{ width: `var(--col-priceGoal, ${columnWidths.priceGoal}px)` }}>—</td>}
                                                                 {visibleColumns.delta && <td className="p-2 text-gray-400" style={{ width: `var(--col-delta, ${columnWidths.delta}px)` }}>—</td>}
+                                                                {visibleColumns.amazon && <td className="p-2 text-gray-400" style={{ width: `${columnWidths.amazon}px` }}>—</td>}
                                                                 <td className="p-2"></td>
                                                             </tr>
                                                         );
@@ -9674,6 +9694,20 @@
                                                                             </span>
                                                                         );
                                                                     })()}
+                                                                </td>
+                                                            )}
+                                                            {/* v5.0.0-alpha.167.6 - Amazon link column */}
+                                                            {visibleColumns.amazon && (
+                                                                <td className="p-2 text-center" style={{ width: `${columnWidths.amazon}px` }}>
+                                                                    <a
+                                                                        href={getAmazonUrl(book.asin)}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-blue-600 hover:text-blue-800 hover:underline text-xs"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        Amazon
+                                                                    </a>
                                                                 </td>
                                                             )}
                                                             <td className="p-2"></td>
@@ -12049,93 +12083,28 @@
 
                                     return (
                                         <>
-                                            {/* Open in Amazon */}
-                                            <div
-                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    // v5.0.0-alpha.167.5 - Open list page for multiple books to avoid popup blockers
-                                                    if (count > 50) {
-                                                        alert('Too many books selected. Please select 50 or fewer.');
+                                            {/* Open in Amazon - v5.0.0-alpha.167.6: Single book only (popup blockers prevent multiple) */}
+                                            {count === 1 ? (
+                                                <div
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const book = selectedBooksArray[0];
+                                                        window.open(getAmazonUrl(book.asin), '_blank');
                                                         setExplorerBookContextMenu(null);
                                                         setContextSubmenu(null);
-                                                        return;
-                                                    }
-
-                                                    // For 1-2 books, open directly
-                                                    if (count <= 2) {
-                                                        selectedBooksArray.forEach(book => {
-                                                            window.open(getAmazonUrl(book.asin), '_blank');
-                                                        });
-                                                        setExplorerBookContextMenu(null);
-                                                        setContextSubmenu(null);
-                                                        return;
-                                                    }
-
-                                                    // For 3+ books, create a list page
-                                                    const html = `<!DOCTYPE html>
-<html>
-<head>
-    <title>Amazon Books List (${count} books)</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-        h1 { color: #232f3e; }
-        .book-list { list-style: none; padding: 0; }
-        .book-item {
-            padding: 12px;
-            margin: 8px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-        .book-item:hover { background-color: #f7f7f7; }
-        .book-link {
-            color: #007185;
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        .book-link:hover { text-decoration: underline; color: #C7511F; }
-        .book-author { color: #565959; margin-top: 4px; font-size: 14px; }
-        .instructions {
-            background-color: #f0f8ff;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border-left: 4px solid #007185;
-        }
-    </style>
-</head>
-<body>
-    <h1>📚 Amazon Books List</h1>
-    <div class="instructions">
-        <strong>Tip:</strong> Click any book to open it on Amazon. Use your browser's Back button to return to this list.
-    </div>
-    <ul class="book-list">
-        ${selectedBooksArray.map((book, i) => `
-            <li class="book-item">
-                <div><span style="color: #999;">${i + 1}.</span> <a href="${getAmazonUrl(book.asin)}" class="book-link" target="_self">${book.title}</a></div>
-                <div class="book-author">${book.author || 'Unknown Author'}</div>
-            </li>
-        `).join('')}
-    </ul>
-</body>
-</html>`;
-
-                                                    // Open the HTML page in a new tab
-                                                    const blob = new Blob([html], { type: 'text/html' });
-                                                    const url = URL.createObjectURL(blob);
-                                                    window.open(url, '_blank');
-
-                                                    // Clean up the URL after a delay
-                                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-                                                    setExplorerBookContextMenu(null);
-                                                    setContextSubmenu(null);
-                                                }}>
-                                                <span>🔗</span>
-                                                <span>Open in Amazon</span>
-                                            </div>
+                                                    }}>
+                                                    <span>🔗</span>
+                                                    <span>Open in Amazon</span>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                                    title="Use Amazon column in List View for multiple books">
+                                                    <span>🔗</span>
+                                                    <span>Open in Amazon</span>
+                                                </div>
+                                            )}
 
                                             {/* Copy Title(s) */}
                                             <div
