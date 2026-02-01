@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.166.1";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -11290,6 +11290,9 @@
                         if (!folder) return null;
 
                         const isSpecialFolder = ['__all__', '__inbox__', '__my__'].includes(folder.id);
+                        // v5.0.0-alpha.166.2 - Check if viewing special folder in right panel (can't move folders from virtual views)
+                        const isInSpecialFolderView = folderContextMenu.source === 'right' &&
+                            ['__all__', '__library__', '__inbox__'].includes(selectedFolderId);
                         const hasChildren = folders.some(f => f.parentId === folder.id);
                         const hasBooks = folder.bookIds && folder.bookIds.length > 0;
 
@@ -11422,22 +11425,33 @@
                                 <div className="border-t border-gray-200 my-1"></div>
 
                                 {/* Move to - v5.0.0-alpha.137 */}
+                                {/* v5.0.0-alpha.166.2 - Disabled when viewing special folders in right panel */}
                                 {!isSpecialFolder && (
-                                    <div
-                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
-                                        onMouseEnter={() => setContextSubmenu('move-to')}
-                                        onMouseLeave={(e) => {
-                                            // v5.0.0-alpha.140 - Increased timeout to 600ms for slower mouse movement
-                                            setTimeout(() => {
-                                                const activeElement = document.querySelector('.context-submenu:hover');
-                                                if (!activeElement) {
-                                                    setContextSubmenu(null);
-                                                }
-                                            }, 600);
-                                        }}>
-                                        <span>➡️</span>
-                                        <span>Move to</span>
-                                        <span className="ml-auto">▶</span>
+                                    isInSpecialFolderView ? (
+                                        <div
+                                            className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3 relative"
+                                            title="Cannot move folders from virtual folder views">
+                                            <span>➡️</span>
+                                            <span>Move to</span>
+                                            <span className="ml-auto">▶</span>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                            onMouseEnter={() => setContextSubmenu('move-to')}
+                                            onMouseLeave={(e) => {
+                                                // v5.0.0-alpha.140 - Increased timeout to 600ms for slower mouse movement
+                                                setTimeout(() => {
+                                                    const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                                    const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                                    if (!activeSubmenu && !activeTrigger) {
+                                                        setContextSubmenu(null);
+                                                    }
+                                                }, 600);
+                                            }}>
+                                            <span>➡️</span>
+                                            <span>Move to</span>
+                                            <span className="ml-auto">▶</span>
 
                                         {/* Submenu */}
                                         {contextSubmenu === 'move-to' && (() => {
@@ -11522,7 +11536,8 @@
                                                 </div>
                                             );
                                         })()}
-                                    </div>
+                                        </div>
+                                    )
                                 )}
 
                                 {/* Create Subfolder */}
@@ -11783,7 +11798,7 @@
                         // v5.0.0-alpha.166 - Phase 2: Full implementation with Move to / Copy to submenus
 
                         // Calculate menu position to avoid going off-screen
-                        const menuHeight = 200; // v5.0.0-alpha.166 - Increased for Phase 2 items
+                        const menuHeight = 300; // v5.0.0-alpha.167 - Increased for Phase 3 items
                         const menuWidth = 220;
                         const viewportHeight = window.innerHeight;
                         const viewportWidth = window.innerWidth;
@@ -12020,15 +12035,184 @@
 
                                 <div className="border-t border-gray-200 my-1"></div>
 
-                                {/* Phase 3 placeholder */}
-                                <button
-                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center gap-2"
-                                    onClick={() => {
-                                        setExplorerBookContextMenu(null);
-                                        alert('Open in Amazon functionality will be implemented in Phase 3');
-                                    }}>
-                                    🔗 Open in Amazon
-                                </button>
+                                {/* v5.0.0-alpha.167 - Phase 3: Other menu items */}
+
+                                {/* Helper to get selected books as array */}
+                                {(() => {
+                                    const getSelectedBooksArray = () => {
+                                        const selectedIds = Array.from(explorerSelectedBooks);
+                                        return selectedIds.map(id => books.find(b => b.id === id)).filter(Boolean);
+                                    };
+
+                                    const selectedBooksArray = getSelectedBooksArray();
+                                    const count = selectedBooksArray.length;
+
+                                    return (
+                                        <>
+                                            {/* Open in Amazon */}
+                                            <div
+                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                onClick={() => {
+                                                    if (count > 10) {
+                                                        alert('Too many books selected. Please select 10 or fewer to open in Amazon.');
+                                                    } else if (count > 3) {
+                                                        if (window.confirm(`Open ${count} tabs in Amazon?`)) {
+                                                            selectedBooksArray.forEach(book => {
+                                                                window.open(getAmazonUrl(book.asin), '_blank');
+                                                            });
+                                                        }
+                                                    } else {
+                                                        selectedBooksArray.forEach(book => {
+                                                            window.open(getAmazonUrl(book.asin), '_blank');
+                                                        });
+                                                    }
+                                                    setExplorerBookContextMenu(null);
+                                                    setContextSubmenu(null);
+                                                }}>
+                                                <span>🔗</span>
+                                                <span>Open in Amazon</span>
+                                            </div>
+
+                                            {/* Copy Title(s) */}
+                                            <div
+                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                onClick={() => {
+                                                    const titles = selectedBooksArray.map(book => book.title).join('\n');
+                                                    navigator.clipboard.writeText(titles);
+                                                    setExplorerBookContextMenu(null);
+                                                    setContextSubmenu(null);
+                                                }}>
+                                                <span>📝</span>
+                                                <span>Copy Title{count !== 1 ? 's' : ''}</span>
+                                            </div>
+
+                                            {/* Add/Edit Note (single book only) */}
+                                            {count === 1 ? (
+                                                <div
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                                    onClick={() => {
+                                                        const book = selectedBooksArray[0];
+                                                        // Open modal with note editor
+                                                        setSelectedBook(book);
+                                                        setNoteEditContent(book.userNote || '');
+                                                        setIsEditingNote(true);
+                                                        setExplorerBookContextMenu(null);
+                                                        setContextSubmenu(null);
+                                                    }}>
+                                                    <span>{selectedBooksArray[0]?.userNote ? '✏️' : '📝'}</span>
+                                                    <span>{selectedBooksArray[0]?.userNote ? 'Edit Note' : 'Add Note'}</span>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                                    title="Notes can only be edited for one book at a time">
+                                                    <span>📝</span>
+                                                    <span>Add/Edit Note</span>
+                                                </div>
+                                            )}
+
+                                            {/* Set Price Goal submenu */}
+                                            <div
+                                                className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                                onMouseEnter={() => setContextSubmenu('price-goal')}
+                                                onMouseLeave={(e) => {
+                                                    setTimeout(() => {
+                                                        const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                                        const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                                        if (!activeSubmenu && !activeTrigger) {
+                                                            setContextSubmenu(null);
+                                                        }
+                                                    }, 600);
+                                                }}>
+                                                <span>💰</span>
+                                                <span>Set Price Goal</span>
+                                                <span className="ml-auto">▶</span>
+
+                                                {/* Price Goal Submenu */}
+                                                {contextSubmenu === 'price-goal' && (
+                                                    <div
+                                                        className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
+                                                        onMouseEnter={() => setContextSubmenu('price-goal')}
+                                                        onMouseLeave={() => setContextSubmenu(null)}
+                                                        onClick={(e) => e.stopPropagation()}>
+                                                        {/* Preset prices */}
+                                                        {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => (
+                                                            <div
+                                                                key={price}
+                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                                onClick={async () => {
+                                                                    const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                    setBooks(prev => {
+                                                                        const updated = prev.map(b =>
+                                                                            selectedBookIds.includes(b.id) ? { ...b, priceTrigger: price } : b
+                                                                        );
+                                                                        saveBooksToIndexedDB(updated);
+                                                                        return updated;
+                                                                    });
+                                                                    // Toast feedback
+                                                                    setClipboardMessage(`Price goal set to $${price.toFixed(2)} for ${count} book${count !== 1 ? 's' : ''}`);
+                                                                    setFooterClipboardVisible(false);
+                                                                    setToastVisible(true);
+                                                                    setToastAnimating(false);
+                                                                    setTimeout(() => {
+                                                                        setToastAnimating(true);
+                                                                        setTimeout(() => {
+                                                                            setToastVisible(false);
+                                                                            setToastAnimating(false);
+                                                                            setFooterClipboardVisible(true);
+                                                                        }, 1000);
+                                                                    }, 1500);
+                                                                    setExplorerBookContextMenu(null);
+                                                                    setContextSubmenu(null);
+                                                                }}>
+                                                                ${price.toFixed(2)}
+                                                            </div>
+                                                        ))}
+                                                        <div
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                            onClick={() => {
+                                                                setShowBulkPriceModal(true);
+                                                                setExplorerBookContextMenu(null);
+                                                                setContextSubmenu(null);
+                                                            }}>
+                                                            Custom...
+                                                        </div>
+                                                        <div className="border-t border-gray-200 my-1"></div>
+                                                        <div
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
+                                                            onClick={async () => {
+                                                                const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                setBooks(prev => {
+                                                                    const updated = prev.map(b =>
+                                                                        selectedBookIds.includes(b.id) ? { ...b, priceTrigger: null } : b
+                                                                    );
+                                                                    saveBooksToIndexedDB(updated);
+                                                                    return updated;
+                                                                });
+                                                                // Toast feedback
+                                                                setClipboardMessage(`Price goal cleared for ${count} book${count !== 1 ? 's' : ''}`);
+                                                                setFooterClipboardVisible(false);
+                                                                setToastVisible(true);
+                                                                setToastAnimating(false);
+                                                                setTimeout(() => {
+                                                                    setToastAnimating(true);
+                                                                    setTimeout(() => {
+                                                                        setToastVisible(false);
+                                                                        setToastAnimating(false);
+                                                                        setFooterClipboardVisible(true);
+                                                                    }, 1000);
+                                                                }, 1500);
+                                                                setExplorerBookContextMenu(null);
+                                                                setContextSubmenu(null);
+                                                            }}>
+                                                            Clear Price Goal
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
