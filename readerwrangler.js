@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.160";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.161";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -828,6 +828,9 @@
             // v5.0.0-alpha.92 - Navigation history functions
             const navigateToFolder = (folderId, addToHistory = true) => {
                 setSelectedFolderId(folderId);
+                // v5.0.0-alpha.161 - Clear right panel selections when navigating
+                setExplorerSelectedFolders(new Set());
+                setExplorerSelectedBooks(new Set());
                 if (addToHistory) {
                     // Truncate forward history and add new entry
                     setNavHistory(prev => [...prev.slice(0, navHistoryIndex + 1), folderId]);
@@ -843,6 +846,9 @@
                     const newIndex = navHistoryIndex - 1;
                     setNavHistoryIndex(newIndex);
                     setSelectedFolderId(navHistory[newIndex]);
+                    // v5.0.0-alpha.161 - Clear right panel selections when navigating
+                    setExplorerSelectedFolders(new Set());
+                    setExplorerSelectedBooks(new Set());
                 }
             };
 
@@ -851,6 +857,9 @@
                     const newIndex = navHistoryIndex + 1;
                     setNavHistoryIndex(newIndex);
                     setSelectedFolderId(navHistory[newIndex]);
+                    // v5.0.0-alpha.161 - Clear right panel selections when navigating
+                    setExplorerSelectedFolders(new Set());
+                    setExplorerSelectedBooks(new Set());
                 }
             };
 
