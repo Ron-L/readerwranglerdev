@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.165";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.165.1";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9547,6 +9547,7 @@
                                                                 }
                                                                 // Clear folder selection
                                                                 setExplorerSelectedFolders(new Set());
+                                                                setBookTooltip(null);  // v5.0.0-alpha.165.1 - Close tooltip when opening context menu
                                                                 setExplorerBookContextMenu({
                                                                     x: e.clientX,
                                                                     y: e.clientY
@@ -9912,6 +9913,7 @@
                                                             }
                                                             // Clear folder selection
                                                             setExplorerSelectedFolders(new Set());
+                                                            setBookTooltip(null);  // v5.0.0-alpha.165.1 - Close tooltip when opening context menu
                                                             setExplorerBookContextMenu({
                                                                 x: e.clientX,
                                                                 y: e.clientY
@@ -11725,7 +11727,8 @@
                     {/* v5.0.0-alpha.165 - Explorer Book Context Menu (Phase 1: Basic structure) */}
                     {explorerBookContextMenu && (() => {
                         // Calculate menu position to avoid going off-screen
-                        const menuHeight = 300;
+                        // v5.0.0-alpha.165.1 - Phase 1 has only 3 items (~120px), will increase to ~400px in later phases
+                        const menuHeight = 120;
                         const menuWidth = 220;
                         const viewportHeight = window.innerHeight;
                         const viewportWidth = window.innerWidth;
