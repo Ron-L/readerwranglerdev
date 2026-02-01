@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.156";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.157";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1987,6 +1987,30 @@
                         }
                     }
 
+                    // v5.0.0-alpha.157 - F2 - Rename folder
+                    if (e.key === 'F2') {
+                        e.preventDefault();
+
+                        // Priority 1: If exactly one folder is selected in right panel, rename it
+                        if (explorerSelectedFolders.size === 1) {
+                            const folderId = Array.from(explorerSelectedFolders)[0];
+                            const folder = folders.find(f => f.id === folderId);
+                            if (folder && !['__all__', '__inbox__', '__library__'].includes(folder.id)) {
+                                setRightPanelEditingId(folder.id);
+                                setRightPanelEditingName(folder.name);
+                                setRightPanelPlaceholderMode(false);
+                                console.log(`✏️ F2: Renaming "${folder.name}" in right panel`);
+                            }
+                        }
+                        // Priority 2: Rename currently viewed folder (left panel context)
+                        else if (currentFolder && !isSpecialFolder) {
+                            setEditingFolderId(currentFolder.id);
+                            setEditingFolderName(currentFolder.name);
+                            setIsPlaceholderMode(false);
+                            console.log(`✏️ F2: Renaming "${currentFolder.name}" in left panel`);
+                        }
+                    }
+
                     // Delete - Delete current folder
                     if (e.key === 'Delete' && !isSpecialFolder) {
                         e.preventDefault();
@@ -2068,7 +2092,7 @@
 
                 window.addEventListener('keydown', handleKeyboard);
                 return () => window.removeEventListener('keydown', handleKeyboard);
-            }, [selectedFolderId, folders, folderClipboard, folderContextMenu, folderPropertiesDialog]);
+            }, [selectedFolderId, folders, folderClipboard, folderContextMenu, folderPropertiesDialog, explorerSelectedFolders]); // v5.0.0-alpha.157 - Added explorerSelectedFolders for F2
 
             const saveSettings = (newSettings) => {
                 setSettings(newSettings);
