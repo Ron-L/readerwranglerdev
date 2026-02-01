@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.162";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.163";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -389,9 +389,9 @@
                     }
                 }
 
-                // Deals filter
+                // Deals filter (v5.0.0-alpha.163 - works for all books, not just wishlist)
                 const matchesDeals = !dealsFilterActive ||
-                    (book.onWishlist && book.priceTrigger != null && book.currentPrice != null && book.currentPrice <= book.priceTrigger);
+                    (book.priceTrigger != null && book.currentPrice != null && book.currentPrice <= book.priceTrigger);
 
                 // Tag filter
                 const matchesTags = !tagFilter || tagFilter.length === 0 ||
@@ -5637,9 +5637,9 @@
                         }
                     }
 
-                    // Deals filter (v4.17.0.j, v4.18.0.a - onWishlist replaces isWishlist)
+                    // Deals filter (v5.0.0-alpha.163 - works for all books, not just wishlist)
                     const matchesDeals = !dealsFilterActive ||
-                        (book.onWishlist && book.priceTrigger != null && book.currentPrice != null && book.currentPrice <= book.priceTrigger);
+                        (book.priceTrigger != null && book.currentPrice != null && book.currentPrice <= book.priceTrigger);
 
                     // Tag filter (v4.27.0 - OR logic: book matches if it has ANY of the selected tags)
                     // Check both explicit tags and inherited tags from dividers
@@ -5884,7 +5884,7 @@
                                             className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                         />
                                         <span className={`${dealsFilterActive ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                            Show Deals ({books.filter(b => b.onWishlist && b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
+                                            Show Deals ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
                                         </span>
                                     </label>
                                 </div>
@@ -6201,7 +6201,7 @@
                                                         className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                     />
                                                     <span className={`${dealsFilterActive ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                                        Show Deals ({books.filter(b => b.onWishlist && b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
+                                                        Show Deals ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
                                                     </span>
                                                 </label>
                                             </td>
@@ -7277,10 +7277,9 @@
                                                 </div>
                                             </div>
 
-                                            {/* Price section for wishlist books (v4.17.0, v4.18.0.b - show for all wishlist, not just those with price) */}
-                                            {modalBook.onWishlist && (
-                                                <div className="mt-4 pt-4 border-t border-gray-200">
-                                                    <div className="flex items-center gap-2 mb-2">
+                                            {/* Price section (v5.0.0-alpha.163 - show for all books, not just wishlist) */}
+                                            <div className="mt-4 pt-4 border-t border-gray-200">
+                                                <div className="flex items-center gap-2 mb-2">
                                                         <span className="font-semibold text-gray-700">Current Price:</span>
                                                         {modalBook.currentPrice != null ? (
                                                             <>
@@ -7387,8 +7386,8 @@
                                                             ✓ Goal: {'$'}{modalBook.priceTrigger.toFixed(2)} or less
                                                         </p>
                                                     )}
-                                                </div>
-                                            )}
+                                            </div>
+
                                         </div>
                                     </div>
 
@@ -7944,8 +7943,8 @@
                                                                         </svg>
                                                                     </div>
                                                                 )}
-                                                                {/* Bottom-left: Price tag (wishlist) or Ownership badge (non-purchased owned) */}
-                                                                {book.onWishlist && book.currentPrice != null ? (
+                                                                {/* Bottom-left: Price tag (any book with price) or Ownership badge (non-purchased owned) */}
+                                                                {book.currentPrice != null ? (
                                                                     <div
                                                                         className={`absolute bottom-1 left-1 ${book.priceTrigger && book.currentPrice <= book.priceTrigger ? 'bg-green-500' : 'bg-gray-500'} bg-opacity-90 text-xs font-bold text-white`}
                                                                         style={{

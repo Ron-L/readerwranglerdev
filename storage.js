@@ -86,20 +86,19 @@ const saveBooksToIndexedDB = async (books) => {
                     booksByAsin.set(book.asin, {
                         ...book,
                         addedToWishlist: existing.addedToWishlist,
-                        // Clear price goal since book is now owned
-                        priceTrigger: null,
-                        targetPrice: null
+                        // v5.0.0-alpha.163 - PRESERVE price goal when book transitions to owned
+                        priceTrigger: existing.priceTrigger ?? book.priceTrigger,
+                        targetPrice: existing.targetPrice ?? book.targetPrice
                     });
                 } else if (!existing.onWishlist && book.onWishlist) {
                     // Existing is owned, new is wishlist - keep existing
-                    // but preserve addedToWishlist if new book has it
-                    if (book.addedToWishlist && !existing.addedToWishlist) {
-                        booksByAsin.set(book.asin, {
-                            ...existing,
-                            addedToWishlist: book.addedToWishlist
-                        });
-                    }
-                    // else keep existing as-is
+                    // v5.0.0-alpha.163 - Preserve addedToWishlist and price goals from wishlist
+                    booksByAsin.set(book.asin, {
+                        ...existing,
+                        addedToWishlist: book.addedToWishlist ?? existing.addedToWishlist,
+                        priceTrigger: book.priceTrigger ?? existing.priceTrigger,
+                        targetPrice: book.targetPrice ?? existing.targetPrice
+                    });
                 }
                 // If both same ownership status, keep first occurrence (existing)
             } else {
@@ -110,9 +109,9 @@ const saveBooksToIndexedDB = async (books) => {
                     booksByAsin.set(book.asin, {
                         ...book,
                         addedToWishlist: previousBook.addedToWishlist,
-                        // Clear price goal since book is now owned
-                        priceTrigger: null,
-                        targetPrice: null
+                        // v5.0.0-alpha.163 - PRESERVE price goal when book transitions to owned
+                        priceTrigger: previousBook.priceTrigger ?? book.priceTrigger,
+                        targetPrice: previousBook.targetPrice ?? book.targetPrice
                     });
                 } else {
                     booksByAsin.set(book.asin, book);
@@ -128,7 +127,7 @@ const saveBooksToIndexedDB = async (books) => {
         }
 
         if (wishlistToOwned.length > 0) {
-            console.log(`🎉 ${wishlistToOwned.length} wishlist items now owned (price goals cleared)`);
+            console.log(`🎉 ${wishlistToOwned.length} wishlist items now owned (price goals preserved)`);
         }
 
         // Step 5: Clear and save
