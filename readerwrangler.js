@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.164";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.165";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -208,6 +208,7 @@
             const [explorerSelectedBooks, setExplorerSelectedBooks] = useState(new Set()); // Multi-select in Explorer
             const [explorerSelectedFolders, setExplorerSelectedFolders] = useState(new Set()); // v5.0.0-alpha.54 - Folder selection in right pane
             const [explorerSelectionAnchor, setExplorerSelectionAnchor] = useState(null); // Anchor index for Shift+click range select
+            const [explorerBookContextMenu, setExplorerBookContextMenu] = useState(null); // v5.0.0-alpha.165 - Book context menu in Explorer (separate from Columns App menu)
             const [explorerReorderTarget, setExplorerReorderTarget] = useState(null); // Index for reorder drop target
             const [explorerFolderDragTarget, setExplorerFolderDragTarget] = useState(null); // v5.0.0-alpha.69 - { type: 'reorder'|'reparent', index?, position?, folderId? }
             const [explorerIsCopyDrag, setExplorerIsCopyDrag] = useState(false); // Ctrl key pressed during drag
@@ -1837,10 +1838,14 @@
                     if (e.key === 'Escape' && folderContextMenu) {
                         setFolderContextMenu(null);
                     }
+                    // v5.0.0-alpha.165 - Close Explorer book context menu on Esc
+                    if (e.key === 'Escape' && explorerBookContextMenu) {
+                        setExplorerBookContextMenu(null);
+                    }
                 };
                 window.addEventListener('keydown', handleEsc);
                 return () => window.removeEventListener('keydown', handleEsc);
-            }, [folderContextMenu]);
+            }, [folderContextMenu, explorerBookContextMenu]);
 
             // v5.0.0-alpha.141 - Clear clipboard on Esc
             useEffect(() => {
@@ -1884,12 +1889,16 @@
                     if (folderContextMenu && !e.target.closest('.fixed')) {
                         setFolderContextMenu(null);
                     }
+                    // v5.0.0-alpha.165 - Close Explorer book context menu when clicking outside
+                    if (explorerBookContextMenu && !e.target.closest('.fixed')) {
+                        setExplorerBookContextMenu(null);
+                    }
                 };
-                if (folderContextMenu) {
+                if (folderContextMenu || explorerBookContextMenu) {
                     document.addEventListener('mousedown', handleClickOutside);
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
-            }, [folderContextMenu]);
+            }, [folderContextMenu, explorerBookContextMenu]);
 
             // v5.0.0-alpha.145 - Keyboard shortcuts for folder operations (Phase 6)
             useEffect(() => {
@@ -9529,6 +9538,20 @@
                                                                     setExplorerSelectionAnchor(index);
                                                                 }
                                                             }}
+                                                            onContextMenu={(e) => {
+                                                                // v5.0.0-alpha.165 - Right-click: If book not in selection, select it first
+                                                                e.preventDefault();
+                                                                if (!explorerSelectedBooks.has(book.id)) {
+                                                                    setExplorerSelectedBooks(new Set([book.id]));
+                                                                    setExplorerSelectionAnchor(index);
+                                                                }
+                                                                // Clear folder selection
+                                                                setExplorerSelectedFolders(new Set());
+                                                                setExplorerBookContextMenu({
+                                                                    x: e.clientX,
+                                                                    y: e.clientY
+                                                                });
+                                                            }}
                                                             onDoubleClick={() => openBookModal(book, null)}>
                                                             {/* v5.0.0-alpha.123 - Clickable checkbox */}
                                                             <td
@@ -9879,6 +9902,20 @@
                                                                 setExplorerSelectedBooks(new Set([book.id]));
                                                                 setExplorerSelectionAnchor(index);
                                                             }
+                                                        }}
+                                                        onContextMenu={(e) => {
+                                                            // v5.0.0-alpha.165 - Right-click: If book not in selection, select it first
+                                                            e.preventDefault();
+                                                            if (!explorerSelectedBooks.has(book.id)) {
+                                                                setExplorerSelectedBooks(new Set([book.id]));
+                                                                setExplorerSelectionAnchor(index);
+                                                            }
+                                                            // Clear folder selection
+                                                            setExplorerSelectedFolders(new Set());
+                                                            setExplorerBookContextMenu({
+                                                                x: e.clientX,
+                                                                y: e.clientY
+                                                            });
                                                         }}
                                                         onDoubleClick={() => openBookModal(book, null)}>
                                                         <img src={book.coverUrl} alt={book.title} className={`w-full h-auto rounded shadow ${book.onWishlist ? 'opacity-40' : ''}`} />
@@ -11681,6 +11718,67 @@
                                     <span>ℹ️</span>
                                     <span>Folder Properties</span>
                                 </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* v5.0.0-alpha.165 - Explorer Book Context Menu (Phase 1: Basic structure) */}
+                    {explorerBookContextMenu && (() => {
+                        // Calculate menu position to avoid going off-screen
+                        const menuHeight = 300;
+                        const menuWidth = 220;
+                        const viewportHeight = window.innerHeight;
+                        const viewportWidth = window.innerWidth;
+
+                        // Flip up if menu would go below viewport
+                        const top = explorerBookContextMenu.y + menuHeight > viewportHeight
+                            ? Math.max(10, explorerBookContextMenu.y - menuHeight)
+                            : explorerBookContextMenu.y;
+                        // Flip left if menu would go past right edge
+                        const left = explorerBookContextMenu.x + menuWidth > viewportWidth
+                            ? Math.max(10, explorerBookContextMenu.x - menuWidth)
+                            : explorerBookContextMenu.x;
+
+                        return (
+                            <div
+                                className="fixed bg-white border border-gray-300 rounded-lg shadow-xl z-[60] py-1 min-w-[200px]"
+                                style={{
+                                    left: `${left}px`,
+                                    top: `${top}px`
+                                }}
+                                onClick={(e) => e.stopPropagation()}>
+                                {/* Header */}
+                                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 border-b border-gray-200">
+                                    {explorerSelectedBooks.size} book{explorerSelectedBooks.size !== 1 ? 's' : ''} selected
+                                </div>
+
+                                {/* Phase 1: Placeholder items - full implementation in Phase 2-5 */}
+                                <button
+                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center gap-2"
+                                    onClick={() => {
+                                        setExplorerBookContextMenu(null);
+                                        alert('Move to functionality will be implemented in Phase 2');
+                                    }}>
+                                    📁 Move to
+                                </button>
+
+                                <button
+                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center gap-2"
+                                    onClick={() => {
+                                        setExplorerBookContextMenu(null);
+                                        alert('Open in Amazon functionality will be implemented in Phase 3');
+                                    }}>
+                                    🔗 Open in Amazon
+                                </button>
+
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                <button
+                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center justify-between"
+                                    onClick={() => setExplorerBookContextMenu(null)}>
+                                    <span className="flex items-center gap-2">📋 Close Menu</span>
+                                    <span className="text-xs text-gray-400">Esc</span>
+                                </button>
                             </div>
                         );
                     })()}
