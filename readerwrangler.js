@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.163";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.164";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -5875,8 +5875,8 @@
                                         />
                                         <span className="text-gray-600">Show Hidden</span>
                                     </label>
-                                    {/* v5.0.0 - Show Deals checkbox (moved from header) */}
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm" title="Show only wishlist books at or below your target price">
+                                    {/* v5.0.0-alpha.164 - Deals only checkbox (exclusive filter) */}
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm" title="Show only books at or below your target price">
                                         <input
                                             type="checkbox"
                                             checked={dealsFilterActive}
@@ -5884,7 +5884,7 @@
                                             className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                         />
                                         <span className={`${dealsFilterActive ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                            Show Deals ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
+                                            Deals only ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
                                         </span>
                                     </label>
                                 </div>
@@ -6192,8 +6192,8 @@
                                                 </label>
                                             </td>
                                             <td className="px-2 py-1">
-                                                {/* v5.0.0 - Show Deals checkbox */}
-                                                <label className="flex items-center gap-2 cursor-pointer text-sm" title="Show only wishlist books at or below your target price">
+                                                {/* v5.0.0-alpha.164 - Deals only checkbox (exclusive filter) */}
+                                                <label className="flex items-center gap-2 cursor-pointer text-sm" title="Show only books at or below your target price">
                                                     <input
                                                         type="checkbox"
                                                         checked={dealsFilterActive}
@@ -6201,7 +6201,7 @@
                                                         className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                     />
                                                     <span className={`${dealsFilterActive ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                                        Show Deals ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
+                                                        Deals only ({books.filter(b => b.priceTrigger != null && b.currentPrice != null && b.currentPrice <= b.priceTrigger).length})
                                                     </span>
                                                 </label>
                                             </td>
