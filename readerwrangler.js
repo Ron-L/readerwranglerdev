@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.158";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.159";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1987,20 +1987,15 @@
                         }
                     }
 
-                    // v5.0.0-alpha.157-158 - F2 - Rename folder
+                    // v5.0.0-alpha.157-159 - F2 - Rename folder
                     if (e.key === 'F2') {
                         e.preventDefault();
 
-                        // v5.0.0-alpha.158 - Reversed priority: left panel (current folder) first
-                        // Priority 1: Rename currently viewed folder in left panel (if not virtual)
-                        if (currentFolder && !isSpecialFolder) {
-                            setEditingFolderId(currentFolder.id);
-                            setEditingFolderName(currentFolder.name);
-                            setIsPlaceholderMode(false);
-                            console.log(`✏️ F2: Renaming "${currentFolder.name}" in left panel`);
-                        }
-                        // Priority 2: If viewing virtual folder (All Books/Library), check right panel selections
-                        else if (explorerSelectedFolders.size === 1) {
+                        // v5.0.0-alpha.159 - Check if folders are visible in right panel (viewing All Books/Library)
+                        const rightPanelShowsFolders = ['__all__', '__library__'].includes(selectedFolderId);
+
+                        // Priority 1: If right panel shows folders AND one is selected, rename in right panel
+                        if (rightPanelShowsFolders && explorerSelectedFolders.size === 1) {
                             const folderId = Array.from(explorerSelectedFolders)[0];
                             const folder = folders.find(f => f.id === folderId);
                             if (folder && !['__all__', '__inbox__', '__library__'].includes(folder.id)) {
@@ -2009,6 +2004,13 @@
                                 setRightPanelPlaceholderMode(false);
                                 console.log(`✏️ F2: Renaming "${folder.name}" in right panel`);
                             }
+                        }
+                        // Priority 2: Otherwise rename currently viewed folder in left panel
+                        else if (currentFolder && !isSpecialFolder) {
+                            setEditingFolderId(currentFolder.id);
+                            setEditingFolderName(currentFolder.name);
+                            setIsPlaceholderMode(false);
+                            console.log(`✏️ F2: Renaming "${currentFolder.name}" in left panel`);
                         }
                     }
 
