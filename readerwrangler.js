@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.154";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.155";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9326,7 +9326,9 @@
                                                                             type="text"
                                                                             value={editingFolderName}
                                                                             onChange={(e) => setEditingFolderName(e.target.value)}
+                                                                            /* v5.0.0-alpha.155 - TEMPORARILY DISABLED FOR DIAGNOSIS
                                                                             onBlur={() => {
+                                                                                console.log('[onBlur] FIRED - this is clearing the state!');
                                                                                 const finalName = (isPlaceholderMode || !editingFolderName.trim())
                                                                                     ? editingFolderName
                                                                                     : editingFolderName.trim();
@@ -9339,6 +9341,7 @@
                                                                                 setEditingFolderName('');
                                                                                 setIsPlaceholderMode(false);
                                                                             }}
+                                                                            */
                                                                             onKeyDown={(e) => {
                                                                                 if (isPlaceholderMode && e.key.length === 1) {
                                                                                     setEditingFolderName('');
