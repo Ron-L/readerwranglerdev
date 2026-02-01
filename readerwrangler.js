@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.168";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.168.1";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -4171,6 +4171,40 @@
                             return folder;
                         }));
                         break;
+                    case 'PASTE_BOOKS_CUT':
+                        // v5.0.0-alpha.168 - Undo cut-paste: restore books to source folders, remove from target
+                        console.log('[UNDO PASTE_BOOKS_CUT] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => {
+                            // Group books by source folder
+                            const sourcesByFolder = {};
+                            action.sourcePositions.forEach(pos => {
+                                if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                                sourcesByFolder[pos.folderId].push(pos.bookId);
+                            });
+
+                            return prev.map(folder => {
+                                // Add books back to source folders
+                                if (sourcesByFolder[folder.id]) {
+                                    return { ...folder, bookIds: [...sourcesByFolder[folder.id], ...folder.bookIds] };
+                                }
+                                // Remove books from target folder
+                                if (folder.id === action.targetFolderId) {
+                                    return { ...folder, bookIds: folder.bookIds.filter(id => !action.bookIds.includes(id)) };
+                                }
+                                return folder;
+                            });
+                        });
+                        break;
+                    case 'PASTE_BOOKS_COPY':
+                        // v5.0.0-alpha.168 - Undo copy-paste: remove books from target folder
+                        console.log('[UNDO PASTE_BOOKS_COPY] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.targetFolderId) {
+                                return { ...folder, bookIds: folder.bookIds.filter(id => !action.bookIds.includes(id)) };
+                            }
+                            return folder;
+                        }));
+                        break;
                     case 'REORDER_FOLDER':
                         // v5.0.0-alpha.79 - Undo folder reorder: restore old order
                         console.log('[UNDO REORDER_FOLDER] Action:', JSON.stringify(action, null, 2));
@@ -4521,6 +4555,44 @@
                                 const existingIds = new Set(folder.bookIds);
                                 const newBooks = action.bookIds.filter(id => !existingIds.has(id));
                                 return { ...folder, bookIds: [...newBooks, ...folder.bookIds] };
+                            }
+                            return folder;
+                        }));
+                        break;
+                    case 'PASTE_BOOKS_CUT':
+                        // v5.0.0-alpha.168 - Redo cut-paste: remove from source folders, add to target
+                        console.log('[REDO PASTE_BOOKS_CUT] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => {
+                            // Group books by source folder
+                            const sourcesByFolder = {};
+                            action.sourcePositions.forEach(pos => {
+                                if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                                sourcesByFolder[pos.folderId].push(pos.bookId);
+                            });
+
+                            return prev.map(folder => {
+                                // Remove books from source folders
+                                if (sourcesByFolder[folder.id]) {
+                                    return { ...folder, bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id)) };
+                                }
+                                // Add books to target folder
+                                if (folder.id === action.targetFolderId) {
+                                    const existingIds = new Set(folder.bookIds);
+                                    const newBooks = action.bookIds.filter(id => !existingIds.has(id));
+                                    return { ...folder, bookIds: [...folder.bookIds, ...newBooks] };
+                                }
+                                return folder;
+                            });
+                        });
+                        break;
+                    case 'PASTE_BOOKS_COPY':
+                        // v5.0.0-alpha.168 - Redo copy-paste: add books to target folder
+                        console.log('[REDO PASTE_BOOKS_COPY] Action:', JSON.stringify(action, null, 2));
+                        setFolders(prev => prev.map(folder => {
+                            if (folder.id === action.targetFolderId) {
+                                const existingIds = new Set(folder.bookIds);
+                                const newBooks = action.bookIds.filter(id => !existingIds.has(id));
+                                return { ...folder, bookIds: [...folder.bookIds, ...newBooks] };
                             }
                             return folder;
                         }));
