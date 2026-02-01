@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.155";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.156";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -197,9 +197,12 @@
             const [folderSortSettings, setFolderSortSettings] = useState({}); // v5.0.0-alpha.100 - Per-folder sort settings map {folderId: {column, direction}}
             const [explorerView, setExplorerView] = useState('list'); // 'list' | 'covers'
             const [explorerCoverCols, setExplorerCoverCols] = useState(56); // Slider value (4-60), actual cols = 64-value
-            const [editingFolderId, setEditingFolderId] = useState(null); // Folder being renamed
-            const [editingFolderName, setEditingFolderName] = useState(''); // Folder rename input
-            const [isPlaceholderMode, setIsPlaceholderMode] = useState(false); // v5.0.0-alpha.134 - Placeholder text mode for new folder rename
+            const [editingFolderId, setEditingFolderId] = useState(null); // Folder being renamed (left panel)
+            const [editingFolderName, setEditingFolderName] = useState(''); // Folder rename input (left panel)
+            const [isPlaceholderMode, setIsPlaceholderMode] = useState(false); // v5.0.0-alpha.134 - Placeholder text mode for new folder rename (left panel)
+            const [rightPanelEditingId, setRightPanelEditingId] = useState(null); // v5.0.0-alpha.156 - Folder being renamed (right panel)
+            const [rightPanelEditingName, setRightPanelEditingName] = useState(''); // v5.0.0-alpha.156 - Folder rename input (right panel)
+            const [rightPanelPlaceholderMode, setRightPanelPlaceholderMode] = useState(false); // v5.0.0-alpha.156 - Placeholder mode (right panel)
             const [explorerDragBookId, setExplorerDragBookId] = useState(null); // Book being dragged in Explorer
             const [explorerDropTargetId, setExplorerDropTargetId] = useState(null); // Folder being dragged over
             const [explorerSelectedBooks, setExplorerSelectedBooks] = useState(new Set()); // Multi-select in Explorer
@@ -243,14 +246,6 @@
                 delta: 80
             });
             const [resizingColumn, setResizingColumn] = useState(null); // v5.0.0-alpha.109 - { columnId, startX, startWidth }
-
-            // v5.0.0-alpha.154 - Diagnostic logging for editingFolderId changes
-            useEffect(() => {
-                console.log('[EFFECT] editingFolderId changed:', editingFolderId, 'editingFolderName:', editingFolderName);
-                if (editingFolderId !== null) {
-                    console.log('[EFFECT] Stack trace for setting editingFolderId:', new Error().stack);
-                }
-            }, [editingFolderId, editingFolderName]);
 
             // v5.0.0 - Special folders
             const FOLDER_ALL_BOOKS = { id: '__all__', name: 'All Books', virtual: true, icon: '📚' };
@@ -8409,7 +8404,8 @@
                                                             setFolderContextMenu({
                                                                 folderId: folder.id,
                                                                 x: e.clientX,
-                                                                y: e.clientY
+                                                                y: e.clientY,
+                                                                source: 'left' // v5.0.0-alpha.156 - Track which panel triggered menu
                                                             });
                                                         }}>
                                                         {/* Expand/collapse chevron for folders with children */}
@@ -8939,37 +8935,6 @@
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-auto px-4 pb-4">
-                                    {/* v5.0.0-alpha.154 - DIAGNOSTIC: Test button to isolate inline edit trigger */}
-                                    <div className="mb-2 p-2 bg-yellow-100 border border-yellow-400 rounded">
-                                        <button
-                                            onClick={() => {
-                                                // Find first folder in displayed items
-                                                const childFolders = selectedFolderId === '__library__'
-                                                    ? [getInboxFolder(), ...getChildFolders(null).filter(f => f.id !== '__inbox__')].filter(Boolean)
-                                                    : selectedFolderId === '__all__' ? [] : getChildFolders(selectedFolderId);
-
-                                                if (childFolders.length > 0) {
-                                                    const firstFolder = childFolders[0];
-                                                    console.log('[TEST BUTTON] Attempting to edit folder:', firstFolder.id, firstFolder.name);
-                                                    console.log('[TEST BUTTON] Before setState - editingFolderId:', editingFolderId);
-                                                    setEditingFolderId(firstFolder.id);
-                                                    setEditingFolderName(firstFolder.name);
-                                                    console.log('[TEST BUTTON] After setState called - waiting for next render');
-                                                    // Use setTimeout to log state after React processes the update
-                                                    setTimeout(() => {
-                                                        console.log('[TEST BUTTON] After timeout - editingFolderId should be:', firstFolder.id);
-                                                    }, 0);
-                                                } else {
-                                                    console.log('[TEST BUTTON] No folders found to edit');
-                                                }
-                                            }}
-                                            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm font-medium">
-                                            🔬 TEST: Edit First Folder (Diagnostic)
-                                        </button>
-                                        <span className="ml-2 text-xs text-gray-700">
-                                            Click to directly set inline edit state (bypassing context menu)
-                                        </span>
-                                    </div>
                                     {explorerView === 'list' ? (
                                         <table className="text-sm" style={{
                                             tableLayout: 'fixed',
@@ -9287,7 +9252,8 @@
                                                                     setFolderContextMenu({
                                                                         folderId: folder.id,
                                                                         x: e.clientX,
-                                                                        y: e.clientY
+                                                                        y: e.clientY,
+                                                                        source: 'right' // v5.0.0-alpha.156 - Track which panel triggered menu
                                                                     });
                                                                 }}>
                                                                 {/* v5.0.0-alpha.123 - Clickable checkbox */}
@@ -9314,60 +9280,51 @@
                                                                 </td>
                                                                 <td className="p-2 text-center text-xl">{folder.id === '__inbox__' ? '📥' : '📁'}</td>
                                                                 <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>
-                                                                    {/* v5.0.0-alpha.154 - Enhanced diagnostic logging */}
-                                                                    {(() => {
-                                                                        const isEditing = editingFolderId === folder.id;
-                                                                        if (isEditing) {
-                                                                            console.log(`[RENDER] Folder ${folder.id} (${folder.name}) - EDITING MODE - editingFolderId:`, editingFolderId, 'editingFolderName:', editingFolderName);
-                                                                        }
-                                                                        return isEditing;
-                                                                    })() ? (
+                                                                    {/* v5.0.0-alpha.156 - Right panel inline edit with separate state */}
+                                                                    {rightPanelEditingId === folder.id ? (
                                                                         <input
                                                                             type="text"
-                                                                            value={editingFolderName}
-                                                                            onChange={(e) => setEditingFolderName(e.target.value)}
-                                                                            /* v5.0.0-alpha.155 - TEMPORARILY DISABLED FOR DIAGNOSIS
+                                                                            value={rightPanelEditingName}
+                                                                            onChange={(e) => setRightPanelEditingName(e.target.value)}
                                                                             onBlur={() => {
-                                                                                console.log('[onBlur] FIRED - this is clearing the state!');
-                                                                                const finalName = (isPlaceholderMode || !editingFolderName.trim())
-                                                                                    ? editingFolderName
-                                                                                    : editingFolderName.trim();
+                                                                                const finalName = (rightPanelPlaceholderMode || !rightPanelEditingName.trim())
+                                                                                    ? rightPanelEditingName
+                                                                                    : rightPanelEditingName.trim();
                                                                                 if (finalName) {
                                                                                     setFolders(prev => prev.map(f =>
                                                                                         f.id === folder.id ? { ...f, name: finalName } : f
                                                                                     ));
                                                                                 }
-                                                                                setEditingFolderId(null);
-                                                                                setEditingFolderName('');
-                                                                                setIsPlaceholderMode(false);
+                                                                                setRightPanelEditingId(null);
+                                                                                setRightPanelEditingName('');
+                                                                                setRightPanelPlaceholderMode(false);
                                                                             }}
-                                                                            */
                                                                             onKeyDown={(e) => {
-                                                                                if (isPlaceholderMode && e.key.length === 1) {
-                                                                                    setEditingFolderName('');
-                                                                                    setIsPlaceholderMode(false);
+                                                                                if (rightPanelPlaceholderMode && e.key.length === 1) {
+                                                                                    setRightPanelEditingName('');
+                                                                                    setRightPanelPlaceholderMode(false);
                                                                                     return;
                                                                                 }
                                                                                 if (e.key === 'Enter') {
-                                                                                    const finalName = (isPlaceholderMode || !editingFolderName.trim())
-                                                                                        ? editingFolderName
-                                                                                        : editingFolderName.trim();
+                                                                                    const finalName = (rightPanelPlaceholderMode || !rightPanelEditingName.trim())
+                                                                                        ? rightPanelEditingName
+                                                                                        : rightPanelEditingName.trim();
                                                                                     if (finalName) {
                                                                                         setFolders(prev => prev.map(f =>
                                                                                             f.id === folder.id ? { ...f, name: finalName } : f
                                                                                         ));
                                                                                     }
-                                                                                    setEditingFolderId(null);
-                                                                                    setEditingFolderName('');
-                                                                                    setIsPlaceholderMode(false);
+                                                                                    setRightPanelEditingId(null);
+                                                                                    setRightPanelEditingName('');
+                                                                                    setRightPanelPlaceholderMode(false);
                                                                                 } else if (e.key === 'Escape') {
-                                                                                    setEditingFolderId(null);
-                                                                                    setEditingFolderName('');
-                                                                                    setIsPlaceholderMode(false);
+                                                                                    setRightPanelEditingId(null);
+                                                                                    setRightPanelEditingName('');
+                                                                                    setRightPanelPlaceholderMode(false);
                                                                                 }
                                                                             }}
                                                                             onFocus={(e) => {
-                                                                                if (isPlaceholderMode) {
+                                                                                if (rightPanelPlaceholderMode) {
                                                                                     e.target.setSelectionRange(0, 0);
                                                                                 } else {
                                                                                     e.target.select();
@@ -9375,7 +9332,7 @@
                                                                             }}
                                                                             autoFocus
                                                                             className="w-full px-1 py-0.5 border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                                            style={{ color: isPlaceholderMode ? '#9ca3af' : 'inherit' }}
+                                                                            style={{ color: rightPanelPlaceholderMode ? '#9ca3af' : 'inherit' }}
                                                                             onClick={(e) => e.stopPropagation()}
                                                                         />
                                                                     ) : (
@@ -11303,10 +11260,18 @@
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         onClick={() => {
-                                            // v5.0.0-alpha.153 - Simple state update (editing happens in left panel tree)
-                                            setEditingFolderId(folder.id);
-                                            setEditingFolderName(folder.name);
-                                            setIsPlaceholderMode(false);
+                                            // v5.0.0-alpha.156 - Use separate state based on which panel triggered context menu
+                                            if (folderContextMenu.source === 'right') {
+                                                // Edit in right panel table
+                                                setRightPanelEditingId(folder.id);
+                                                setRightPanelEditingName(folder.name);
+                                                setRightPanelPlaceholderMode(false);
+                                            } else {
+                                                // Edit in left panel tree (default)
+                                                setEditingFolderId(folder.id);
+                                                setEditingFolderName(folder.name);
+                                                setIsPlaceholderMode(false);
+                                            }
                                             setFolderContextMenu(null);
                                         }}>
                                         <span>✏️</span>
