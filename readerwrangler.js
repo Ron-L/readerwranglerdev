@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.168.3";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.168.4";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12293,6 +12293,158 @@
                                     )}
                                 </div>
 
+                                {/* v5.0.0-alpha.168.4 - Cut/Copy/Paste right after Move to/Copy to */}
+                                <div className="border-t border-gray-200 my-1"></div>
+
+                                {/* Cut - disabled in special folders */}
+                                {isSpecialFolder ? (
+                                    <div
+                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                        title="Cannot cut books from virtual folders">
+                                        <span>✂️</span>
+                                        <span>Cut</span>
+                                        <span className="ml-auto text-xs">Ctrl+X</span>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                        onClick={() => {
+                                            const bookIds = Array.from(explorerSelectedBooks);
+                                            const sourcePositions = bookIds.map(bookId => ({
+                                                bookId,
+                                                folderId: selectedFolderId
+                                            }));
+                                            setClipboard({ type: 'cut', bookIds, sourcePositions });
+                                            const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} cut`;
+                                            setClipboardMessage(message);
+                                            setFooterClipboardVisible(false);
+                                            setToastVisible(true);
+                                            setToastAnimating(false);
+                                            setTimeout(() => {
+                                                setToastAnimating(true);
+                                                setTimeout(() => {
+                                                    setToastVisible(false);
+                                                    setToastAnimating(false);
+                                                    setFooterClipboardVisible(true);
+                                                }, 1000);
+                                            }, 1500);
+                                            setExplorerBookContextMenu(null);
+                                            setContextSubmenu(null);
+                                        }}>
+                                        <span>✂️</span>
+                                        <span>Cut</span>
+                                        <span className="ml-auto text-xs text-gray-400">Ctrl+X</span>
+                                    </div>
+                                )}
+
+                                {/* Copy */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                    onClick={() => {
+                                        const bookIds = Array.from(explorerSelectedBooks);
+                                        const sourcePositions = bookIds.map(bookId => ({
+                                            bookId,
+                                            folderId: selectedFolderId
+                                        }));
+                                        setClipboard({ type: 'copy', bookIds, sourcePositions });
+                                        const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} copied`;
+                                        setClipboardMessage(message);
+                                        setFooterClipboardVisible(false);
+                                        setToastVisible(true);
+                                        setToastAnimating(false);
+                                        setTimeout(() => {
+                                            setToastAnimating(true);
+                                            setTimeout(() => {
+                                                setToastVisible(false);
+                                                setToastAnimating(false);
+                                                setFooterClipboardVisible(true);
+                                            }, 1000);
+                                        }, 1500);
+                                        setExplorerBookContextMenu(null);
+                                        setContextSubmenu(null);
+                                    }}>
+                                    <span>📋</span>
+                                    <span>Copy</span>
+                                    <span className="ml-auto text-xs text-gray-400">Ctrl+C</span>
+                                </div>
+
+                                {/* Paste - always visible, grayed when no clipboard or in special folder */}
+                                {(!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0 || isSpecialFolder) ? (
+                                    <div
+                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                        title={isSpecialFolder ? "Cannot paste into virtual folders" : "Nothing to paste"}>
+                                        <span>📥</span>
+                                        <span>Paste</span>
+                                        <span className="ml-auto text-xs">Ctrl+V</span>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                        onClick={() => {
+                                            const targetFolderId = selectedFolderId;
+
+                                            if (clipboard.type === 'cut') {
+                                                const sourcesByFolder = {};
+                                                clipboard.sourcePositions.forEach(pos => {
+                                                    if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                                                    sourcesByFolder[pos.folderId].push(pos.bookId);
+                                                });
+
+                                                setFolders(prev => prev.map(folder => {
+                                                    if (sourcesByFolder[folder.id]) {
+                                                        return {
+                                                            ...folder,
+                                                            bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
+                                                        };
+                                                    }
+                                                    if (folder.id === targetFolderId) {
+                                                        const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                                        return {
+                                                            ...folder,
+                                                            bookIds: [...folder.bookIds, ...newBookIds]
+                                                        };
+                                                    }
+                                                    return folder;
+                                                }));
+
+                                                recordAction({
+                                                    type: 'PASTE_BOOKS_CUT',
+                                                    bookIds: clipboard.bookIds,
+                                                    sourcePositions: clipboard.sourcePositions,
+                                                    targetFolderId
+                                                });
+
+                                                setClipboard(null);
+                                                setClipboardMessage(null);
+                                                setFooterClipboardVisible(false);
+                                            } else {
+                                                setFolders(prev => prev.map(folder => {
+                                                    if (folder.id === targetFolderId) {
+                                                        const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                                        return {
+                                                            ...folder,
+                                                            bookIds: [...folder.bookIds, ...newBookIds]
+                                                        };
+                                                    }
+                                                    return folder;
+                                                }));
+
+                                                recordAction({
+                                                    type: 'PASTE_BOOKS_COPY',
+                                                    bookIds: clipboard.bookIds,
+                                                    targetFolderId
+                                                });
+                                            }
+
+                                            setExplorerBookContextMenu(null);
+                                            setContextSubmenu(null);
+                                        }}>
+                                        <span>📥</span>
+                                        <span>Paste ({clipboard.bookIds.length})</span>
+                                        <span className="ml-auto text-xs text-gray-400">Ctrl+V</span>
+                                    </div>
+                                )}
+
                                 <div className="border-t border-gray-200 my-1"></div>
 
                                 {/* v5.0.0-alpha.167 - Phase 3: Other menu items */}
@@ -12474,158 +12626,6 @@
                                                     </div>
                                                 )}
                                             </div>
-
-                                            {/* v5.0.0-alpha.168.3 - Cut/Copy/Paste section */}
-                                            <div className="border-t border-gray-200 my-1"></div>
-
-                                            {/* Cut - disabled in special folders */}
-                                            {isSpecialFolder ? (
-                                                <div
-                                                    className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
-                                                    title="Cannot cut books from virtual folders">
-                                                    <span>✂️</span>
-                                                    <span>Cut</span>
-                                                    <span className="ml-auto text-xs">Ctrl+X</span>
-                                                </div>
-                                            ) : (
-                                                <div
-                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                    onClick={() => {
-                                                        const bookIds = Array.from(explorerSelectedBooks);
-                                                        const sourcePositions = bookIds.map(bookId => ({
-                                                            bookId,
-                                                            folderId: selectedFolderId
-                                                        }));
-                                                        setClipboard({ type: 'cut', bookIds, sourcePositions });
-                                                        const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} cut`;
-                                                        setClipboardMessage(message);
-                                                        setFooterClipboardVisible(false);
-                                                        setToastVisible(true);
-                                                        setToastAnimating(false);
-                                                        setTimeout(() => {
-                                                            setToastAnimating(true);
-                                                            setTimeout(() => {
-                                                                setToastVisible(false);
-                                                                setToastAnimating(false);
-                                                                setFooterClipboardVisible(true);
-                                                            }, 1000);
-                                                        }, 1500);
-                                                        setExplorerBookContextMenu(null);
-                                                        setContextSubmenu(null);
-                                                    }}>
-                                                    <span>✂️</span>
-                                                    <span>Cut</span>
-                                                    <span className="ml-auto text-xs text-gray-400">Ctrl+X</span>
-                                                </div>
-                                            )}
-
-                                            {/* Copy */}
-                                            <div
-                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                onClick={() => {
-                                                    const bookIds = Array.from(explorerSelectedBooks);
-                                                    const sourcePositions = bookIds.map(bookId => ({
-                                                        bookId,
-                                                        folderId: selectedFolderId
-                                                    }));
-                                                    setClipboard({ type: 'copy', bookIds, sourcePositions });
-                                                    const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} copied`;
-                                                    setClipboardMessage(message);
-                                                    setFooterClipboardVisible(false);
-                                                    setToastVisible(true);
-                                                    setToastAnimating(false);
-                                                    setTimeout(() => {
-                                                        setToastAnimating(true);
-                                                        setTimeout(() => {
-                                                            setToastVisible(false);
-                                                            setToastAnimating(false);
-                                                            setFooterClipboardVisible(true);
-                                                        }, 1000);
-                                                    }, 1500);
-                                                    setExplorerBookContextMenu(null);
-                                                    setContextSubmenu(null);
-                                                }}>
-                                                <span>📋</span>
-                                                <span>Copy</span>
-                                                <span className="ml-auto text-xs text-gray-400">Ctrl+C</span>
-                                            </div>
-
-                                            {/* Paste - always visible, grayed when no clipboard or in special folder */}
-                                            {(!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0 || isSpecialFolder) ? (
-                                                <div
-                                                    className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
-                                                    title={isSpecialFolder ? "Cannot paste into virtual folders" : "Nothing to paste"}>
-                                                    <span>📥</span>
-                                                    <span>Paste</span>
-                                                    <span className="ml-auto text-xs">Ctrl+V</span>
-                                                </div>
-                                            ) : (
-                                                <div
-                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                                                    onClick={() => {
-                                                        const targetFolderId = selectedFolderId;
-
-                                                        if (clipboard.type === 'cut') {
-                                                            const sourcesByFolder = {};
-                                                            clipboard.sourcePositions.forEach(pos => {
-                                                                if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
-                                                                sourcesByFolder[pos.folderId].push(pos.bookId);
-                                                            });
-
-                                                            setFolders(prev => prev.map(folder => {
-                                                                if (sourcesByFolder[folder.id]) {
-                                                                    return {
-                                                                        ...folder,
-                                                                        bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
-                                                                    };
-                                                                }
-                                                                if (folder.id === targetFolderId) {
-                                                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                                                    return {
-                                                                        ...folder,
-                                                                        bookIds: [...folder.bookIds, ...newBookIds]
-                                                                    };
-                                                                }
-                                                                return folder;
-                                                            }));
-
-                                                            recordAction({
-                                                                type: 'PASTE_BOOKS_CUT',
-                                                                bookIds: clipboard.bookIds,
-                                                                sourcePositions: clipboard.sourcePositions,
-                                                                targetFolderId
-                                                            });
-
-                                                            setClipboard(null);
-                                                            setClipboardMessage(null);
-                                                            setFooterClipboardVisible(false);
-                                                        } else {
-                                                            setFolders(prev => prev.map(folder => {
-                                                                if (folder.id === targetFolderId) {
-                                                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                                                    return {
-                                                                        ...folder,
-                                                                        bookIds: [...folder.bookIds, ...newBookIds]
-                                                                    };
-                                                                }
-                                                                return folder;
-                                                            }));
-
-                                                            recordAction({
-                                                                type: 'PASTE_BOOKS_COPY',
-                                                                bookIds: clipboard.bookIds,
-                                                                targetFolderId
-                                                            });
-                                                        }
-
-                                                        setExplorerBookContextMenu(null);
-                                                        setContextSubmenu(null);
-                                                    }}>
-                                                    <span>📥</span>
-                                                    <span>Paste ({clipboard.bookIds.length})</span>
-                                                    <span className="ml-auto text-xs text-gray-400">Ctrl+V</span>
-                                                </div>
-                                            )}
 
                                             {/* v5.0.0-alpha.168.3 - Hide/Unhide and Remove section */}
                                             <div className="border-t border-gray-200 my-1"></div>
