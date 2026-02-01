@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167.4";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167.5";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12054,38 +12054,81 @@
                                                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // v5.0.0-alpha.167.4 - Handle popup blocker limitations for multiple books
-                                                    if (count > 10) {
-                                                        alert('Too many books selected. Please select 10 or fewer.');
+                                                    // v5.0.0-alpha.167.5 - Open list page for multiple books to avoid popup blockers
+                                                    if (count > 50) {
+                                                        alert('Too many books selected. Please select 50 or fewer.');
                                                         setExplorerBookContextMenu(null);
                                                         setContextSubmenu(null);
                                                         return;
                                                     }
 
-                                                    // Browser popup blockers typically limit to 2-3 tabs per click
-                                                    if (count > 2) {
-                                                        const message = `Browser popup blockers limit tab opening.\n\n` +
-                                                                      `Option 1: Try to open ${count} tabs (may be blocked)\n` +
-                                                                      `Option 2: Copy all Amazon URLs to clipboard\n\n` +
-                                                                      `Click OK to try opening tabs, Cancel to copy URLs instead.`;
-
-                                                        if (!window.confirm(message)) {
-                                                            // Copy URLs to clipboard
-                                                            const urls = selectedBooksArray.map(book => getAmazonUrl(book.asin)).join('\n');
-                                                            navigator.clipboard.writeText(urls);
-                                                            showToast(`Copied ${count} Amazon URLs to clipboard`);
-                                                            setExplorerBookContextMenu(null);
-                                                            setContextSubmenu(null);
-                                                            return;
-                                                        }
+                                                    // For 1-2 books, open directly
+                                                    if (count <= 2) {
+                                                        selectedBooksArray.forEach(book => {
+                                                            window.open(getAmazonUrl(book.asin), '_blank');
+                                                        });
+                                                        setExplorerBookContextMenu(null);
+                                                        setContextSubmenu(null);
+                                                        return;
                                                     }
 
-                                                    // Try to open all tabs with staggered delays
-                                                    selectedBooksArray.forEach((book, index) => {
-                                                        setTimeout(() => {
-                                                            window.open(getAmazonUrl(book.asin), '_blank');
-                                                        }, index * 100);
-                                                    });
+                                                    // For 3+ books, create a list page
+                                                    const html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Amazon Books List (${count} books)</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+        h1 { color: #232f3e; }
+        .book-list { list-style: none; padding: 0; }
+        .book-item {
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .book-item:hover { background-color: #f7f7f7; }
+        .book-link {
+            color: #007185;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .book-link:hover { text-decoration: underline; color: #C7511F; }
+        .book-author { color: #565959; margin-top: 4px; font-size: 14px; }
+        .instructions {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007185;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Amazon Books List</h1>
+    <div class="instructions">
+        <strong>Tip:</strong> Click any book to open it on Amazon. Use your browser's Back button to return to this list.
+    </div>
+    <ul class="book-list">
+        ${selectedBooksArray.map((book, i) => `
+            <li class="book-item">
+                <div><span style="color: #999;">${i + 1}.</span> <a href="${getAmazonUrl(book.asin)}" class="book-link" target="_self">${book.title}</a></div>
+                <div class="book-author">${book.author || 'Unknown Author'}</div>
+            </li>
+        `).join('')}
+    </ul>
+</body>
+</html>`;
+
+                                                    // Open the HTML page in a new tab
+                                                    const blob = new Blob([html], { type: 'text/html' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    window.open(url, '_blank');
+
+                                                    // Clean up the URL after a delay
+                                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
                                                     setExplorerBookContextMenu(null);
                                                     setContextSubmenu(null);
