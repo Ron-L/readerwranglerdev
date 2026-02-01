@@ -21,7 +21,7 @@
 
 async function fetchAmazonLibrary() {
     const PAGE_TITLE = document.title;
-    const FETCHER_VERSION = 'v4.9.0-alpha.1';
+    const FETCHER_VERSION = 'v4.9.0-alpha.2';
     const SCHEMA_VERSION = '2.1';
 
     console.log('========================================');
@@ -2037,37 +2037,9 @@ async function fetchAmazonLibrary() {
                     // Update each book with price data
                     const now = new Date().toISOString();
 
-                    // Diagnostic ASINs (temporary - for price investigation)
-                    const diagnosticAsins = ['B0079XPUOW', 'B003K15PAQ'];
-
                     for (const book of batchBooks) {
                         const product = productMap.get(book.asin);
                         if (product) {
-                            // DIAGNOSTIC: Log buying options for specific ASINs
-                            if (diagnosticAsins.includes(book.asin)) {
-                                console.log(`\n🔍 DIAGNOSTIC: Buying options for ASIN ${book.asin} (${book.title})`);
-                                console.log('─'.repeat(80));
-
-                                const options = product.buyingOptions?.options || [];
-                                if (options.length === 0) {
-                                    console.log('   No buying options found');
-                                } else {
-                                    console.log(`   Found ${options.length} buying option(s):\n`);
-
-                                    options.forEach((opt, idx) => {
-                                        const priceToPay = opt.price?.priceToPay?.moneyValueOrRange?.value?.amount;
-                                        const basisPrice = opt.price?.basisPrice?.moneyValueOrRange?.value?.amount;
-
-                                        console.log(`   [${idx}] Type: ${opt.type || 'UNKNOWN'}`);
-                                        console.log(`       Price to Pay: $${priceToPay || 'N/A'}`);
-                                        console.log(`       Basis Price:  $${basisPrice || 'N/A'}`);
-                                        console.log('');
-                                    });
-                                }
-
-                                console.log('─'.repeat(80) + '\n');
-                            }
-
                             // Find Kindle buying option
                             const kindleOption = product.buyingOptions?.options?.find(
                                 opt => opt.type === 'KINDLE_ALC' || opt.type === 'KINDLE'
@@ -2078,13 +2050,6 @@ async function fetchAmazonLibrary() {
                                 book.listPrice = kindleOption.price.basisPrice?.moneyValueOrRange?.value?.amount ?? null;
                                 book.priceFetchedAt = now;
                                 pricesSuccessCount++;
-
-                                // DIAGNOSTIC: Show which option was selected
-                                if (diagnosticAsins.includes(book.asin)) {
-                                    console.log(`   ✅ Selected option type: ${kindleOption.type || 'UNKNOWN (first option)'}`);
-                                    console.log(`   ✅ Stored currentPrice: $${book.currentPrice}`);
-                                    console.log(`   ✅ Stored listPrice: $${book.listPrice}\n`);
-                                }
                             }
                         }
                     }

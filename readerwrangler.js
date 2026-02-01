@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.161";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.162";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -8843,14 +8843,28 @@
                                             {explorerSort.column !== 'custom' && (
                                                 <>
                                                     <span className="text-gray-600 text-base">{explorerSort.direction === 'asc' ? '▲' : '▼'}</span>
-                                                    {selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && (
-                                                        <button
-                                                            onClick={() => setExplorerSort({ column: 'custom', direction: 'asc' })}
-                                                            className="ml-1 text-gray-500 hover:text-red-500 text-base font-bold"
-                                                            title="Return to Manual Order">
-                                                            ✕
-                                                        </button>
-                                                    )}
+                                                    {(() => {
+                                                        const isReadOnlyView = selectedFolderId === '__all__' || selectedFolderId === '__library__';
+                                                        const viewName = selectedFolderId === '__all__' ? 'All Books' :
+                                                                        selectedFolderId === '__library__' ? 'My Library' : '';
+                                                        const tooltipText = isReadOnlyView
+                                                            ? `${viewName} is a read-only view - no manual ordering`
+                                                            : 'Return to Manual Order';
+
+                                                        return (
+                                                            <button
+                                                                onClick={() => !isReadOnlyView && setExplorerSort({ column: 'custom', direction: 'asc' })}
+                                                                className={`ml-1 text-base font-bold ${
+                                                                    isReadOnlyView
+                                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                                        : 'text-gray-500 hover:text-red-500'
+                                                                }`}
+                                                                disabled={isReadOnlyView}
+                                                                title={tooltipText}>
+                                                                ✕
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </>
                                             )}
                                         </div>
