@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.168.1";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.168.2";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1492,6 +1492,7 @@
                             }, 1000);
                         }, 1500);
                         console.log(`✂️ Cut ${bookIds.length} book(s) to clipboard (Explorer)`);
+                        return; // Don't fall through to Columns App handler
                     }
 
                     // v5.0.0-alpha.168 - Ctrl+C in Explorer view: Copy selected books
@@ -1517,6 +1518,7 @@
                             }, 1000);
                         }, 1500);
                         console.log(`📋 Copied ${bookIds.length} book(s) to clipboard (Explorer)`);
+                        return; // Don't fall through to Columns App handler
                     }
 
                     // v5.0.0-alpha.168 - Ctrl+V in Explorer view: Paste books to current folder
@@ -1590,6 +1592,7 @@
                             // Clipboard persists after copy-paste
                             console.log(`📥 Pasted ${clipboard.bookIds.length} book(s) (copy) to folder`);
                         }
+                        return; // Don't fall through to Columns App handler
                     }
 
                     // v4.16.0 - Ctrl+X: Cut selected books
@@ -12633,6 +12636,53 @@
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {/* v5.0.0-alpha.168.2 - Delete/Remove from folder */}
+                                            <div className="border-t border-gray-200 my-1"></div>
+                                            {isSpecialFolder ? (
+                                                <div
+                                                    className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                                    title="Cannot remove books from virtual folders">
+                                                    <span>🗑️</span>
+                                                    <span>Remove from Folder</span>
+                                                    <span className="ml-auto text-xs">Del</span>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 text-red-600"
+                                                    onClick={() => {
+                                                        const folder = folders.find(f => f.id === selectedFolderId);
+                                                        if (!folder) return;
+
+                                                        const bookIdsToRemove = Array.from(explorerSelectedBooks);
+                                                        const fromIndices = bookIdsToRemove.map(id => (folder.bookIds || []).indexOf(id));
+
+                                                        // Remove books from folder
+                                                        setFolders(prev => prev.map(f => {
+                                                            if (f.id === selectedFolderId) {
+                                                                return { ...f, bookIds: (f.bookIds || []).filter(id => !explorerSelectedBooks.has(id)) };
+                                                            }
+                                                            return f;
+                                                        }));
+
+                                                        // Record for undo
+                                                        recordAction({
+                                                            type: 'REMOVE_BOOKS_FOLDER',
+                                                            folderId: selectedFolderId,
+                                                            bookIds: bookIdsToRemove,
+                                                            fromIndices: fromIndices
+                                                        });
+
+                                                        console.log(`🗑️ Removed ${bookIdsToRemove.length} book(s) from "${folder.name}"`);
+                                                        setExplorerSelectedBooks(new Set());
+                                                        setExplorerBookContextMenu(null);
+                                                        setContextSubmenu(null);
+                                                    }}>
+                                                    <span>🗑️</span>
+                                                    <span>Remove from Folder</span>
+                                                    <span className="ml-auto text-xs text-gray-400">Del</span>
+                                                </div>
+                                            )}
                                         </>
                                     );
                                 })()}
