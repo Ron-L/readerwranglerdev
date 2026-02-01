@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167.2";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167.3";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12070,11 +12070,11 @@
                                                         }
                                                     }
 
-                                                    // v5.0.0-alpha.167.2 - Open all books with staggered delays to avoid popup blocker
+                                                    // v5.0.0-alpha.167.3 - Open all books with staggered delays to avoid popup blocker
                                                     selectedBooksArray.forEach((book, index) => {
                                                         setTimeout(() => {
                                                             window.open(getAmazonUrl(book.asin), '_blank');
-                                                        }, index * 100); // 100ms delay between each tab
+                                                        }, index * 500); // 500ms delay between each tab
                                                     });
 
                                                     setExplorerBookContextMenu(null);
