@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167.3";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.167.4";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12054,27 +12054,37 @@
                                                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // v5.0.0-alpha.167.1 - Fixed to open all selected books
+                                                    // v5.0.0-alpha.167.4 - Handle popup blocker limitations for multiple books
                                                     if (count > 10) {
-                                                        alert('Too many books selected. Please select 10 or fewer to open in Amazon.');
+                                                        alert('Too many books selected. Please select 10 or fewer.');
                                                         setExplorerBookContextMenu(null);
                                                         setContextSubmenu(null);
                                                         return;
                                                     }
 
-                                                    if (count > 3) {
-                                                        if (!window.confirm(`Open ${count} tabs in Amazon?`)) {
+                                                    // Browser popup blockers typically limit to 2-3 tabs per click
+                                                    if (count > 2) {
+                                                        const message = `Browser popup blockers limit tab opening.\n\n` +
+                                                                      `Option 1: Try to open ${count} tabs (may be blocked)\n` +
+                                                                      `Option 2: Copy all Amazon URLs to clipboard\n\n` +
+                                                                      `Click OK to try opening tabs, Cancel to copy URLs instead.`;
+
+                                                        if (!window.confirm(message)) {
+                                                            // Copy URLs to clipboard
+                                                            const urls = selectedBooksArray.map(book => getAmazonUrl(book.asin)).join('\n');
+                                                            navigator.clipboard.writeText(urls);
+                                                            showToast(`Copied ${count} Amazon URLs to clipboard`);
                                                             setExplorerBookContextMenu(null);
                                                             setContextSubmenu(null);
                                                             return;
                                                         }
                                                     }
 
-                                                    // v5.0.0-alpha.167.3 - Open all books with staggered delays to avoid popup blocker
+                                                    // Try to open all tabs with staggered delays
                                                     selectedBooksArray.forEach((book, index) => {
                                                         setTimeout(() => {
                                                             window.open(getAmazonUrl(book.asin), '_blank');
-                                                        }, index * 500); // 500ms delay between each tab
+                                                        }, index * 100);
                                                     });
 
                                                     setExplorerBookContextMenu(null);
