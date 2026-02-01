@@ -1502,11 +1502,11 @@ const PriceGoalDialog = ({ folderId, onClose }) => {
 - [x] **Checkbox selection** - Hover-reveal checkboxes for book/folder selection (v5.0.0-alpha.119-124)
 
 ### Pending - Bugs
-- [x] **Library Fetcher fetched bad price** - RESOLVED: B0079XPUOW was API bad data (now correct), B003K15PAQ was orphaned wishlist book (stale data). Fixed by triggering amazon-library.json download when restoring backup (v5.0.0-alpha.126)
-- [ ] **Right panel tooltip unreachable** - When user moves cursor over tooltip with link, tooltip disappears
+- [x] **Library Fetcher fetched bad price** - RESOLVED: B0079XPUOW was API bad data (now correct), B003K15PAQ was orphaned wishlist book (stale data). Fixed by triggering amazon-library.json download when restoring backup (v5.0.0-alpha.126-131)
+- [x] **Right panel tooltip unreachable** - RESOLVED: Tooltip disappears when cursor moves toward it. Fixed with 150ms grace period delay (v5.0.0-alpha.132)
 
 ### Pending - Features
-- [ ] **Left panel context menu** - Replace placeholder "type action" dialog with proper visual context menu. Items: Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete Folder, Properties.
+- [x] **Left panel context menu** - ✅ COMPLETE (alpha.133-145, ~18 hours): Visual menu with Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete, Properties. Keyboard shortcuts: F2, Ctrl+X/C/V, Delete, Esc. Inline editing fixed (alpha.156-161). See BOOK-EXPLORER-SESSION-LOG.md for full implementation journey.
 - [ ] **Right panel context menu** - Full parity with Columns app: Move to, Copy to, Open in Amazon, Copy Titles, Set Price Goal, Cut/Copy/Paste, Hide/Delete Books, Delete Folder, Properties. Enables wishlist filtering + bulk price goal workflow.
 - [ ] **Filtered folder view** - When filter active: auto-hide empty folders, auto-expand matches, show X/Y counts, "Showing X of Y folders • Show all" indicator
 - [ ] **Series columns** - Add "Series" (text) and "#" (decimal) columns, populated from API or manual entry, supports fractional positions (3.5)
