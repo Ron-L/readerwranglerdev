@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.167.6";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.168";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1461,6 +1461,134 @@
                             setExplorerSelectedFolders(new Set(allVisibleFolderIds));
                             setExplorerSelectedBooks(new Set()); // Clear book selection
                             console.log(`✅ Selected ${allVisibleFolderIds.length} folder(s) in Explorer`);
+                        }
+                    }
+
+                    // v5.0.0-alpha.168 - Ctrl+X in Explorer view: Cut selected books
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'x' && viewMode === 'explorer' && explorerSelectedBooks.size > 0) {
+                        e.preventDefault();
+                        // Can't cut from special folders
+                        if (['__all__', '__library__', '__inbox__'].includes(selectedFolderId)) {
+                            console.log('⚠️ Cannot cut books from virtual folders');
+                            return;
+                        }
+                        const bookIds = Array.from(explorerSelectedBooks);
+                        const sourcePositions = bookIds.map(bookId => ({
+                            bookId,
+                            folderId: selectedFolderId
+                        }));
+                        setClipboard({ type: 'cut', bookIds, sourcePositions });
+                        const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} cut`;
+                        setClipboardMessage(message);
+                        setFooterClipboardVisible(false);
+                        setToastVisible(true);
+                        setToastAnimating(false);
+                        setTimeout(() => {
+                            setToastAnimating(true);
+                            setTimeout(() => {
+                                setToastVisible(false);
+                                setToastAnimating(false);
+                                setFooterClipboardVisible(true);
+                            }, 1000);
+                        }, 1500);
+                        console.log(`✂️ Cut ${bookIds.length} book(s) to clipboard (Explorer)`);
+                    }
+
+                    // v5.0.0-alpha.168 - Ctrl+C in Explorer view: Copy selected books
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'c' && viewMode === 'explorer' && explorerSelectedBooks.size > 0) {
+                        e.preventDefault();
+                        const bookIds = Array.from(explorerSelectedBooks);
+                        const sourcePositions = bookIds.map(bookId => ({
+                            bookId,
+                            folderId: selectedFolderId
+                        }));
+                        setClipboard({ type: 'copy', bookIds, sourcePositions });
+                        const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} copied`;
+                        setClipboardMessage(message);
+                        setFooterClipboardVisible(false);
+                        setToastVisible(true);
+                        setToastAnimating(false);
+                        setTimeout(() => {
+                            setToastAnimating(true);
+                            setTimeout(() => {
+                                setToastVisible(false);
+                                setToastAnimating(false);
+                                setFooterClipboardVisible(true);
+                            }, 1000);
+                        }, 1500);
+                        console.log(`📋 Copied ${bookIds.length} book(s) to clipboard (Explorer)`);
+                    }
+
+                    // v5.0.0-alpha.168 - Ctrl+V in Explorer view: Paste books to current folder
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'v' && viewMode === 'explorer' && clipboard && clipboard.bookIds && clipboard.bookIds.length > 0) {
+                        e.preventDefault();
+                        // Can't paste to special folders
+                        if (['__all__', '__library__', '__inbox__'].includes(selectedFolderId)) {
+                            console.log('⚠️ Cannot paste into virtual folders');
+                            return;
+                        }
+                        const targetFolderId = selectedFolderId;
+
+                        if (clipboard.type === 'cut') {
+                            // Cut: Remove from source folders, add to target
+                            const sourcesByFolder = {};
+                            clipboard.sourcePositions.forEach(pos => {
+                                if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                                sourcesByFolder[pos.folderId].push(pos.bookId);
+                            });
+
+                            setFolders(prev => prev.map(folder => {
+                                // Remove from source folders
+                                if (sourcesByFolder[folder.id]) {
+                                    return {
+                                        ...folder,
+                                        bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
+                                    };
+                                }
+                                // Add to target folder
+                                if (folder.id === targetFolderId) {
+                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                    return {
+                                        ...folder,
+                                        bookIds: [...folder.bookIds, ...newBookIds]
+                                    };
+                                }
+                                return folder;
+                            }));
+
+                            recordAction({
+                                type: 'PASTE_BOOKS_CUT',
+                                bookIds: clipboard.bookIds,
+                                sourcePositions: clipboard.sourcePositions,
+                                targetFolderId
+                            });
+
+                            // Clear clipboard after cut-paste
+                            setClipboard(null);
+                            setClipboardMessage(null);
+                            setFooterClipboardVisible(false);
+                            console.log(`📥 Pasted ${clipboard.bookIds.length} book(s) (cut) to folder`);
+                        } else {
+                            // Copy: Just add to target folder
+                            setFolders(prev => prev.map(folder => {
+                                if (folder.id === targetFolderId) {
+                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                    return {
+                                        ...folder,
+                                        bookIds: [...folder.bookIds, ...newBookIds]
+                                    };
+                                }
+                                return folder;
+                            }));
+
+                            recordAction({
+                                type: 'PASTE_BOOKS_COPY',
+                                bookIds: clipboard.bookIds,
+                                targetFolderId
+                            });
+
+                            // Clipboard persists after copy-paste
+                            console.log(`📥 Pasted ${clipboard.bookIds.length} book(s) (copy) to folder`);
                         }
                     }
 
@@ -9527,7 +9655,18 @@
                                                         <tr
                                                             key={book.id}
                                                             className={`group cursor-pointer border-b border-gray-100 ${explorerSelectedBooks.has(book.id) ? 'bg-blue-50' : 'hover:bg-gray-100'}`}
-                                                            style={explorerReorderTarget === index ? { borderTop: `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}` } : {}}
+                                                            style={(() => {
+                                                                const styles = {};
+                                                                // Reorder target feedback
+                                                                if (explorerReorderTarget === index) {
+                                                                    styles.borderTop = `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}`;
+                                                                }
+                                                                // v5.0.0-alpha.168 - Cut book visual feedback
+                                                                if (clipboard?.type === 'cut' && clipboard?.bookIds?.includes(book.id)) {
+                                                                    styles.opacity = 0.5;
+                                                                }
+                                                                return styles;
+                                                            })()}
                                                             draggable="true"
                                                             onMouseEnter={selectedFolderId === '__all__' ? (e) => {
                                                                 // Clear any pending hide timeout
@@ -9912,7 +10051,19 @@
                                                     <div
                                                         key={book.id}
                                                         className={`cursor-pointer hover:opacity-80 ${explorerSelectedBooks.has(book.id) ? 'ring-2 ring-blue-400' : ''}`}
-                                                        style={explorerReorderTarget === index ? { outline: `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}`, outlineOffset: '2px' } : {}}
+                                                        style={(() => {
+                                                            const styles = {};
+                                                            // Reorder target feedback
+                                                            if (explorerReorderTarget === index) {
+                                                                styles.outline = `3px solid ${explorerSort.column === 'custom' && selectedFolderId !== '__all__' ? '#3b82f6' : '#f87171'}`;
+                                                                styles.outlineOffset = '2px';
+                                                            }
+                                                            // v5.0.0-alpha.168 - Cut book visual feedback
+                                                            if (clipboard?.type === 'cut' && clipboard?.bookIds?.includes(book.id)) {
+                                                                styles.opacity = 0.5;
+                                                            }
+                                                            return styles;
+                                                        })()}
                                                         draggable="true"
                                                         onMouseEnter={selectedFolderId === '__all__' ? (e) => {
                                                             // Clear any pending hide timeout
@@ -12066,6 +12217,168 @@
                                         </div>
                                     )}
                                 </div>
+
+                                {/* v5.0.0-alpha.168 - Phase 4: Cut/Copy/Paste */}
+                                {/* Cut - disabled in special folders (same as Move to) */}
+                                {isSpecialFolder ? (
+                                    <div
+                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                        title="Cannot cut books from virtual folders">
+                                        <span>✂️</span>
+                                        <span>Cut</span>
+                                        <span className="ml-auto text-xs">Ctrl+X</span>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                        onClick={() => {
+                                            const bookIds = Array.from(explorerSelectedBooks);
+                                            const sourcePositions = bookIds.map(bookId => ({
+                                                bookId,
+                                                folderId: selectedFolderId
+                                            }));
+                                            setClipboard({ type: 'cut', bookIds, sourcePositions });
+                                            const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} cut`;
+                                            setClipboardMessage(message);
+                                            setFooterClipboardVisible(false);
+                                            setToastVisible(true);
+                                            setToastAnimating(false);
+                                            setTimeout(() => {
+                                                setToastAnimating(true);
+                                                setTimeout(() => {
+                                                    setToastVisible(false);
+                                                    setToastAnimating(false);
+                                                    setFooterClipboardVisible(true);
+                                                }, 1000);
+                                            }, 1500);
+                                            setExplorerBookContextMenu(null);
+                                            setContextSubmenu(null);
+                                        }}>
+                                        <span>✂️</span>
+                                        <span>Cut</span>
+                                        <span className="ml-auto text-xs text-gray-400">Ctrl+X</span>
+                                    </div>
+                                )}
+
+                                {/* Copy */}
+                                <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                    onClick={() => {
+                                        const bookIds = Array.from(explorerSelectedBooks);
+                                        const sourcePositions = bookIds.map(bookId => ({
+                                            bookId,
+                                            folderId: selectedFolderId
+                                        }));
+                                        setClipboard({ type: 'copy', bookIds, sourcePositions });
+                                        const message = `${bookIds.length} book${bookIds.length !== 1 ? 's' : ''} copied`;
+                                        setClipboardMessage(message);
+                                        setFooterClipboardVisible(false);
+                                        setToastVisible(true);
+                                        setToastAnimating(false);
+                                        setTimeout(() => {
+                                            setToastAnimating(true);
+                                            setTimeout(() => {
+                                                setToastVisible(false);
+                                                setToastAnimating(false);
+                                                setFooterClipboardVisible(true);
+                                            }, 1000);
+                                        }, 1500);
+                                        setExplorerBookContextMenu(null);
+                                        setContextSubmenu(null);
+                                    }}>
+                                    <span>📋</span>
+                                    <span>Copy</span>
+                                    <span className="ml-auto text-xs text-gray-400">Ctrl+C</span>
+                                </div>
+
+                                {/* Paste - only visible when clipboard has books, disabled in special folders */}
+                                {clipboard && clipboard.bookIds && clipboard.bookIds.length > 0 && (
+                                    isSpecialFolder ? (
+                                        <div
+                                            className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
+                                            title="Cannot paste into virtual folders">
+                                            <span>📥</span>
+                                            <span>Paste ({clipboard.bookIds.length})</span>
+                                            <span className="ml-auto text-xs">Ctrl+V</span>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
+                                            onClick={() => {
+                                                const targetFolderId = selectedFolderId;
+
+                                                if (clipboard.type === 'cut') {
+                                                    // Cut: Remove from source folder, add to target
+                                                    // Group by source folder for removal
+                                                    const sourcesByFolder = {};
+                                                    clipboard.sourcePositions.forEach(pos => {
+                                                        if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                                                        sourcesByFolder[pos.folderId].push(pos.bookId);
+                                                    });
+
+                                                    setFolders(prev => prev.map(folder => {
+                                                        // Remove from source folders
+                                                        if (sourcesByFolder[folder.id]) {
+                                                            return {
+                                                                ...folder,
+                                                                bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
+                                                            };
+                                                        }
+                                                        // Add to target folder
+                                                        if (folder.id === targetFolderId) {
+                                                            const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                                            return {
+                                                                ...folder,
+                                                                bookIds: [...folder.bookIds, ...newBookIds]
+                                                            };
+                                                        }
+                                                        return folder;
+                                                    }));
+
+                                                    // Record undo action
+                                                    recordAction({
+                                                        type: 'PASTE_BOOKS_CUT',
+                                                        bookIds: clipboard.bookIds,
+                                                        sourcePositions: clipboard.sourcePositions,
+                                                        targetFolderId
+                                                    });
+
+                                                    // Clear clipboard after cut-paste
+                                                    setClipboard(null);
+                                                    setClipboardMessage(null);
+                                                    setFooterClipboardVisible(false);
+                                                } else {
+                                                    // Copy: Just add to target folder
+                                                    setFolders(prev => prev.map(folder => {
+                                                        if (folder.id === targetFolderId) {
+                                                            const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
+                                                            return {
+                                                                ...folder,
+                                                                bookIds: [...folder.bookIds, ...newBookIds]
+                                                            };
+                                                        }
+                                                        return folder;
+                                                    }));
+
+                                                    // Record undo action
+                                                    recordAction({
+                                                        type: 'PASTE_BOOKS_COPY',
+                                                        bookIds: clipboard.bookIds,
+                                                        targetFolderId
+                                                    });
+
+                                                    // Clipboard persists after copy-paste (can paste multiple times)
+                                                }
+
+                                                setExplorerBookContextMenu(null);
+                                                setContextSubmenu(null);
+                                            }}>
+                                            <span>📥</span>
+                                            <span>Paste ({clipboard.bookIds.length})</span>
+                                            <span className="ml-auto text-xs text-gray-400">Ctrl+V</span>
+                                        </div>
+                                    )
+                                )}
 
                                 <div className="border-t border-gray-200 my-1"></div>
 
