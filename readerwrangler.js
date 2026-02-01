@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.166";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.166.1";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -11799,6 +11799,9 @@
 
                         // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
 
+                        // v5.0.0-alpha.166.1 - Check if current folder is special (can't move books from virtual folders)
+                        const isSpecialFolder = ['__all__', '__library__', '__inbox__'].includes(selectedFolderId);
+
                         // Move books to target folder
                         const handleMoveToFolder = (targetFolderId) => {
                             const selectedBookIds = Array.from(explorerSelectedBooks);
@@ -11945,42 +11948,55 @@
                                 </div>
 
                                 {/* Move to - v5.0.0-alpha.166 Phase 2 */}
-                                <div
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
-                                    onMouseEnter={() => setContextSubmenu('move-to')}
-                                    onMouseLeave={(e) => {
-                                        setTimeout(() => {
-                                            const activeElement = document.querySelector('.context-submenu:hover');
-                                            if (!activeElement) {
-                                                setContextSubmenu(null);
-                                            }
-                                        }, 600);
-                                    }}>
-                                    <span>📁</span>
-                                    <span>Move to</span>
-                                    <span className="ml-auto">▶</span>
+                                {/* v5.0.0-alpha.166.1 - Disabled in special folders (can't move from virtual folders) */}
+                                {isSpecialFolder ? (
+                                    <div
+                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3 relative"
+                                        title="Cannot move books from virtual folders">
+                                        <span>📁</span>
+                                        <span>Move to</span>
+                                        <span className="ml-auto">▶</span>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                        onMouseEnter={() => setContextSubmenu('move-to')}
+                                        onMouseLeave={(e) => {
+                                            setTimeout(() => {
+                                                const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                                const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                                if (!activeSubmenu && !activeTrigger) {
+                                                    setContextSubmenu(null);
+                                                }
+                                            }, 600);
+                                        }}>
+                                        <span>📁</span>
+                                        <span>Move to</span>
+                                        <span className="ml-auto">▶</span>
 
-                                    {/* Submenu */}
-                                    {contextSubmenu === 'move-to' && (
-                                        <div
-                                            className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
-                                            onMouseEnter={() => setContextSubmenu('move-to')}
-                                            onMouseLeave={() => setContextSubmenu(null)}
-                                            onClick={(e) => e.stopPropagation()}>
-                                            {/* Folder tree */}
-                                            {buildFolderTree(null)}
-                                        </div>
-                                    )}
-                                </div>
+                                        {/* Submenu */}
+                                        {contextSubmenu === 'move-to' && (
+                                            <div
+                                                className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                                onMouseEnter={() => setContextSubmenu('move-to')}
+                                                onMouseLeave={() => setContextSubmenu(null)}
+                                                onClick={(e) => e.stopPropagation()}>
+                                                {/* Folder tree */}
+                                                {buildFolderTree(null)}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Copy to - v5.0.0-alpha.166 Phase 2 */}
                                 <div
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                    className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
                                     onMouseEnter={() => setContextSubmenu('copy-to')}
                                     onMouseLeave={(e) => {
                                         setTimeout(() => {
-                                            const activeElement = document.querySelector('.context-submenu:hover');
-                                            if (!activeElement) {
+                                            const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                            const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                            if (!activeSubmenu && !activeTrigger) {
                                                 setContextSubmenu(null);
                                             }
                                         }, 600);
@@ -12012,15 +12028,6 @@
                                         alert('Open in Amazon functionality will be implemented in Phase 3');
                                     }}>
                                     🔗 Open in Amazon
-                                </button>
-
-                                <div className="border-t border-gray-200 my-1"></div>
-
-                                <button
-                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700 flex items-center justify-between"
-                                    onClick={() => setExplorerBookContextMenu(null)}>
-                                    <span className="flex items-center gap-2">📋 Close Menu</span>
-                                    <span className="text-xs text-gray-400">Esc</span>
                                 </button>
                             </div>
                         );
