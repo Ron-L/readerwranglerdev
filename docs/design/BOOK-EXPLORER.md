@@ -290,22 +290,20 @@ Two distinct modes with different purposes:
 
 ## Context Menus
 
-### Right-Click on Book
-- Open Details
-- Copy / Cut / Paste
-- Move to... (folder picker)
-- Remove from Folder
-- Add to Next Reads
-- [Tags submenu]
+**See [FOLDER-DRAG-DROP.md - Right-Click Context Menus section](FOLDER-DRAG-DROP.md#right-click-context-menus) for complete specifications.**
 
-### Right-Click on Folder (in Tree)
-- Rename
-- New Subfolder
-- Delete (moves books to Unorganized)
-- Move to... (folder picker)
-- Expand All / Collapse All
+### Summary
 
-### Right-Click on Column Header (List View)
+**Book context menu** (right-click on book):
+- Move to, Copy to, Open in Amazon, Copy Title, Add Note, Set Price Goal
+- Cut/Copy/Paste (Ctrl+X/C/V)
+- Hide Book, Delete Book
+
+**Folder context menu** (right-click on folder):
+- **Left panel:** Navigation & organization (Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete, Properties)
+- **Right panel:** Full parity with left panel + bulk operations (Open Books in Amazon, Copy Book Titles, Set Price Goal for Books, Hide/Delete Books in Folder)
+
+**Column header context menu** (list view):
 - Sort Ascending / Descending
 - Show/Hide Columns submenu
 - Reset Column Widths

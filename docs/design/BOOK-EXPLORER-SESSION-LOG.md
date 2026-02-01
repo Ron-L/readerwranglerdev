@@ -707,6 +707,206 @@ The bug required:
 
 ---
 
+### Right Panel Book Context Menu (Planned)
+**Status:** 📋 PLANNING
+**Reference:** [FOLDER-DRAG-DROP.md](FOLDER-DRAG-DROP.md#right-click-context-menus) lines 1069-1073
+
+**Goal:** Add right-click context menu for books in Book Explorer right panel (list and cover views), matching Columns App functionality.
+
+**Current Columns App Implementation:**
+- Lines 9898-10550 in readerwrangler.js
+- Full-featured menu with submenus
+- Well-structured, reusable code
+
+**Implementation Plan:**
+
+**Phase 1: Copy and Adapt Columns App Menu (~2 hours)**
+- [ ] **1.1** - Add state variable for Explorer book context menu
+  - `const [explorerBookContextMenu, setExplorerBookContextMenu] = useState(null)`
+  - Separate from Columns App `contextMenu` state
+- [ ] **1.2** - Copy book context menu component from Columns App (lines 9898-10550)
+  - Rename to `ExplorerBookContextMenu` component
+  - Keep same styling, structure, positioning logic
+- [ ] **1.3** - Add right-click handlers to book rows in Explorer list view
+  - Check if book in selection → keep selection
+  - If not in selection → clear selection, select clicked book
+  - Set context menu position and book data
+- [ ] **1.4** - Add right-click handlers to book tiles in Explorer cover view
+  - Same selection logic as list view
+- [ ] **1.5** - Test basic menu appearance and positioning
+  - Viewport edge detection
+  - Click outside to close
+  - Esc key to close
+
+**Phase 2: Adapt Folder Submenus (~3 hours)**
+- [ ] **2.1** - Replace "Move to" column submenu with folder tree submenu
+  - Reuse `FolderTreeSubmenu` component from left panel context menu
+  - Show full folder hierarchy with indentation
+  - Exclude special folders (All Books) if appropriate
+- [ ] **2.2** - Replace "Copy to" column submenu with folder tree submenu
+  - Same component as Move to
+- [ ] **2.3** - Implement `handleMoveToFolder(targetFolderId)` function
+  - Remove books from current folder's `bookIds` array
+  - Add books to target folder's `bookIds` array
+  - Update undo stack
+  - Clear selection and close menu
+- [ ] **2.4** - Implement `handleCopyToFolder(targetFolderId)` function
+  - Add books to target folder's `bookIds` array (keep in source)
+  - Books can exist in multiple folders (same as Columns App)
+  - Update undo stack
+  - Clear selection and close menu
+- [ ] **2.5** - Test Move to / Copy to with various folder structures
+  - Root folders
+  - Nested folders (3+ levels deep)
+  - Moving to parent/child/sibling folders
+
+**Phase 3: Other Menu Items (~2 hours)**
+- [ ] **3.1** - Open in Amazon
+  - Reuse existing logic from Columns App
+  - Confirmation if >3 books, reject if >10 books
+- [ ] **3.2** - Copy Title(s)
+  - Reuse existing logic from Columns App
+  - Copies selected book titles to clipboard
+- [ ] **3.3** - Add/Edit Note (single book only)
+  - Reuse existing logic from Columns App
+  - Opens book modal with note editor
+- [ ] **3.4** - Set Price Goal submenu
+  - Reuse existing submenu from Columns App
+  - Preset values: $0.99, $1.99, $2.99, $3.99, $4.99
+  - Custom... option
+  - Clear option (red text)
+- [ ] **3.5** - Test all operations with single and multiple selections
+
+**Phase 4: Cut/Copy/Paste (~2 hours)**
+- [ ] **4.1** - Implement Cut for books in Explorer
+  - Remove from current folder, add to clipboard
+  - Visual feedback (50% opacity? or different for books?)
+  - Toast notification
+- [ ] **4.2** - Implement Copy for books in Explorer
+  - Add to clipboard (keep in current folder)
+  - Toast notification
+- [ ] **4.3** - Implement Paste for books in Explorer
+  - Add clipboard books to current folder
+  - Books can exist in multiple folders
+  - Toast notification
+- [ ] **4.4** - Keyboard shortcuts (Ctrl+X, Ctrl+C, Ctrl+V)
+  - Already implemented for folders, extend to books
+  - Check if books or folders are selected
+  - Apply appropriate operation
+- [ ] **4.5** - Test clipboard persistence across navigation
+  - Cut/copy in one folder, navigate, paste in another
+
+**Phase 5: Hide/Delete Books (~2 hours)**
+- [ ] **5.1** - Implement Hide Book(s)
+  - Reuse existing logic from Columns App
+  - Works with GUID-based entries and legacy books
+  - Smart toggle: Hide if all visible, Unhide if all hidden
+  - Undo support
+- [ ] **5.2** - Implement Delete Book(s)
+  - **Critical distinction:** "Delete Book" vs "Remove from Folder"
+  - Columns App deletes book entirely from library
+  - Explorer should have TWO operations:
+    - **"Remove from Folder"** - Removes from current folder's `bookIds`, book stays in library
+    - **"Delete from Library"** - Removes book entirely (dangerous, needs confirmation)
+  - Add confirmation dialog for "Delete from Library"
+  - Show book count in confirmation
+  - Last copy warning if book exists in only one folder
+- [ ] **5.3** - Test Hide with single and multiple books
+- [ ] **5.4** - Test Delete with various scenarios
+  - Book in multiple folders → Remove from folder only
+  - Book in one folder → Confirmation with "last copy" warning
+  - Multiple books with mixed scenarios
+
+**Phase 6: Testing & Edge Cases (~2 hours)**
+- [ ] **6.1** - Test mixed selection (if applicable)
+  - If both folders and books can be selected together
+  - Show appropriate menu items
+  - Disable inapplicable operations
+- [ ] **6.2** - Test in List view
+  - All operations work
+  - Selection state correct
+  - Menu positioning correct
+- [ ] **6.3** - Test in Cover view
+  - All operations work
+  - Tile selection visual feedback
+  - Menu positioning correct
+- [ ] **6.4** - Test special cases
+  - Empty selection (shouldn't happen, but handle gracefully)
+  - All Books folder (can't remove books from virtual folder)
+  - Special folders (Inbox, My Library)
+- [ ] **6.5** - Test keyboard shortcuts with both books and folders
+  - F2 works for folders
+  - Ctrl+X/C/V works for both books and folders
+  - Delete key works appropriately
+- [ ] **6.6** - Undo/Redo testing
+  - All operations have undo support
+  - Undo stack works correctly
+  - Ctrl+Z / Ctrl+Y work as expected
+
+**Phase 7: Documentation (~1 hour)**
+- [ ] **7.1** - Update BOOK-EXPLORER-SESSION-LOG.md with implementation details
+  - Code locations
+  - Lessons learned
+  - Time spent per phase
+- [ ] **7.2** - Update TODO.md to mark feature as complete
+- [ ] **7.3** - Consider adding training scenarios to BOOK-EXPLORER-VIDEO-SCENARIOS.md
+
+**Code Reuse Strategy:**
+
+**Direct copy (minimal changes):**
+- Context menu component structure (lines 9898-10550)
+- Positioning logic (viewport edge detection)
+- Open in Amazon logic
+- Copy Titles logic
+- Add/Edit Note logic
+- Set Price Goal submenu
+- Cut/Copy/Paste for books
+- Hide Book logic
+- Delete Book logic (with Explorer-specific modifications)
+
+**Adapt from Columns App:**
+- "Move to" submenu: Replace column list with folder tree
+- "Copy to" submenu: Replace column list with folder tree
+- Move/Copy handlers: Use folders instead of columns
+
+**Reuse from Left Panel Context Menu:**
+- `FolderTreeSubmenu` component (already built in alpha.138-140)
+- Folder navigation helpers
+- Circular reference prevention logic (if needed)
+
+**Estimated Total Effort:**
+- Phase 1: ~2 hours (copy and adapt menu)
+- Phase 2: ~3 hours (folder submenus)
+- Phase 3: ~2 hours (other menu items)
+- Phase 4: ~2 hours (cut/copy/paste)
+- Phase 5: ~2 hours (hide/delete)
+- Phase 6: ~2 hours (testing)
+- Phase 7: ~1 hour (documentation)
+- **Total: ~14 hours**
+
+**Critical Design Decision:**
+
+**"Delete Book" vs "Remove from Folder"**
+
+In Columns App:
+- Books can appear in multiple columns (as GUID-based entries)
+- "Delete Book" removes the entry from that column only
+- Book still exists in library and other columns
+
+In Book Explorer:
+- Books can appear in multiple folders (via folder's `bookIds` array)
+- **"Remove from Folder"** should remove book from current folder only
+- **"Delete from Library"** should remove book from ALL folders and IndexedDB
+- Need BOTH operations in menu for clarity
+
+Proposed menu structure:
+```
+Remove from Folder   ← Safe, removes from current folder only
+Delete from Library  ← Dangerous (red text), removes entirely with confirmation
+```
+
+---
+
 ## Pending Bugs
 
 _(None)_
