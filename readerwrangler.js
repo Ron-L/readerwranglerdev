@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.170";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.170.1";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12323,8 +12323,8 @@
                         // v5.0.0-alpha.169.9 - Price Goal is ~12th item (~400px from menu top)
                         const priceGoalItemOffset = 400;
                         const priceGoalSubmenuOverflows = top + priceGoalItemOffset + submenuHeight > viewportHeight;
-                        // v5.0.0-alpha.170 - Tags is ~13th item (~440px from menu top)
-                        const tagsItemOffset = 440;
+                        // v5.0.0-alpha.170.1 - Tags is ~11th item (~360px from menu top, after Add Note)
+                        const tagsItemOffset = 360;
                         const tagsSubmenuHeight = 300; // Tags submenu can be tall with many tags
                         const tagsSubmenuOverflows = top + tagsItemOffset + tagsSubmenuHeight > viewportHeight;
 
@@ -12781,117 +12781,7 @@
                                                 </div>
                                             )}
 
-                                            {/* Set Price Goal submenu */}
-                                            <div
-                                                className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
-                                                onMouseEnter={() => setContextSubmenu('price-goal')}
-                                                onMouseLeave={(e) => {
-                                                    setTimeout(() => {
-                                                        const activeSubmenu = document.querySelector('.context-submenu:hover');
-                                                        const activeTrigger = document.querySelector('.submenu-trigger:hover');
-                                                        if (!activeSubmenu && !activeTrigger) {
-                                                            setContextSubmenu(null);
-                                                        }
-                                                    }, 600);
-                                                }}>
-                                                <span>💰</span>
-                                                <span>Set Price Goal</span>
-                                                <span className="ml-auto">▶</span>
-
-                                                {/* Price Goal Submenu - v5.0.0-alpha.169.9 viewport-aware vertical positioning */}
-                                                {contextSubmenu === 'price-goal' && (
-                                                    <div
-                                                        className="context-submenu absolute bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
-                                                        style={{
-                                                            [submenuOnLeft ? 'right' : 'left']: '100%',
-                                                            [priceGoalSubmenuOverflows ? 'bottom' : 'top']: '0'
-                                                        }}
-                                                        onMouseEnter={() => setContextSubmenu('price-goal')}
-                                                        onMouseLeave={() => setContextSubmenu(null)}
-                                                        onClick={(e) => e.stopPropagation()}>
-                                                        {/* Preset prices */}
-                                                        {/* v5.0.0-alpha.167.1 - Show current price goal in bold */}
-                                                        {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => {
-                                                            const hasThisGoal = selectedBooksArray.some(b => b.priceTrigger === price);
-                                                            return (
-                                                                <div
-                                                                    key={price}
-                                                                    className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${hasThisGoal ? 'font-bold' : ''}`}
-                                                                    onClick={async () => {
-                                                                    const selectedBookIds = Array.from(explorerSelectedBooks);
-                                                                    setBooks(prev => {
-                                                                        const updated = prev.map(b =>
-                                                                            selectedBookIds.includes(b.id) ? { ...b, priceTrigger: price } : b
-                                                                        );
-                                                                        saveBooksToIndexedDB(updated);
-                                                                        return updated;
-                                                                    });
-                                                                    // Toast feedback
-                                                                    setClipboardMessage(`Price goal set to $${price.toFixed(2)} for ${count} book${count !== 1 ? 's' : ''}`);
-                                                                    setFooterClipboardVisible(false);
-                                                                    setToastVisible(true);
-                                                                    setToastAnimating(false);
-                                                                    setTimeout(() => {
-                                                                        setToastAnimating(true);
-                                                                        setTimeout(() => {
-                                                                            setToastVisible(false);
-                                                                            setToastAnimating(false);
-                                                                            setFooterClipboardVisible(true);
-                                                                        }, 1000);
-                                                                    }, 1500);
-                                                                    setExplorerBookContextMenu(null);
-                                                                    setContextSubmenu(null);
-                                                                }}>
-                                                                ${price.toFixed(2)}
-                                                            </div>
-                                                            );
-                                                        })}
-                                                        <div
-                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                            onClick={() => {
-                                                                // v5.0.0-alpha.169.8 - Store Explorer selection before opening modal
-                                                                setBulkPriceBookIds(Array.from(explorerSelectedBooks));
-                                                                setShowBulkPriceModal(true);
-                                                                setExplorerBookContextMenu(null);
-                                                                setContextSubmenu(null);
-                                                            }}>
-                                                            Custom...
-                                                        </div>
-                                                        <div className="border-t border-gray-200 my-1"></div>
-                                                        <div
-                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
-                                                            onClick={async () => {
-                                                                const selectedBookIds = Array.from(explorerSelectedBooks);
-                                                                setBooks(prev => {
-                                                                    const updated = prev.map(b =>
-                                                                        selectedBookIds.includes(b.id) ? { ...b, priceTrigger: null } : b
-                                                                    );
-                                                                    saveBooksToIndexedDB(updated);
-                                                                    return updated;
-                                                                });
-                                                                // Toast feedback
-                                                                setClipboardMessage(`Price goal cleared for ${count} book${count !== 1 ? 's' : ''}`);
-                                                                setFooterClipboardVisible(false);
-                                                                setToastVisible(true);
-                                                                setToastAnimating(false);
-                                                                setTimeout(() => {
-                                                                    setToastAnimating(true);
-                                                                    setTimeout(() => {
-                                                                        setToastVisible(false);
-                                                                        setToastAnimating(false);
-                                                                        setFooterClipboardVisible(true);
-                                                                    }, 1000);
-                                                                }, 1500);
-                                                                setExplorerBookContextMenu(null);
-                                                                setContextSubmenu(null);
-                                                            }}>
-                                                            Clear Price Goal
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* v5.0.0-alpha.170 - Tags submenu */}
+                                            {/* v5.0.0-alpha.170.1 - Tags submenu (moved to be with Add Note) */}
                                             <div
                                                 className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
                                                 onMouseEnter={() => { setTagInputValue(''); setContextSubmenu('explorer-tags'); }}
@@ -13205,6 +13095,116 @@
                                                                 }}>
                                                                 ⚙️ Manage Tags...
                                                             </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Set Price Goal submenu */}
+                                            <div
+                                                className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                                onMouseEnter={() => setContextSubmenu('price-goal')}
+                                                onMouseLeave={(e) => {
+                                                    setTimeout(() => {
+                                                        const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                                        const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                                        if (!activeSubmenu && !activeTrigger) {
+                                                            setContextSubmenu(null);
+                                                        }
+                                                    }, 600);
+                                                }}>
+                                                <span>💰</span>
+                                                <span>Set Price Goal</span>
+                                                <span className="ml-auto">▶</span>
+
+                                                {/* Price Goal Submenu - v5.0.0-alpha.169.9 viewport-aware vertical positioning */}
+                                                {contextSubmenu === 'price-goal' && (
+                                                    <div
+                                                        className="context-submenu absolute bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
+                                                        style={{
+                                                            [submenuOnLeft ? 'right' : 'left']: '100%',
+                                                            [priceGoalSubmenuOverflows ? 'bottom' : 'top']: '0'
+                                                        }}
+                                                        onMouseEnter={() => setContextSubmenu('price-goal')}
+                                                        onMouseLeave={() => setContextSubmenu(null)}
+                                                        onClick={(e) => e.stopPropagation()}>
+                                                        {/* Preset prices */}
+                                                        {/* v5.0.0-alpha.167.1 - Show current price goal in bold */}
+                                                        {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => {
+                                                            const hasThisGoal = selectedBooksArray.some(b => b.priceTrigger === price);
+                                                            return (
+                                                                <div
+                                                                    key={price}
+                                                                    className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${hasThisGoal ? 'font-bold' : ''}`}
+                                                                    onClick={async () => {
+                                                                    const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                    setBooks(prev => {
+                                                                        const updated = prev.map(b =>
+                                                                            selectedBookIds.includes(b.id) ? { ...b, priceTrigger: price } : b
+                                                                        );
+                                                                        saveBooksToIndexedDB(updated);
+                                                                        return updated;
+                                                                    });
+                                                                    // Toast feedback
+                                                                    setClipboardMessage(`Price goal set to $${price.toFixed(2)} for ${count} book${count !== 1 ? 's' : ''}`);
+                                                                    setFooterClipboardVisible(false);
+                                                                    setToastVisible(true);
+                                                                    setToastAnimating(false);
+                                                                    setTimeout(() => {
+                                                                        setToastAnimating(true);
+                                                                        setTimeout(() => {
+                                                                            setToastVisible(false);
+                                                                            setToastAnimating(false);
+                                                                            setFooterClipboardVisible(true);
+                                                                        }, 1000);
+                                                                    }, 1500);
+                                                                    setExplorerBookContextMenu(null);
+                                                                    setContextSubmenu(null);
+                                                                }}>
+                                                                ${price.toFixed(2)}
+                                                            </div>
+                                                            );
+                                                        })}
+                                                        <div
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                            onClick={() => {
+                                                                // v5.0.0-alpha.169.8 - Store Explorer selection before opening modal
+                                                                setBulkPriceBookIds(Array.from(explorerSelectedBooks));
+                                                                setShowBulkPriceModal(true);
+                                                                setExplorerBookContextMenu(null);
+                                                                setContextSubmenu(null);
+                                                            }}>
+                                                            Custom...
+                                                        </div>
+                                                        <div className="border-t border-gray-200 my-1"></div>
+                                                        <div
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
+                                                            onClick={async () => {
+                                                                const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                setBooks(prev => {
+                                                                    const updated = prev.map(b =>
+                                                                        selectedBookIds.includes(b.id) ? { ...b, priceTrigger: null } : b
+                                                                    );
+                                                                    saveBooksToIndexedDB(updated);
+                                                                    return updated;
+                                                                });
+                                                                // Toast feedback
+                                                                setClipboardMessage(`Price goal cleared for ${count} book${count !== 1 ? 's' : ''}`);
+                                                                setFooterClipboardVisible(false);
+                                                                setToastVisible(true);
+                                                                setToastAnimating(false);
+                                                                setTimeout(() => {
+                                                                    setToastAnimating(true);
+                                                                    setTimeout(() => {
+                                                                        setToastVisible(false);
+                                                                        setToastAnimating(false);
+                                                                        setFooterClipboardVisible(true);
+                                                                    }, 1000);
+                                                                }, 1500);
+                                                                setExplorerBookContextMenu(null);
+                                                                setContextSubmenu(null);
+                                                            }}>
+                                                            Clear Price Goal
                                                         </div>
                                                     </div>
                                                 )}
