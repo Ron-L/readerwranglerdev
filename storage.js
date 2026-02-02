@@ -1,6 +1,6 @@
 // storage.js - IndexedDB and Cache API operations
 // Extracted from readerwrangler.js for reuse by Book Explorer
-// v5.0.0-alpha.1
+// v5.0.0-alpha.169.7
 // Depends on: uiHelpers.js (normalizeBook)
 
 // ===== IndexedDB Constants =====
@@ -109,13 +109,13 @@ const saveBooksToIndexedDB = async (books) => {
                     if (previousBook.onWishlist && !book.onWishlist) {
                         wishlistToOwned.push(book.asin);
                     }
-                    // v5.0.0-alpha.169.6 - ALWAYS preserve user metadata (priceTrigger, targetPrice)
-                    // regardless of ownership status change
+                    // v5.0.0-alpha.169.7 - Prefer incoming values, fall back to IndexedDB if null
+                    // This works for both import (file may have values) and save (React has edits)
                     booksByAsin.set(book.asin, {
                         ...book,
-                        addedToWishlist: previousBook.addedToWishlist ?? book.addedToWishlist,
-                        priceTrigger: previousBook.priceTrigger ?? book.priceTrigger,
-                        targetPrice: previousBook.targetPrice ?? book.targetPrice
+                        addedToWishlist: book.addedToWishlist ?? previousBook.addedToWishlist,
+                        priceTrigger: book.priceTrigger ?? previousBook.priceTrigger,
+                        targetPrice: book.targetPrice ?? previousBook.targetPrice
                     });
                 } else {
                     booksByAsin.set(book.asin, book);
