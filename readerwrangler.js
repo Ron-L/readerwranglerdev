@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.1";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.4";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -523,9 +523,10 @@
             };
 
             // v5.0.0-alpha.169 - Get filtered book count for a folder (matching/total) including subfolders
+            // v5.0.0-alpha.169.3 - Also returns directMatching for "inside" badge display
             const getFilteredFolderCount = (folderId) => {
                 const folder = folders.find(f => f.id === folderId);
-                if (!folder) return { matching: 0, total: 0 };
+                if (!folder) return { matching: 0, total: 0, directMatching: 0 };
 
                 // Count direct books
                 const directBooks = (folder.bookIds || [])
@@ -551,7 +552,8 @@
 
                 return {
                     matching: directMatching + subfolderMatching,
-                    total: directTotal + subfolderTotal
+                    total: directTotal + subfolderTotal,
+                    directMatching: directMatching
                 };
             };
 
@@ -8434,7 +8436,9 @@
                                     <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                                         <span>
                                             {(() => {
-                                                const visibleCount = folders.filter(f => {
+                                                // v5.0.0-alpha.169.2 - Exclude Inbox from count (it's rendered separately)
+                                                const userFolders = folders.filter(f => f.id !== '__inbox__');
+                                                const visibleCount = userFolders.filter(f => {
                                                     const { matching } = getFilteredFolderCount(f.id);
                                                     // Folder is visible if it has matches OR has descendant with matches
                                                     const hasMatchingDescendant = (folderId) => {
@@ -8446,10 +8450,11 @@
                                                     };
                                                     return matching > 0 || hasMatchingDescendant(f.id);
                                                 }).length;
-                                                const totalCount = folders.length;
+                                                const totalCount = userFolders.length;
+                                                // v5.0.0-alpha.169.3 - Changed wording to remove "Showing" implication
                                                 return visibleCount === 0
-                                                    ? 'No folders match filter'
-                                                    : `Showing ${visibleCount} of ${totalCount} folders`;
+                                                    ? 'No folders match'
+                                                    : `${visibleCount} of ${totalCount} folders match`;
                                             })()}
                                         </span>
                                         <button
@@ -8555,7 +8560,14 @@
                                         }}>
                                         <span className="pointer-events-none">{FOLDER_INBOX.icon}</span>
                                         <span className="flex-1 pointer-events-none">{FOLDER_INBOX.name}</span>
-                                        <span className="text-xs text-gray-500 pointer-events-none">({getFolderBookIds('__inbox__').length})</span>
+                                        {/* v5.0.0-alpha.169.2 - Show filtered count (X/Y) when filter active */}
+                                        {hasActiveFilters ? (() => {
+                                            const { matching, total } = getFilteredFolderCount('__inbox__');
+                                            const colorClass = matching === 0 ? 'text-gray-400' : 'text-green-600';
+                                            return <span className={`text-xs pointer-events-none ${colorClass}`}>({matching}/{total})</span>;
+                                        })() : (
+                                            <span className="text-xs text-gray-500 pointer-events-none">({getFolderBookIds('__inbox__').length})</span>
+                                        )}
                                     </div>
                                 </div>
                                 </div>
@@ -8917,17 +8929,34 @@
                                                             <>
                                                                 <span className="flex-1 pointer-events-none">{folder.name}</span>
                                                                 {(() => {
-                                                                    // v5.0.0-alpha.169 - Show filtered count (X/Y) when filter active
+                                                                    // v5.0.0-alpha.169.3 - Show filtered count with "inside" badge
                                                                     if (hasActiveFilters) {
-                                                                        const { matching, total } = getFilteredFolderCount(folder.id);
-                                                                        const tooltip = `${matching} matching • ${total} total`;
-                                                                        const colorClass = matching === 0
-                                                                            ? 'text-gray-400' // Gray for zero matches
-                                                                            : 'text-green-600'; // Green for matches
+                                                                        const { matching, total, directMatching } = getFilteredFolderCount(folder.id);
+                                                                        // No matches anywhere - gray
+                                                                        if (matching === 0) {
+                                                                            return (
+                                                                                <span
+                                                                                    className="text-xs pointer-events-none text-gray-400"
+                                                                                    title={`${matching} matching • ${total} total`}>
+                                                                                    ({matching}/{total})
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                        // Collapsed with no direct matches but children have matches - blue "inside"
+                                                                        if (folder.collapsed && directMatching === 0 && matching > 0) {
+                                                                            return (
+                                                                                <span
+                                                                                    className="text-xs pointer-events-none text-blue-600"
+                                                                                    title={`${matching} matching books in subfolders • expand to see`}>
+                                                                                    ({matching} books inside)
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                        // Has direct matches or is expanded - green
                                                                         return (
                                                                             <span
-                                                                                className={`text-xs pointer-events-none ${colorClass}`}
-                                                                                title={tooltip}>
+                                                                                className="text-xs pointer-events-none text-green-600"
+                                                                                title={`${matching} matching • ${total} total`}>
                                                                                 ({matching}/{total})
                                                                             </span>
                                                                         );
