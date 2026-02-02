@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.8";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.9";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12285,7 +12285,7 @@
                         // v5.0.0-alpha.166 - Phase 2: Full implementation with Move to / Copy to submenus
 
                         // Calculate menu position to avoid going off-screen
-                        const menuHeight = 300; // v5.0.0-alpha.167 - Increased for Phase 3 items
+                        const menuHeight = 480; // v5.0.0-alpha.169.9 - Increased for full menu (14 items + separators)
                         const menuWidth = 220;
                         const viewportHeight = window.innerHeight;
                         const viewportWidth = window.innerWidth;
@@ -12301,7 +12301,11 @@
 
                         // v5.0.0-alpha.169.8 - Determine submenu position (left or right of main menu)
                         const submenuWidth = 200;
+                        const submenuHeight = 250; // v5.0.0-alpha.169.9 - For price goal submenu
                         const submenuOnLeft = left + menuWidth + submenuWidth > viewportWidth;
+                        // v5.0.0-alpha.169.9 - Price Goal is ~12th item (~400px from menu top)
+                        const priceGoalItemOffset = 400;
+                        const priceGoalSubmenuOverflows = top + priceGoalItemOffset + submenuHeight > viewportHeight;
 
                         // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
 
@@ -12773,11 +12777,14 @@
                                                 <span>Set Price Goal</span>
                                                 <span className="ml-auto">▶</span>
 
-                                                {/* Price Goal Submenu */}
+                                                {/* Price Goal Submenu - v5.0.0-alpha.169.9 viewport-aware vertical positioning */}
                                                 {contextSubmenu === 'price-goal' && (
                                                     <div
-                                                        className="context-submenu absolute top-0 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
-                                                        style={{ [submenuOnLeft ? 'right' : 'left']: '100%' }}
+                                                        className="context-submenu absolute bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
+                                                        style={{
+                                                            [submenuOnLeft ? 'right' : 'left']: '100%',
+                                                            [priceGoalSubmenuOverflows ? 'bottom' : 'top']: '0'
+                                                        }}
                                                         onMouseEnter={() => setContextSubmenu('price-goal')}
                                                         onMouseLeave={() => setContextSubmenu(null)}
                                                         onClick={(e) => e.stopPropagation()}>
