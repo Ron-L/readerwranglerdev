@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.9";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.10";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -906,6 +906,7 @@
 
             // v4.15.6: Track initial mount to prevent save effect from overwriting loaded values
             const filtersLoadedRef = useRef(false);
+            const explorerSettingsLoadedRef = useRef(false); // v5.0.0-alpha.169.10 - Track Explorer settings load
 
             // v5.0.0-alpha.82 - Timeout for auto-expanding folder on drag hover
             const dragHoverExpandTimeoutRef = useRef(null);
@@ -1107,6 +1108,8 @@
                             if (explorerData.columnWidths) setColumnWidths(explorerData.columnWidths); // v5.0.0-alpha.109
                             console.log('📁 Restored Explorer settings from localStorage');
                         }
+                        // v5.0.0-alpha.169.10 - Mark settings loaded (even if no saved data)
+                        explorerSettingsLoadedRef.current = true;
 
                         // v5.0.0 - Load folders
                         const savedFolders = localStorage.getItem(FOLDERS_KEY);
@@ -1324,7 +1327,9 @@
                 if (savedSort) {
                     // Restore saved sort for this folder
                     setExplorerSort(savedSort);
-                } else {
+                } else if (explorerSettingsLoadedRef.current) {
+                    // v5.0.0-alpha.169.10 - Only apply defaults AFTER initial load completes
+                    // This prevents overwriting saved sorts with defaults during startup race condition
                     // No saved sort - use sensible defaults
                     if (selectedFolderId === '__all__') {
                         // All Books: dateAdded desc (no manual order available)
@@ -1337,11 +1342,15 @@
                         setExplorerSort({ column: 'custom', direction: 'asc' });
                     }
                 }
+                // If neither condition met, do nothing - wait for initial load
                 // eslint-disable-next-line react-hooks/exhaustive-deps
             }, [selectedFolderId]); // Only re-run when folder changes, not when settings change
 
             // v5.0.0-alpha.100 - Save sort settings for current folder when sort changes
             useEffect(() => {
+                // v5.0.0-alpha.169.10 - Skip save during initial load to prevent overwriting saved settings
+                if (!explorerSettingsLoadedRef.current) return;
+
                 // Only save if sort is different from what's saved for this folder
                 const savedSort = folderSortSettings[selectedFolderId];
                 const sortChanged = !savedSort ||
