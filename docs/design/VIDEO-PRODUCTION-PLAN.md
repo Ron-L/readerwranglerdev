@@ -2,7 +2,7 @@
 
 ## Content Update Tracker
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-02-02
 
 Before producing/updating videos, review this list of changes since the plan was written:
 
@@ -43,6 +43,38 @@ When re-recording, add mentions of:
 - **Filter Panel** (v4.15.5): Compact inline layout with three-state toggle (Filters/More Filters/Hide)
 - **Date Filter** (v4.15.6): Simplified preset dropdown replaces two date pickers
 - **Mobile Landing Page** (v4.15.8): Hero scrolls on mobile, mobile-specific sync instructions
+
+### Book Explorer (v5.0.0) - NEW Paradigm
+
+**Major Interface Change:** Columns app → Book Explorer (File Explorer paradigm)
+
+**Training Scenarios Documented:** [BOOK-EXPLORER-VIDEO-SCENARIOS.md](BOOK-EXPLORER-VIDEO-SCENARIOS.md)
+
+**Completed Features:**
+- [x] **Left Panel Context Menu** (alpha.133-145, ~18 hours)
+  - Right-click operations: Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete, Properties
+  - Keyboard shortcuts: F2, Ctrl+X/C/V, Delete, Esc
+  - Edge cases: Circular reference prevention, special folders protection, viewport-aware positioning
+  - 7 comprehensive training scenarios documented
+
+- [x] **Right Panel Context Menu** (alpha.167.6-168.4, ~8 hours)
+  - Right-click operations: Move to, Copy to, Cut/Copy/Paste, Open in Amazon, Copy Titles, Add Note, Set Price Goal, Hide Book, Remove from Folder
+  - Keyboard shortcuts: Ctrl+X/C/V for books
+  - Visual feedback: 50% opacity for cut books (list and cover views)
+  - Undo/redo support for paste operations
+  - Amazon column added for quick single-book access (popup blocker workaround)
+  - Menu layout matches Columns App grouping conventions
+
+**Pending Features:**
+- [ ] Filtered Folder View - Auto-hide empty, auto-expand matches
+- [ ] Series Columns - Metadata in list view
+
+**Video Recommendations:**
+- Video 1: "Book Explorer - Context Menu Basics" (2-3 min)
+- Video 2: "Book Explorer - Moving & Organizing" (2-3 min)
+- Video 3: "Book Explorer - Power User Tips" (2 min)
+
+See [BOOK-EXPLORER-VIDEO-SCENARIOS.md](BOOK-EXPLORER-VIDEO-SCENARIOS.md) for complete scenario details, visual highlights, voiceover guidelines, and scene prep checklists.
 
 ---
 

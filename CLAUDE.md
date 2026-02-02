@@ -16,7 +16,7 @@
 
 ## Behaviors
 
-* **Response start** → Read `.claude-timestamp`, display `📋 [YYYY-MM-DD HH:MM:SS Local]` + separator
+* **Response start** →  display `📋 [YYYY-MM-DD HH:MM:SS Local]` + separator
 * **Discussion question** → STOP, answer, don't act until directed
 * **Before code/file change** → Ask approval first
 * **Problem report** → STOP, acknowledge, ask to analyze, wait for decision

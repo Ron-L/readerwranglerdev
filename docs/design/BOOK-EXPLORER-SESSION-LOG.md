@@ -707,203 +707,201 @@ The bug required:
 
 ---
 
-### Right Panel Book Context Menu (Planned)
-**Status:** 📋 PLANNING
+### Right Panel Book Context Menu (v5.0.0-alpha.167.6 - 168.4)
+**Status:** ✅ COMPLETE
 **Reference:** [FOLDER-DRAG-DROP.md](FOLDER-DRAG-DROP.md#right-click-context-menus) lines 1069-1073
+**Time Spent:** ~8 hours (estimated 14 hours, actual faster due to code reuse)
 
 **Goal:** Add right-click context menu for books in Book Explorer right panel (list and cover views), matching Columns App functionality.
 
-**Current Columns App Implementation:**
-- Lines 9898-10550 in readerwrangler.js
-- Full-featured menu with submenus
-- Well-structured, reusable code
+---
 
-**Implementation Plan:**
+#### Implementation Journey
 
-**Phase 1: Copy and Adapt Columns App Menu (~2 hours)**
-- [ ] **1.1** - Add state variable for Explorer book context menu
-  - `const [explorerBookContextMenu, setExplorerBookContextMenu] = useState(null)`
-  - Separate from Columns App `contextMenu` state
-- [ ] **1.2** - Copy book context menu component from Columns App (lines 9898-10550)
-  - Rename to `ExplorerBookContextMenu` component
-  - Keep same styling, structure, positioning logic
-- [ ] **1.3** - Add right-click handlers to book rows in Explorer list view
-  - Check if book in selection → keep selection
-  - If not in selection → clear selection, select clicked book
-  - Set context menu position and book data
-- [ ] **1.4** - Add right-click handlers to book tiles in Explorer cover view
-  - Same selection logic as list view
-- [ ] **1.5** - Test basic menu appearance and positioning
-  - Viewport edge detection
-  - Click outside to close
-  - Esc key to close
+**Alpha 167.6: Phase 1 - Basic Menu Structure**
+- Copied context menu component from Columns App
+- Added `explorerBookContextMenu` state
+- Added right-click handlers to book rows (list view) and tiles (cover view)
+- Selection logic: right-click on selected book keeps selection, right-click on unselected book selects it
+- Viewport-aware positioning (adjusts near edges)
 
-**Phase 2: Adapt Folder Submenus (~3 hours)**
-- [ ] **2.1** - Replace "Move to" column submenu with folder tree submenu
-  - Reuse `FolderTreeSubmenu` component from left panel context menu
-  - Show full folder hierarchy with indentation
-  - Exclude special folders (All Books) if appropriate
-- [ ] **2.2** - Replace "Copy to" column submenu with folder tree submenu
-  - Same component as Move to
-- [ ] **2.3** - Implement `handleMoveToFolder(targetFolderId)` function
-  - Remove books from current folder's `bookIds` array
-  - Add books to target folder's `bookIds` array
-  - Update undo stack
-  - Clear selection and close menu
-- [ ] **2.4** - Implement `handleCopyToFolder(targetFolderId)` function
-  - Add books to target folder's `bookIds` array (keep in source)
-  - Books can exist in multiple folders (same as Columns App)
-  - Update undo stack
-  - Clear selection and close menu
-- [ ] **2.5** - Test Move to / Copy to with various folder structures
-  - Root folders
-  - Nested folders (3+ levels deep)
-  - Moving to parent/child/sibling folders
+**Alpha 167.7: Phase 2 - Move to / Copy to Submenus**
+- Replaced column list submenus with folder tree submenus
+- Reused `FolderTreeSubmenu` component from left panel context menu
+- Implemented `handleMoveToFolder()` and `handleCopyToFolder()` functions
+- Added undo support for move/copy operations
 
-**Phase 3: Other Menu Items (~2 hours)**
-- [ ] **3.1** - Open in Amazon
-  - Reuse existing logic from Columns App
-  - Confirmation if >3 books, reject if >10 books
-- [ ] **3.2** - Copy Title(s)
-  - Reuse existing logic from Columns App
-  - Copies selected book titles to clipboard
-- [ ] **3.3** - Add/Edit Note (single book only)
-  - Reuse existing logic from Columns App
-  - Opens book modal with note editor
-- [ ] **3.4** - Set Price Goal submenu
-  - Reuse existing submenu from Columns App
-  - Preset values: $0.99, $1.99, $2.99, $3.99, $4.99
-  - Custom... option
-  - Clear option (red text)
-- [ ] **3.5** - Test all operations with single and multiple selections
+**Alpha 167.8: Phase 3 - Other Menu Items**
+- **Open in Amazon**: Initially allowed multiple books (with confirmation for >3, max 10)
+  - **Problem discovered**: Popup blockers prevent opening multiple tabs
+  - **Solution (alpha.167.9)**: Limit to single book only, added clipboard fallback for URL
+  - **Alternative solution**: Added "Amazon" column to list view for quick single-book access
+- **Copy Titles**: Copies selected book titles to clipboard
+- **Add Note**: Opens note editor for single book (disabled for multi-select)
+- **Set Price Goal**: Submenu with presets ($0.99-$4.99), Custom, Clear
 
-**Phase 4: Cut/Copy/Paste (~2 hours)**
-- [ ] **4.1** - Implement Cut for books in Explorer
-  - Remove from current folder, add to clipboard
-  - Visual feedback (50% opacity? or different for books?)
-  - Toast notification
-- [ ] **4.2** - Implement Copy for books in Explorer
-  - Add to clipboard (keep in current folder)
-  - Toast notification
-- [ ] **4.3** - Implement Paste for books in Explorer
-  - Add clipboard books to current folder
-  - Books can exist in multiple folders
-  - Toast notification
-- [ ] **4.4** - Keyboard shortcuts (Ctrl+X, Ctrl+C, Ctrl+V)
-  - Already implemented for folders, extend to books
-  - Check if books or folders are selected
-  - Apply appropriate operation
-- [ ] **4.5** - Test clipboard persistence across navigation
-  - Cut/copy in one folder, navigate, paste in another
+**Alpha 168.1-168.4: Phase 4 - Cut/Copy/Paste & Hide/Remove**
 
-**Phase 5: Hide/Delete Books (~2 hours)**
-- [ ] **5.1** - Implement Hide Book(s)
-  - Reuse existing logic from Columns App
-  - Works with GUID-based entries and legacy books
-  - Smart toggle: Hide if all visible, Unhide if all hidden
-  - Undo support
-- [ ] **5.2** - Implement Delete Book(s)
-  - **Critical distinction:** "Delete Book" vs "Remove from Folder"
-  - Columns App deletes book entirely from library
-  - Explorer should have TWO operations:
-    - **"Remove from Folder"** - Removes from current folder's `bookIds`, book stays in library
-    - **"Delete from Library"** - Removes book entirely (dangerous, needs confirmation)
-  - Add confirmation dialog for "Delete from Library"
-  - Show book count in confirmation
-  - Last copy warning if book exists in only one folder
-- [ ] **5.3** - Test Hide with single and multiple books
-- [ ] **5.4** - Test Delete with various scenarios
-  - Book in multiple folders → Remove from folder only
-  - Book in one folder → Confirmation with "last copy" warning
-  - Multiple books with mixed scenarios
+**Cut/Copy/Paste Implementation:**
+- Added menu items with keyboard shortcut hints (Ctrl+X/C/V)
+- Keyboard handlers in Explorer view (lines 1467-1596)
+- Visual feedback: 50% opacity for cut books in both List and Cover views
+- Clipboard state: `{ type: 'cut'|'copy', bookIds: [], sourcePositions: [] }`
+- sourcePositions for Explorer: `{ bookId, folderId }` (simpler than Columns App)
 
-**Phase 6: Testing & Edge Cases (~2 hours)**
-- [ ] **6.1** - Test mixed selection (if applicable)
-  - If both folders and books can be selected together
-  - Show appropriate menu items
-  - Disable inapplicable operations
-- [ ] **6.2** - Test in List view
-  - All operations work
-  - Selection state correct
-  - Menu positioning correct
-- [ ] **6.3** - Test in Cover view
-  - All operations work
-  - Tile selection visual feedback
-  - Menu positioning correct
-- [ ] **6.4** - Test special cases
-  - Empty selection (shouldn't happen, but handle gracefully)
-  - All Books folder (can't remove books from virtual folder)
-  - Special folders (Inbox, My Library)
-- [ ] **6.5** - Test keyboard shortcuts with both books and folders
-  - F2 works for folders
-  - Ctrl+X/C/V works for both books and folders
-  - Delete key works appropriately
-- [ ] **6.6** - Undo/Redo testing
-  - All operations have undo support
-  - Undo stack works correctly
-  - Ctrl+Z / Ctrl+Y work as expected
+**Undo/Redo for Paste Operations:**
+- Added PASTE_BOOKS_CUT and PASTE_BOOKS_COPY action types
+- Implemented handlers in `executeUndo()` (lines 4174-4207)
+- Implemented handlers in `executeRedo()` (lines 4560-4593)
+- Cut-paste undo: moves books back to source folder
+- Copy-paste undo: removes books from destination folder
 
-**Phase 7: Documentation (~1 hour)**
-- [ ] **7.1** - Update BOOK-EXPLORER-SESSION-LOG.md with implementation details
-  - Code locations
-  - Lessons learned
-  - Time spent per phase
-- [ ] **7.2** - Update TODO.md to mark feature as complete
-- [ ] **7.3** - Consider adding training scenarios to BOOK-EXPLORER-VIDEO-SCENARIOS.md
+**Hide Book:**
+- Smart toggle: "Hide" if all selected books visible, "Unhide" if all hidden
+- Works with both GUID-based entries and legacy books
+- Uses existing `toggleHideBooks()` function
 
-**Code Reuse Strategy:**
+**Remove from Folder:**
+- Removes selected books from current folder only (book stays in library)
+- Disabled in All Books (virtual folder, no actual removal)
+- Disabled in Inbox (special folder)
+- Matches DEL key behavior
 
-**Direct copy (minimal changes):**
-- Context menu component structure (lines 9898-10550)
-- Positioning logic (viewport edge detection)
-- Open in Amazon logic
-- Copy Titles logic
-- Add/Edit Note logic
-- Set Price Goal submenu
-- Cut/Copy/Paste for books
-- Hide Book logic
-- Delete Book logic (with Explorer-specific modifications)
+---
 
-**Adapt from Columns App:**
-- "Move to" submenu: Replace column list with folder tree
-- "Copy to" submenu: Replace column list with folder tree
-- Move/Copy handlers: Use folders instead of columns
+#### Bug Fixes During Implementation
 
-**Reuse from Left Panel Context Menu:**
-- `FolderTreeSubmenu` component (already built in alpha.138-140)
-- Folder navigation helpers
-- Circular reference prevention logic (if needed)
+**1. Keyboard Fall-Through Bug (alpha.168.2)**
+- **Symptom**: Ctrl+V created duplicate books in destination folder
+- **Cause**: Explorer keyboard handler for Ctrl+V didn't `return`, so Columns App handler also executed
+- **Fix**: Added `return;` at end of all Explorer keyboard handlers (Ctrl+X, Ctrl+C, Ctrl+V)
 
-**Estimated Total Effort:**
-- Phase 1: ~2 hours (copy and adapt menu)
-- Phase 2: ~3 hours (folder submenus)
-- Phase 3: ~2 hours (other menu items)
-- Phase 4: ~2 hours (cut/copy/paste)
-- Phase 5: ~2 hours (hide/delete)
-- Phase 6: ~2 hours (testing)
-- Phase 7: ~1 hour (documentation)
-- **Total: ~14 hours**
+**2. Undo Not Working for Cut-Paste (alpha.168.2)**
+- **Symptom**: Ctrl+Z did not reverse cut-paste operations
+- **Cause**: Recorded undo actions but never implemented the handlers
+- **Fix**: Added case handlers for PASTE_BOOKS_CUT and PASTE_BOOKS_COPY in both `executeUndo()` and `executeRedo()` switch statements
 
-**Critical Design Decision:**
+**3. Menu Organization (alpha.168.3-168.4)**
+- Multiple iterations to match user's desired layout
+- Final structure matches Columns App with logical groupings:
+  1. Move to / Copy to (folder operations)
+  2. Cut / Copy / Paste (clipboard operations) with separator
+  3. Open in Amazon / Copy Titles
+  4. Add Note / Set Price Goal
+  5. Hide Book / Remove from Folder
 
-**"Delete Book" vs "Remove from Folder"**
+---
 
-In Columns App:
-- Books can appear in multiple columns (as GUID-based entries)
-- "Delete Book" removes the entry from that column only
-- Book still exists in library and other columns
+#### Code Locations
 
-In Book Explorer:
-- Books can appear in multiple folders (via folder's `bookIds` array)
-- **"Remove from Folder"** should remove book from current folder only
-- **"Delete from Library"** should remove book from ALL folders and IndexedDB
-- Need BOTH operations in menu for clarity
+| Feature | Lines | Notes |
+|---------|-------|-------|
+| Explorer keyboard handlers (Ctrl+X/C/V) | 1467-1596 | With `return` statements |
+| PASTE_BOOKS_CUT/COPY undo handlers | 4174-4207 | In `executeUndo()` |
+| PASTE_BOOKS_CUT/COPY redo handlers | 4560-4593 | In `executeRedo()` |
+| Cut book opacity (List view) | 9527-9539 | Inline style IIFE |
+| Cut book opacity (Cover view) | 9922-9935 | Inline style IIFE |
+| Context menu (Cut/Copy/Paste section) | 12296-12456 | After Move to/Copy to |
+| Context menu (Hide/Remove section) | 12629-12685 | At end of menu |
+| Amazon column visibility | 230-237 | `visibleColumns` state |
+| Amazon column width | 240-248 | `columnWidths` state |
 
-Proposed menu structure:
+---
+
+#### Final Menu Structure
+
 ```
-Remove from Folder   ← Safe, removes from current folder only
-Delete from Library  ← Dangerous (red text), removes entirely with confirmation
+Move to           →  [folder tree submenu]
+Copy to           →  [folder tree submenu]
+─────────────────────────────────────────
+Cut               Ctrl+X
+Copy              Ctrl+C
+Paste             Ctrl+V     (grayed if clipboard empty)
+─────────────────────────────────────────
+Open in Amazon               (single book only)
+Copy Title(s)
+─────────────────────────────────────────
+Add Note                     (single book only)
+Set Price Goal    →  [preset submenu]
+─────────────────────────────────────────
+Hide Book                    (or "Unhide Book")
+Remove from Folder           (disabled in All Books/Inbox)
 ```
+
+---
+
+#### Lessons Learned
+
+1. **Return statements in keyboard handlers**: When extending keyboard handling to new views, always `return` after handling to prevent fall-through to other handlers.
+
+2. **Undo/redo requires both directions**: When adding new action types, must implement both `executeUndo()` and `executeRedo()` handlers - easy to forget the redo side.
+
+3. **Popup blockers defeat multi-tab opens**: Browser security prevents opening multiple tabs from a single click. Alternative approaches needed (clipboard URL, new column).
+
+4. **Menu organization matters**: Users have strong opinions about menu layout. Match existing patterns (like Columns App) and iterate based on feedback.
+
+5. **sourcePositions simplification**: Explorer uses `{ bookId, folderId }` vs Columns App's `{ columnId, index }`. Simpler because folder membership is boolean, not positional.
+
+---
+
+#### Design Decision: Remove from Folder vs Delete
+
+**Implemented:** "Remove from Folder" only
+- Removes book from current folder's `bookIds` array
+- Book remains in library and other folders
+- Safe operation, no confirmation needed
+- Disabled in All Books (virtual view) and Inbox (special folder)
+
+**Not Implemented:** "Delete from Library"
+- Would permanently remove book from all folders and IndexedDB
+- Decided this was too dangerous for v5.0.0
+- Users can still hide books if they don't want to see them
+- May add in future with strong confirmation dialog
+
+---
+
+### Bug Fixes (v5.0.0-alpha.169.7 - 169.12)
+**Status:** ✅ COMPLETE
+
+#### Price Goal & Storage Fixes (alpha.169.7-169.8)
+
+**1. Price Goal Merge Direction Bug (alpha.169.7)**
+- **Symptom**: Setting price goal on wishlist book didn't persist after import
+- **Cause**: storage.js merge logic used `previousBook.priceTrigger ?? book.priceTrigger`
+- **Fix**: Changed to `book.priceTrigger ?? previousBook.priceTrigger` - incoming values take precedence
+
+**2. Custom Price Goal Applied to All Books (alpha.169.8)**
+- **Symptom**: Right-click → Set Price Goal → Custom... applied to ALL books, not just selected
+- **Cause**: Bulk price modal used `getSelectedBookIds()` (Columns App selection) not `explorerSelectedBooks`
+- **Fix**: Added `bulkPriceBookIds` state, stored selection when modal opens
+
+**3. Submenu Viewport Positioning (alpha.169.8-169.9)**
+- **Symptom**: Move to, Copy to, Set Price Goal submenus went off-screen
+- **Fix**: Added `submenuOnLeft` calculation, submenus flip left when near right edge
+- **Fix**: Added vertical positioning for Price Goal submenu (flips up when near bottom)
+- **Fix**: Increased main menu height estimate from 300 to 480px
+
+#### Sort Persistence Race Condition (alpha.169.10-169.12)
+
+**1. Sort Column Not Persisting on Refresh**
+- **Symptom**: "Under" (delta) sort reverted to "Date Added" after page refresh
+- **Root Cause**: React state updates are async - RESTORE EFFECT ran with stale `folderSortSettings = {}` before `setFolderSortSettings` propagated
+- **Debug approach**: Added console logging to trace load/restore/save order
+
+**Attempted fixes:**
+- alpha.169.10: Added `explorerSettingsLoadedRef` to skip defaults during load (insufficient)
+- alpha.169.11: Load per-folder sort directly in LOAD effect (still had race)
+- alpha.169.12: Skip RESTORE EFFECT when `folderSortSettings` is empty ✓
+
+**Final fix:**
+```javascript
+// v5.0.0-alpha.169.12 - Skip if folderSortSettings is still empty (initial state)
+if (Object.keys(folderSortSettings).length === 0) {
+    return;
+}
+```
+
+**Lesson Learned:** React effects can run with stale closure values. Check for initial/empty state explicitly rather than relying on refs or timing.
 
 ---
 
@@ -1044,17 +1042,15 @@ Focus on:
 ## Future Enhancements (Post-v5.0.0)
 
 From FOLDER-DRAG-DROP.md:
-- Right-click context menus (left and right panel)
 - Filtered folder view
 - Series columns
 - Multi-column sorting
 - Column reordering
 - Search (jump-to)
-- Keyboard shortcuts (Cut/Copy/Paste)
 
 _See Session Checklist in FOLDER-DRAG-DROP.md for full list_
 
 ---
 
-**Last Updated:** 2026-01-31 (alpha.145)
+**Last Updated:** 2026-02-02 (alpha.169.12)
 **Next Update:** As features are completed or significant issues encountered

@@ -1504,16 +1504,18 @@ const PriceGoalDialog = ({ folderId, onClose }) => {
 ### Pending - Bugs
 - [x] **Library Fetcher fetched bad price** - RESOLVED: B0079XPUOW was API bad data (now correct), B003K15PAQ was orphaned wishlist book (stale data). Fixed by triggering amazon-library.json download when restoring backup (v5.0.0-alpha.126-131)
 - [x] **Right panel tooltip unreachable** - RESOLVED: Tooltip disappears when cursor moves toward it. Fixed with 150ms grace period delay (v5.0.0-alpha.132)
+- [ ] **Inbox Date Acquired sort incorrect** - Wishlist book appears at top of Inbox despite not being most recent by Date Acquired
 
 ### Pending - Features
 - [x] **Left panel context menu** - ✅ COMPLETE (alpha.133-145, ~18 hours): Visual menu with Open, Rename, Move to, Create Subfolder, Cut/Copy/Paste, Delete, Properties. Keyboard shortcuts: F2, Ctrl+X/C/V, Delete, Esc. Inline editing fixed (alpha.156-161). See BOOK-EXPLORER-SESSION-LOG.md for full implementation journey.
-- [ ] **Right panel context menu** - Full parity with Columns app: Move to, Copy to, Open in Amazon, Copy Titles, Set Price Goal, Cut/Copy/Paste, Hide/Delete Books, Delete Folder, Properties. Enables wishlist filtering + bulk price goal workflow.
-- [ ] **Filtered folder view** - When filter active: auto-hide empty folders, auto-expand matches, show X/Y counts, "Showing X of Y folders • Show all" indicator
+- [x] **Right panel context menu** - ✅ COMPLETE (alpha.167.6-168.4, ~8 hours): Move to, Copy to, Cut/Copy/Paste, Open in Amazon (single book), Copy Titles, Add Note, Set Price Goal, Hide Book, Remove from Folder. Keyboard shortcuts: Ctrl+X/C/V. Visual feedback: 50% opacity for cut books. Undo/redo support. Amazon column added for quick single-book access. See BOOK-EXPLORER-SESSION-LOG.md for full implementation journey.
+- [x] **Cut/copy/paste** - ✅ COMPLETE (alpha.168.1-168.4): Keyboard shortcuts Ctrl+X/C/V for book operations, integrated with context menu, visual feedback for cut books, undo/redo support.
+- [x] **Filtered folder view** - ✅ COMPLETE (alpha.169): Auto-hide empty folders when filter active, auto-expand matches, show X/Y counts with color coding, "Showing X of Y folders • Show all/Hide empty" indicator, save/restore expansion state
+- [ ] **Book context menu tagging** - Add tag management to right-click book context menu (missing from current implementation)
 - [ ] **Series columns** - Add "Series" (text) and "#" (decimal) columns, populated from API or manual entry, supports fractional positions (3.5)
 - [ ] **Multi-column sorting** - Shift+Click to add secondary/tertiary sorts, visual indicators (↑₁ ↑₂), column menu for discoverability
 - [ ] **Column reordering** - Drag column headers to reorder, ghost preview and drop indicator, persists per folder
 - [ ] **Search (jump-to)** - Jump to book/folder by name (distinct from filter)
-- [ ] **Cut/copy/paste** - Keyboard shortcuts for book operations (integrated with context menu)
 - [ ] **Nested folder creation via drag** - Drag folder onto another to create as child
 
 ### Pending - Other
