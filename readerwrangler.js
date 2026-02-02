@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.1";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9586,8 +9586,23 @@
                                                         selectedFolderId !== '__all__';
                                                     const parentForReorder = selectedFolderId === '__library__' ? null : selectedFolderId;
 
+                                                    // v5.0.0-alpha.169.1 - Filter folders with no matches when filter active (right pane)
+                                                    const visibleFolders = hasActiveFilters && !showAllFoldersOverride
+                                                        ? sortedFolders.filter(folder => {
+                                                            const { matching } = getFilteredFolderCount(folder.id);
+                                                            const hasMatchingDescendant = (folderId) => {
+                                                                const childFldrs = folders.filter(f => f.parentId === folderId);
+                                                                return childFldrs.some(child => {
+                                                                    const { matching: childMatching } = getFilteredFolderCount(child.id);
+                                                                    return childMatching > 0 || hasMatchingDescendant(child.id);
+                                                                });
+                                                            };
+                                                            return matching > 0 || hasMatchingDescendant(folder.id);
+                                                        })
+                                                        : sortedFolders;
+
                                                     // v5.0.0-alpha.65 - Use flatMap to add separator after Inbox in My Library view
-                                                    return sortedFolders.flatMap((folder, folderIndex) => {
+                                                    return visibleFolders.flatMap((folder, folderIndex) => {
                                                         // v5.0.0-alpha.67 - Phase A: Enable dragging everywhere (drop determines validity)
                                                         const isDraggable = folder.id !== '__inbox__';
 
@@ -10109,8 +10124,23 @@
                                                     selectedFolderId !== '__all__';
                                                 const parentForReorder = selectedFolderId === '__library__' ? null : selectedFolderId;
 
+                                                // v5.0.0-alpha.169.1 - Filter folders with no matches when filter active (right pane cover view)
+                                                const visibleFolders = hasActiveFilters && !showAllFoldersOverride
+                                                    ? sortedFolders.filter(folder => {
+                                                        const { matching } = getFilteredFolderCount(folder.id);
+                                                        const hasMatchingDescendant = (folderId) => {
+                                                            const childFldrs = folders.filter(f => f.parentId === folderId);
+                                                            return childFldrs.some(child => {
+                                                                const { matching: childMatching } = getFilteredFolderCount(child.id);
+                                                                return childMatching > 0 || hasMatchingDescendant(child.id);
+                                                            });
+                                                        };
+                                                        return matching > 0 || hasMatchingDescendant(folder.id);
+                                                    })
+                                                    : sortedFolders;
+
                                                 // v5.0.0-alpha.62 - Scale folder icon responsively with container
-                                                return sortedFolders.map((folder, folderIndex) => {
+                                                return visibleFolders.map((folder, folderIndex) => {
                                                     // v5.0.0-alpha.67 - Phase A: Enable dragging everywhere (drop determines validity)
                                                     const isDraggable = folder.id !== '__inbox__';
 
