@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.7";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.8";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -131,6 +131,7 @@
             const [showCustomPriceInput, setShowCustomPriceInput] = useState(false); // v4.17.0
             const [showBulkPriceModal, setShowBulkPriceModal] = useState(false); // v4.20.0.a - bulk price goal modal
             const [bulkPriceInput, setBulkPriceInput] = useState(''); // v4.20.0.a - bulk price goal input
+            const [bulkPriceBookIds, setBulkPriceBookIds] = useState([]); // v5.0.0-alpha.169.8 - store book IDs when modal opens
             const [isEditingNote, setIsEditingNote] = useState(false); // v4.21.0.a - book note edit mode
             const [noteEditContent, setNoteEditContent] = useState(''); // v4.21.0.a - book note editor content
             const [tagInputValue, setTagInputValue] = useState(''); // v4.27.0 - tag input autocomplete value
@@ -7001,25 +7002,24 @@
                         </div>
                     )}
 
-                    {/* v4.20.0.a - Bulk price goal modal */}
+                    {/* v4.20.0.a - Bulk price goal modal (v5.0.0-alpha.169.8 - use bulkPriceBookIds) */}
                     {showBulkPriceModal && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                             onClick={() => { setShowBulkPriceModal(false); setBulkPriceInput(''); }}>
+                             onClick={() => { setShowBulkPriceModal(false); setBulkPriceInput(''); setBulkPriceBookIds([]); }}>
                             <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm" onClick={(e) => e.stopPropagation()}>
                                 <h2 className="text-lg font-bold text-gray-900 mb-4">Set Custom Price Goal</h2>
                                 <p className="text-sm text-gray-600 mb-4">
-                                    Set price goal for {selectedBooks.size} selected book{selectedBooks.size !== 1 ? 's' : ''}
+                                    Set price goal for {bulkPriceBookIds.length} selected book{bulkPriceBookIds.length !== 1 ? 's' : ''}
                                 </p>
                                 <form
                                     onSubmit={async (e) => {
                                         e.preventDefault();
                                         const price = parseFloat(bulkPriceInput);
                                         if (!isNaN(price) && price > 0) {
-                                            const selectedBookIds = getSelectedBookIds();
-                                            const count = selectedBookIds.length;
+                                            const count = bulkPriceBookIds.length;
                                             setBooks(prev => {
                                                 const updated = prev.map(b =>
-                                                    selectedBookIds.includes(b.id) ? { ...b, priceTrigger: price } : b
+                                                    bulkPriceBookIds.includes(b.id) ? { ...b, priceTrigger: price } : b
                                                 );
                                                 saveBooksToIndexedDB(updated);
                                                 return updated;
@@ -7040,6 +7040,7 @@
                                         }
                                         setShowBulkPriceModal(false);
                                         setBulkPriceInput('');
+                                        setBulkPriceBookIds([]);
                                     }}
                                     className="flex flex-col gap-4"
                                 >
@@ -10932,6 +10933,8 @@
                                         <button
                                             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-gray-700"
                                             onClick={() => {
+                                                // v5.0.0-alpha.169.8 - Store Columns selection before opening modal
+                                                setBulkPriceBookIds(getSelectedBookIds());
                                                 setShowBulkPriceModal(true);
                                                 setContextMenu(null);
                                                 setContextSubmenu(null);
@@ -12296,6 +12299,10 @@
                             ? Math.max(10, explorerBookContextMenu.x - menuWidth)
                             : explorerBookContextMenu.x;
 
+                        // v5.0.0-alpha.169.8 - Determine submenu position (left or right of main menu)
+                        const submenuWidth = 200;
+                        const submenuOnLeft = left + menuWidth + submenuWidth > viewportWidth;
+
                         // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
 
                         // v5.0.0-alpha.166.1 - Check if current folder is special (can't move books from virtual folders)
@@ -12473,10 +12480,11 @@
                                         <span>Move to</span>
                                         <span className="ml-auto">▶</span>
 
-                                        {/* Submenu */}
+                                        {/* Submenu - v5.0.0-alpha.169.8 viewport-aware positioning */}
                                         {contextSubmenu === 'move-to' && (
                                             <div
-                                                className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                                className="context-submenu absolute top-0 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                                style={{ [submenuOnLeft ? 'right' : 'left']: '100%' }}
                                                 onMouseEnter={() => setContextSubmenu('move-to')}
                                                 onMouseLeave={() => setContextSubmenu(null)}
                                                 onClick={(e) => e.stopPropagation()}>
@@ -12504,10 +12512,11 @@
                                     <span>Copy to</span>
                                     <span className="ml-auto">▶</span>
 
-                                    {/* Submenu */}
+                                    {/* Submenu - v5.0.0-alpha.169.8 viewport-aware positioning */}
                                     {contextSubmenu === 'copy-to' && (
                                         <div
-                                            className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                            className="context-submenu absolute top-0 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[400px] max-h-[400px] overflow-y-auto z-[70]"
+                                            style={{ [submenuOnLeft ? 'right' : 'left']: '100%' }}
                                             onMouseEnter={() => setContextSubmenu('copy-to')}
                                             onMouseLeave={() => setContextSubmenu(null)}
                                             onClick={(e) => e.stopPropagation()}>
@@ -12767,7 +12776,8 @@
                                                 {/* Price Goal Submenu */}
                                                 {contextSubmenu === 'price-goal' && (
                                                     <div
-                                                        className="context-submenu absolute left-full top-0 ml-1 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
+                                                        className="context-submenu absolute top-0 bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[150px] z-[70]"
+                                                        style={{ [submenuOnLeft ? 'right' : 'left']: '100%' }}
                                                         onMouseEnter={() => setContextSubmenu('price-goal')}
                                                         onMouseLeave={() => setContextSubmenu(null)}
                                                         onClick={(e) => e.stopPropagation()}>
@@ -12811,6 +12821,8 @@
                                                         <div
                                                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                                             onClick={() => {
+                                                                // v5.0.0-alpha.169.8 - Store Explorer selection before opening modal
+                                                                setBulkPriceBookIds(Array.from(explorerSelectedBooks));
                                                                 setShowBulkPriceModal(true);
                                                                 setExplorerBookContextMenu(null);
                                                                 setContextSubmenu(null);
