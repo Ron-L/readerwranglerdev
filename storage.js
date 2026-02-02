@@ -102,14 +102,18 @@ const saveBooksToIndexedDB = async (books) => {
                 }
                 // If both same ownership status, keep first occurrence (existing)
             } else {
-                // Check if this ASIN existed before and was a wishlist item now becoming owned
+                // Check if this ASIN existed before in IndexedDB
                 const previousBook = existingByAsin.get(book.asin);
-                if (previousBook && previousBook.onWishlist && !book.onWishlist) {
-                    wishlistToOwned.push(book.asin);
+                if (previousBook) {
+                    // Track wishlist → owned transitions
+                    if (previousBook.onWishlist && !book.onWishlist) {
+                        wishlistToOwned.push(book.asin);
+                    }
+                    // v5.0.0-alpha.169.6 - ALWAYS preserve user metadata (priceTrigger, targetPrice)
+                    // regardless of ownership status change
                     booksByAsin.set(book.asin, {
                         ...book,
-                        addedToWishlist: previousBook.addedToWishlist,
-                        // v5.0.0-alpha.163 - PRESERVE price goal when book transitions to owned
+                        addedToWishlist: previousBook.addedToWishlist ?? book.addedToWishlist,
                         priceTrigger: previousBook.priceTrigger ?? book.priceTrigger,
                         targetPrice: previousBook.targetPrice ?? book.targetPrice
                     });
