@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.4";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.5";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1023,15 +1023,30 @@
                 setDateTo(to);
             }, [datePreset]);
 
-            const formatAcquisitionDate = (timestamp) => {
-                if (!timestamp) return '';
-                const ts = typeof timestamp === 'string' ? parseInt(timestamp) : timestamp;
-                const date = new Date(ts > 9999999999 ? ts : ts * 1000);
-                if (isNaN(date.getTime())) return timestamp;
-                return date.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
+            // v5.0.0-alpha.169.5 - Unified date parsing for sorting
+            // Handles both numeric timestamps and string dates (e.g., "January 15, 2024")
+            const parseBookDate = (dateStr) => {
+                if (!dateStr) return new Date(0);
+                // Try as numeric timestamp first
+                const ts = typeof dateStr === 'string' ? parseInt(dateStr) : dateStr;
+                if (!isNaN(ts) && ts > 1000000000) {
+                    return new Date(ts > 9999999999 ? ts : ts * 1000);
+                }
+                // Try as date string (handles "January 15, 2024", "2024-01-15", etc.)
+                const d = new Date(dateStr);
+                return isNaN(d.getTime()) ? new Date(0) : d;
+            };
+
+            // v5.0.0-alpha.169.5 - Unified date formatting for display
+            // Uses parseBookDate to handle any format, returns consistent display
+            const formatAcquisitionDate = (dateStr) => {
+                if (!dateStr) return '';
+                const d = parseBookDate(dateStr);
+                if (d.getTime() === 0) return String(dateStr); // Fallback to raw value if unparseable
+                return d.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
                 });
             };
 
@@ -3312,9 +3327,10 @@
                             case 'rating-asc':
                                 return (a.rating || 0) - (b.rating || 0);
                             case 'acquired-desc':
-                                return (b.acquired || '').localeCompare(a.acquired || '');
+                                // v5.0.0-alpha.169.5 - Use parseBookDate for proper date comparison
+                                return parseBookDate(b.acquired || b.addedToWishlist) - parseBookDate(a.acquired || a.addedToWishlist);
                             case 'acquired-asc':
-                                return (a.acquired || '').localeCompare(b.acquired || '');
+                                return parseBookDate(a.acquired || a.addedToWishlist) - parseBookDate(b.acquired || b.addedToWishlist);
                             case 'published-desc':
                                 // Books without publication date go to end
                                 if (!a.publicationDate && !b.publicationDate) return 0;
@@ -9895,9 +9911,10 @@
                                                             if (explorerSort.column === 'author') return dir * (a.author || '').localeCompare(b.author || '');
                                                             if (explorerSort.column === 'rating') return dir * ((a.rating || 0) - (b.rating || 0));
                                                             if (explorerSort.column === 'dateAdded') {
-                                                                const dateA = a.acquired || a.addedToWishlist || '';
-                                                                const dateB = b.acquired || b.addedToWishlist || '';
-                                                                return dir * dateA.localeCompare(dateB);
+                                                                // v5.0.0-alpha.169.5 - Use parseBookDate for proper date comparison
+                                                                const dateA = parseBookDate(a.acquired || a.addedToWishlist);
+                                                                const dateB = parseBookDate(b.acquired || b.addedToWishlist);
+                                                                return dir * (dateA - dateB);
                                                             }
                                                             if (explorerSort.column === 'price') {
                                                                 const priceA = a.currentPrice ?? Infinity;
@@ -10307,9 +10324,10 @@
                                                         if (explorerSort.column === 'author') return dir * (a.author || '').localeCompare(b.author || '');
                                                         if (explorerSort.column === 'rating') return dir * ((a.rating || 0) - (b.rating || 0));
                                                         if (explorerSort.column === 'dateAdded') {
-                                                            const dateA = a.acquired || a.addedToWishlist || '';
-                                                            const dateB = b.acquired || b.addedToWishlist || '';
-                                                            return dir * dateA.localeCompare(dateB);
+                                                            // v5.0.0-alpha.169.5 - Use parseBookDate for proper date comparison
+                                                            const dateA = parseBookDate(a.acquired || a.addedToWishlist);
+                                                            const dateB = parseBookDate(b.acquired || b.addedToWishlist);
+                                                            return dir * (dateA - dateB);
                                                         }
                                                         if (explorerSort.column === 'price') {
                                                             const priceA = a.currentPrice ?? Infinity;
