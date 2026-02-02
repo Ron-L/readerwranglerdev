@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.168.4";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -227,6 +227,8 @@
             const [folderPropertiesDialog, setFolderPropertiesDialog] = useState(null); // v5.0.0-alpha.142 - Folder properties dialog { folderId }
             const [folderPropertiesEditedName, setFolderPropertiesEditedName] = useState(''); // v5.0.0-alpha.143 - Edited name in properties dialog
             const [dialogDrag, setDialogDrag] = useState(null); // v5.0.0-alpha.144 - Dragging state { isDragging, offsetX, offsetY, dialogX, dialogY }
+            const [showAllFoldersOverride, setShowAllFoldersOverride] = useState(false); // v5.0.0-alpha.169 - Override auto-hide when filter active
+            const [savedExpansionState, setSavedExpansionState] = useState(null); // v5.0.0-alpha.169 - Saved folder expansion state (Map of folderId → collapsed)
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
                 rating: true,
@@ -518,6 +520,39 @@
                 countChildren(folderId);
 
                 return { direct, subfolder, total: direct + subfolder };
+            };
+
+            // v5.0.0-alpha.169 - Get filtered book count for a folder (matching/total) including subfolders
+            const getFilteredFolderCount = (folderId) => {
+                const folder = folders.find(f => f.id === folderId);
+                if (!folder) return { matching: 0, total: 0 };
+
+                // Count direct books
+                const directBooks = (folder.bookIds || [])
+                    .map(id => books.find(b => b.id === id))
+                    .filter(Boolean);
+                const directMatching = directBooks.filter(filterBookForExplorer).length;
+                const directTotal = directBooks.length;
+
+                // Count books in subfolders (recursive)
+                let subfolderMatching = 0;
+                let subfolderTotal = 0;
+                const countChildren = (parentId) => {
+                    folders.filter(f => f.parentId === parentId).forEach(child => {
+                        const childBooks = (child.bookIds || [])
+                            .map(id => books.find(b => b.id === id))
+                            .filter(Boolean);
+                        subfolderMatching += childBooks.filter(filterBookForExplorer).length;
+                        subfolderTotal += childBooks.length;
+                        countChildren(child.id);
+                    });
+                };
+                countChildren(folderId);
+
+                return {
+                    matching: directMatching + subfolderMatching,
+                    total: directTotal + subfolderTotal
+                };
             };
 
             // Reorder a book within a folder's bookIds array
@@ -5958,6 +5993,56 @@
                 ratingFilter || wishlistFilter || ownershipFilter || seriesFilter || dateFrom || dateTo ||
                 (tagFilter && tagFilter.length > 0));
 
+            // v5.0.0-alpha.169 - Filtered Folder View: Save/restore expansion state when filters change
+            useEffect(() => {
+                if (hasActiveFilters) {
+                    // Save current expansion state before modifying (only once when filter becomes active)
+                    if (!savedExpansionState) {
+                        const currentState = new Map();
+                        folders.forEach(f => currentState.set(f.id, f.collapsed));
+                        setSavedExpansionState(currentState);
+                    }
+
+                    // Auto-expand folders with matching books
+                    const foldersToExpand = new Set();
+                    folders.forEach(folder => {
+                        const { matching } = getFilteredFolderCount(folder.id);
+                        if (matching > 0) {
+                            // Expand this folder and all ancestors
+                            let current = folder;
+                            while (current) {
+                                foldersToExpand.add(current.id);
+                                current = folders.find(f => f.id === current.parentId);
+                            }
+                        }
+                    });
+
+                    if (foldersToExpand.size > 0) {
+                        setFolders(prev => prev.map(f =>
+                            foldersToExpand.has(f.id) ? { ...f, collapsed: false } : f
+                        ));
+                    }
+                } else {
+                    // Restore saved expansion state when filter is cleared
+                    if (savedExpansionState) {
+                        setFolders(prev => prev.map(f => ({
+                            ...f,
+                            collapsed: savedExpansionState.get(f.id) ?? f.collapsed
+                        })));
+                        setSavedExpansionState(null);
+                    }
+                    // Reset show all override
+                    setShowAllFoldersOverride(false);
+                }
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [hasActiveFilters]);
+
+            // v5.0.0-alpha.169 - Reset "show all" override when any filter changes
+            useEffect(() => {
+                setShowAllFoldersOverride(false);
+            }, [searchTerm, readStatusFilter, collectionFilter, ratingFilter, wishlistFilter,
+                ownershipFilter, seriesFilter, dateFrom, dateTo, tagFilter, dealsFilterActive]);
+
             // Calculate combined urgency from Library and Collections status
             // Urgency is based ONLY on Load status (what's in the app right now)
             const getUrgencyInfo = () => {
@@ -8344,6 +8429,36 @@
                                         {folders.some(f => !f.collapsed && getChildFolders(f.id).length > 0) ? '▼' : '▶'}
                                     </button>
                                 </div>
+                                {/* v5.0.0-alpha.169 - Filtered folder indicator */}
+                                {hasActiveFilters && (
+                                    <div className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                                        <span>
+                                            {(() => {
+                                                const visibleCount = folders.filter(f => {
+                                                    const { matching } = getFilteredFolderCount(f.id);
+                                                    // Folder is visible if it has matches OR has descendant with matches
+                                                    const hasMatchingDescendant = (folderId) => {
+                                                        const childFolders = folders.filter(c => c.parentId === folderId);
+                                                        return childFolders.some(child => {
+                                                            const { matching: childMatching } = getFilteredFolderCount(child.id);
+                                                            return childMatching > 0 || hasMatchingDescendant(child.id);
+                                                        });
+                                                    };
+                                                    return matching > 0 || hasMatchingDescendant(f.id);
+                                                }).length;
+                                                const totalCount = folders.length;
+                                                return visibleCount === 0
+                                                    ? 'No folders match filter'
+                                                    : `Showing ${visibleCount} of ${totalCount} folders`;
+                                            })()}
+                                        </span>
+                                        <button
+                                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                                            onClick={() => setShowAllFoldersOverride(prev => !prev)}>
+                                            {showAllFoldersOverride ? 'Hide empty' : 'Show all'}
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="p-2">
                                     {/* All Books (virtual, view-only) - v5.0.0-alpha.52 added "+" for new root folder */}
                                     <div
@@ -8450,6 +8565,22 @@
                                     {(() => {
                                         // Recursive folder renderer
                                         const renderFolder = (folder, depth = 0) => {
+                                            // v5.0.0-alpha.169 - Hide folders with no matches when filter active
+                                            if (hasActiveFilters && !showAllFoldersOverride) {
+                                                const { matching } = getFilteredFolderCount(folder.id);
+                                                // Also check if any descendant has matches (show parent if child matches)
+                                                const hasMatchingDescendant = (folderId) => {
+                                                    const childFolders = folders.filter(f => f.parentId === folderId);
+                                                    return childFolders.some(child => {
+                                                        const { matching: childMatching } = getFilteredFolderCount(child.id);
+                                                        return childMatching > 0 || hasMatchingDescendant(child.id);
+                                                    });
+                                                };
+                                                if (matching === 0 && !hasMatchingDescendant(folder.id)) {
+                                                    return null; // Hide folder with no matches
+                                                }
+                                            }
+
                                             const children = getChildFolders(folder.id);
                                             const hasChildren = children.length > 0;
                                             const isExpanded = !folder.collapsed;
@@ -8786,6 +8917,22 @@
                                                             <>
                                                                 <span className="flex-1 pointer-events-none">{folder.name}</span>
                                                                 {(() => {
+                                                                    // v5.0.0-alpha.169 - Show filtered count (X/Y) when filter active
+                                                                    if (hasActiveFilters) {
+                                                                        const { matching, total } = getFilteredFolderCount(folder.id);
+                                                                        const tooltip = `${matching} matching • ${total} total`;
+                                                                        const colorClass = matching === 0
+                                                                            ? 'text-gray-400' // Gray for zero matches
+                                                                            : 'text-green-600'; // Green for matches
+                                                                        return (
+                                                                            <span
+                                                                                className={`text-xs pointer-events-none ${colorClass}`}
+                                                                                title={tooltip}>
+                                                                                ({matching}/{total})
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    // Normal count display
                                                                     const counts = getFolderTotalCount(folder.id);
                                                                     const tooltip = counts.subfolder > 0
                                                                         ? `${counts.direct} direct • ${counts.subfolder} in subfolders`
