@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.10";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.11";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1100,7 +1100,14 @@
                             if (explorerData.viewMode) setViewMode(explorerData.viewMode);
                             if (explorerData.selectedFolderId) setSelectedFolderId(explorerData.selectedFolderId);
                             if (explorerData.explorerView) setExplorerView(explorerData.explorerView);
-                            if (explorerData.explorerSort) setExplorerSort(explorerData.explorerSort);
+                            // v5.0.0-alpha.169.11 - Use per-folder sort if available, else fall back to explorerSort
+                            const folderId = explorerData.selectedFolderId || '__all__';
+                            const perFolderSort = explorerData.folderSortSettings?.[folderId];
+                            if (perFolderSort) {
+                                setExplorerSort(perFolderSort);
+                            } else if (explorerData.explorerSort) {
+                                setExplorerSort(explorerData.explorerSort);
+                            }
                             if (explorerData.explorerCoverCols) setExplorerCoverCols(explorerData.explorerCoverCols);
                             if (explorerData.leftPaneWidth) setLeftPaneWidth(explorerData.leftPaneWidth); // v5.0.0-alpha.91
                             if (explorerData.folderSortSettings) setFolderSortSettings(explorerData.folderSortSettings); // v5.0.0-alpha.100
