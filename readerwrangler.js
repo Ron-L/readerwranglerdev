@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.12";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.170";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -12302,7 +12302,7 @@
                         // v5.0.0-alpha.166 - Phase 2: Full implementation with Move to / Copy to submenus
 
                         // Calculate menu position to avoid going off-screen
-                        const menuHeight = 480; // v5.0.0-alpha.169.9 - Increased for full menu (14 items + separators)
+                        const menuHeight = 530; // v5.0.0-alpha.170 - Increased for Tags submenu (15 items + separators)
                         const menuWidth = 220;
                         const viewportHeight = window.innerHeight;
                         const viewportWidth = window.innerWidth;
@@ -12323,6 +12323,10 @@
                         // v5.0.0-alpha.169.9 - Price Goal is ~12th item (~400px from menu top)
                         const priceGoalItemOffset = 400;
                         const priceGoalSubmenuOverflows = top + priceGoalItemOffset + submenuHeight > viewportHeight;
+                        // v5.0.0-alpha.170 - Tags is ~13th item (~440px from menu top)
+                        const tagsItemOffset = 440;
+                        const tagsSubmenuHeight = 300; // Tags submenu can be tall with many tags
+                        const tagsSubmenuOverflows = top + tagsItemOffset + tagsSubmenuHeight > viewportHeight;
 
                         // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
 
@@ -12882,6 +12886,325 @@
                                                                 setContextSubmenu(null);
                                                             }}>
                                                             Clear Price Goal
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* v5.0.0-alpha.170 - Tags submenu */}
+                                            <div
+                                                className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
+                                                onMouseEnter={() => { setTagInputValue(''); setContextSubmenu('explorer-tags'); }}
+                                                onMouseLeave={(e) => {
+                                                    setTimeout(() => {
+                                                        const activeSubmenu = document.querySelector('.context-submenu:hover');
+                                                        const activeTrigger = document.querySelector('.submenu-trigger:hover');
+                                                        if (!activeSubmenu && !activeTrigger) {
+                                                            setContextSubmenu(null);
+                                                        }
+                                                    }, 600);
+                                                }}>
+                                                <span>🏷️</span>
+                                                <span>Tags</span>
+                                                {(() => {
+                                                    // Count total tags across selected books
+                                                    const allTags = new Set();
+                                                    selectedBooksArray.forEach(b => (b.tags || []).forEach(t => allTags.add(t)));
+                                                    return allTags.size > 0 ? <span className="text-xs text-gray-500">({allTags.size})</span> : null;
+                                                })()}
+                                                <span className="ml-auto">▶</span>
+
+                                                {/* Tags Submenu */}
+                                                {contextSubmenu === 'explorer-tags' && (
+                                                    <div
+                                                        className="context-submenu absolute bg-white border border-gray-300 shadow-lg rounded py-1 min-w-[220px] max-h-[350px] overflow-y-auto z-[70]"
+                                                        style={{
+                                                            [submenuOnLeft ? 'right' : 'left']: '100%',
+                                                            [tagsSubmenuOverflows ? 'bottom' : 'top']: '0'
+                                                        }}
+                                                        onMouseEnter={() => setContextSubmenu('explorer-tags')}
+                                                        onMouseLeave={() => setContextSubmenu(null)}
+                                                        onClick={(e) => e.stopPropagation()}>
+
+                                                        {/* Current tags on selected books */}
+                                                        {(() => {
+                                                            // Get tags that are on ANY of the selected books
+                                                            const tagsOnBooks = new Map(); // tagId -> count of books with this tag
+                                                            selectedBooksArray.forEach(book => {
+                                                                (book.tags || []).forEach(tagId => {
+                                                                    tagsOnBooks.set(tagId, (tagsOnBooks.get(tagId) || 0) + 1);
+                                                                });
+                                                            });
+
+                                                            if (tagsOnBooks.size > 0) {
+                                                                return (
+                                                                    <>
+                                                                        <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-200">
+                                                                            Current Tags
+                                                                        </div>
+                                                                        {Array.from(tagsOnBooks.entries())
+                                                                            .sort((a, b) => (tagRegistry[a[0]]?.label || a[0]).localeCompare(tagRegistry[b[0]]?.label || b[0]))
+                                                                            .map(([tagId, bookCount]) => (
+                                                                                <div
+                                                                                    key={tagId}
+                                                                                    className="px-3 py-1.5 hover:bg-gray-100 flex items-center justify-between group">
+                                                                                    <span className="flex items-center gap-2">
+                                                                                        <span className="text-sm">{tagRegistry[tagId]?.label || tagId}</span>
+                                                                                        {bookCount < count && (
+                                                                                            <span className="text-xs text-gray-400">({bookCount}/{count})</span>
+                                                                                        )}
+                                                                                    </span>
+                                                                                    <button
+                                                                                        className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity text-sm px-1"
+                                                                                        title="Remove tag from selected books"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                                            // Remove tag from all selected books
+                                                                                            setBooks(prev => {
+                                                                                                const updated = prev.map(b => {
+                                                                                                    if (selectedBookIds.includes(b.id) && (b.tags || []).includes(tagId)) {
+                                                                                                        return { ...b, tags: (b.tags || []).filter(t => t !== tagId) };
+                                                                                                    }
+                                                                                                    return b;
+                                                                                                });
+                                                                                                saveBooksToIndexedDB(updated);
+                                                                                                return updated;
+                                                                                            });
+                                                                                            // Update tag registry count
+                                                                                            setTagRegistry(prev => {
+                                                                                                const newCount = Math.max(0, (prev[tagId]?.count || 0) - bookCount);
+                                                                                                if (newCount === 0) {
+                                                                                                    const { [tagId]: removed, ...rest } = prev;
+                                                                                                    return rest;
+                                                                                                }
+                                                                                                return { ...prev, [tagId]: { ...prev[tagId], count: newCount } };
+                                                                                            });
+                                                                                            // Toast
+                                                                                            setClipboardMessage(`Removed "${tagRegistry[tagId]?.label || tagId}" from ${bookCount} book${bookCount !== 1 ? 's' : ''}`);
+                                                                                            setFooterClipboardVisible(false);
+                                                                                            setToastVisible(true);
+                                                                                            setToastAnimating(false);
+                                                                                            setTimeout(() => {
+                                                                                                setToastAnimating(true);
+                                                                                                setTimeout(() => {
+                                                                                                    setToastVisible(false);
+                                                                                                    setToastAnimating(false);
+                                                                                                    setFooterClipboardVisible(true);
+                                                                                                }, 1000);
+                                                                                            }, 1500);
+                                                                                        }}>
+                                                                                        ×
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        <div className="border-t border-gray-200 my-1"></div>
+                                                                    </>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+
+                                                        {/* Add tag section */}
+                                                        <div className="px-3 py-1 text-xs font-semibold text-gray-500">
+                                                            Add Tag
+                                                        </div>
+                                                        <div className="px-2 py-1">
+                                                            <input
+                                                                type="text"
+                                                                value={tagInputValue}
+                                                                placeholder="Type to search or create..."
+                                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                autoFocus
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onKeyDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (e.key === 'Escape') {
+                                                                        setContextSubmenu(null);
+                                                                        setTagInputValue('');
+                                                                    } else if (e.key === 'Enter') {
+                                                                        const inputValue = tagInputValue.toLowerCase().trim();
+                                                                        if (!inputValue) return;
+
+                                                                        // Check for exact match in registry
+                                                                        const exactMatch = Object.entries(tagRegistry)
+                                                                            .find(([id, data]) => data.label.toLowerCase() === inputValue);
+
+                                                                        const selectedBookIds = Array.from(explorerSelectedBooks);
+
+                                                                        if (exactMatch) {
+                                                                            // Add existing tag to books that don't have it
+                                                                            const [tagId] = exactMatch;
+                                                                            let addedCount = 0;
+                                                                            setBooks(prev => {
+                                                                                const updated = prev.map(b => {
+                                                                                    if (selectedBookIds.includes(b.id) && !(b.tags || []).includes(tagId)) {
+                                                                                        addedCount++;
+                                                                                        return { ...b, tags: [...(b.tags || []), tagId] };
+                                                                                    }
+                                                                                    return b;
+                                                                                });
+                                                                                saveBooksToIndexedDB(updated);
+                                                                                return updated;
+                                                                            });
+                                                                            if (addedCount > 0) {
+                                                                                setTagRegistry(prev => ({
+                                                                                    ...prev,
+                                                                                    [tagId]: { ...prev[tagId], count: (prev[tagId]?.count || 0) + addedCount }
+                                                                                }));
+                                                                            }
+                                                                        } else {
+                                                                            // Create new tag
+                                                                            const newTagId = inputValue.replace(/\s+/g, '-');
+                                                                            const newTagLabel = tagInputValue.trim();
+                                                                            setTagRegistry(prev => ({
+                                                                                ...prev,
+                                                                                [newTagId]: { label: newTagLabel, count: selectedBookIds.length }
+                                                                            }));
+                                                                            setBooks(prev => {
+                                                                                const updated = prev.map(b => {
+                                                                                    if (selectedBookIds.includes(b.id)) {
+                                                                                        return { ...b, tags: [...(b.tags || []), newTagId] };
+                                                                                    }
+                                                                                    return b;
+                                                                                });
+                                                                                saveBooksToIndexedDB(updated);
+                                                                                return updated;
+                                                                            });
+                                                                        }
+                                                                        setTagInputValue('');
+                                                                        setExplorerBookContextMenu(null);
+                                                                        setContextSubmenu(null);
+                                                                    }
+                                                                }}
+                                                                onChange={(e) => setTagInputValue(e.target.value)}
+                                                            />
+                                                        </div>
+
+                                                        {/* Tag suggestions */}
+                                                        {(() => {
+                                                            const inputValue = tagInputValue.toLowerCase().trim();
+                                                            // Get tags that aren't on ALL selected books
+                                                            const tagsOnAllBooks = new Set();
+                                                            if (selectedBooksArray.length > 0) {
+                                                                const firstBookTags = selectedBooksArray[0].tags || [];
+                                                                firstBookTags.forEach(tagId => {
+                                                                    if (selectedBooksArray.every(b => (b.tags || []).includes(tagId))) {
+                                                                        tagsOnAllBooks.add(tagId);
+                                                                    }
+                                                                });
+                                                            }
+
+                                                            const availableTags = Object.entries(tagRegistry)
+                                                                .filter(([id, data]) =>
+                                                                    (!inputValue || data.label.toLowerCase().includes(inputValue)) &&
+                                                                    !tagsOnAllBooks.has(id)
+                                                                )
+                                                                .sort((a, b) => a[1].label.localeCompare(b[1].label))
+                                                                .slice(0, 10); // Limit to 10
+
+                                                            const exactMatchExists = Object.entries(tagRegistry)
+                                                                .some(([id, data]) => data.label.toLowerCase() === inputValue);
+                                                            const showCreate = inputValue && !exactMatchExists;
+
+                                                            return (
+                                                                <div className="max-h-[150px] overflow-y-auto">
+                                                                    {showCreate && (
+                                                                        <div
+                                                                            className="px-3 py-1.5 hover:bg-blue-50 cursor-pointer text-blue-600 text-sm flex items-center gap-2"
+                                                                            onClick={() => {
+                                                                                const newTagId = inputValue.replace(/\s+/g, '-');
+                                                                                const newTagLabel = tagInputValue.trim();
+                                                                                const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                                setTagRegistry(prev => ({
+                                                                                    ...prev,
+                                                                                    [newTagId]: { label: newTagLabel, count: selectedBookIds.length }
+                                                                                }));
+                                                                                setBooks(prev => {
+                                                                                    const updated = prev.map(b => {
+                                                                                        if (selectedBookIds.includes(b.id)) {
+                                                                                            return { ...b, tags: [...(b.tags || []), newTagId] };
+                                                                                        }
+                                                                                        return b;
+                                                                                    });
+                                                                                    saveBooksToIndexedDB(updated);
+                                                                                    return updated;
+                                                                                });
+                                                                                setTagInputValue('');
+                                                                                setExplorerBookContextMenu(null);
+                                                                                setContextSubmenu(null);
+                                                                            }}>
+                                                                            <span>➕</span>
+                                                                            <span>Create "{tagInputValue.trim()}"</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {availableTags.map(([tagId, tagData]) => (
+                                                                        <div
+                                                                            key={tagId}
+                                                                            className="px-3 py-1.5 hover:bg-gray-100 cursor-pointer text-sm flex items-center justify-between"
+                                                                            onClick={() => {
+                                                                                const selectedBookIds = Array.from(explorerSelectedBooks);
+                                                                                let addedCount = 0;
+                                                                                setBooks(prev => {
+                                                                                    const updated = prev.map(b => {
+                                                                                        if (selectedBookIds.includes(b.id) && !(b.tags || []).includes(tagId)) {
+                                                                                            addedCount++;
+                                                                                            return { ...b, tags: [...(b.tags || []), tagId] };
+                                                                                        }
+                                                                                        return b;
+                                                                                    });
+                                                                                    saveBooksToIndexedDB(updated);
+                                                                                    return updated;
+                                                                                });
+                                                                                if (addedCount > 0) {
+                                                                                    setTagRegistry(prev => ({
+                                                                                        ...prev,
+                                                                                        [tagId]: { ...prev[tagId], count: (prev[tagId]?.count || 0) + addedCount }
+                                                                                    }));
+                                                                                    // Toast
+                                                                                    setClipboardMessage(`Added "${tagData.label}" to ${addedCount} book${addedCount !== 1 ? 's' : ''}`);
+                                                                                    setFooterClipboardVisible(false);
+                                                                                    setToastVisible(true);
+                                                                                    setToastAnimating(false);
+                                                                                    setTimeout(() => {
+                                                                                        setToastAnimating(true);
+                                                                                        setTimeout(() => {
+                                                                                            setToastVisible(false);
+                                                                                            setToastAnimating(false);
+                                                                                            setFooterClipboardVisible(true);
+                                                                                        }, 1000);
+                                                                                    }, 1500);
+                                                                                }
+                                                                                setTagInputValue('');
+                                                                                setExplorerBookContextMenu(null);
+                                                                                setContextSubmenu(null);
+                                                                            }}>
+                                                                            <span>{tagData.label}</span>
+                                                                            <span className="text-xs text-gray-400">({tagData.count})</span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {availableTags.length === 0 && !showCreate && (
+                                                                        <div className="px-3 py-2 text-sm text-gray-500 italic">
+                                                                            {Object.keys(tagRegistry).length === 0
+                                                                                ? 'No tags yet. Type to create one.'
+                                                                                : 'No matching tags'}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        {/* Manage Tags link */}
+                                                        <div className="border-t border-gray-200 mt-1 pt-1">
+                                                            <div
+                                                                className="px-3 py-1.5 hover:bg-gray-100 cursor-pointer text-sm text-blue-600"
+                                                                onClick={() => {
+                                                                    setTagManagementOpen(true);
+                                                                    setExplorerBookContextMenu(null);
+                                                                    setContextSubmenu(null);
+                                                                }}>
+                                                                ⚙️ Manage Tags...
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
