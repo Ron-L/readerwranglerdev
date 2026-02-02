@@ -1511,7 +1511,7 @@ const PriceGoalDialog = ({ folderId, onClose }) => {
 - [x] **Right panel context menu** - ✅ COMPLETE (alpha.167.6-168.4, ~8 hours): Move to, Copy to, Cut/Copy/Paste, Open in Amazon (single book), Copy Titles, Add Note, Set Price Goal, Hide Book, Remove from Folder. Keyboard shortcuts: Ctrl+X/C/V. Visual feedback: 50% opacity for cut books. Undo/redo support. Amazon column added for quick single-book access. See BOOK-EXPLORER-SESSION-LOG.md for full implementation journey.
 - [x] **Cut/copy/paste** - ✅ COMPLETE (alpha.168.1-168.4): Keyboard shortcuts Ctrl+X/C/V for book operations, integrated with context menu, visual feedback for cut books, undo/redo support.
 - [x] **Filtered folder view** - ✅ COMPLETE (alpha.169): Auto-hide empty folders when filter active, auto-expand matches, show X/Y counts with color coding, "Showing X of Y folders • Show all/Hide empty" indicator, save/restore expansion state
-- [ ] **Book context menu tagging** - Add tag management to right-click book context menu (missing from current implementation)
+- [x] **Book context menu tagging** - ✅ COMPLETE (alpha.170-170.1): Tags submenu with add/remove, multi-book support, viewport-aware positioning. Menu reordered to group annotation items (Note, Tags, Price Goal)
 - [ ] **Series columns** - Add "Series" (text) and "#" (decimal) columns, populated from API or manual entry, supports fractional positions (3.5)
 - [ ] **Multi-column sorting** - Shift+Click to add secondary/tertiary sorts, visual indicators (↑₁ ↑₂), column menu for discoverability
 - [ ] **Column reordering** - Drag column headers to reorder, ghost preview and drop indicator, persists per folder

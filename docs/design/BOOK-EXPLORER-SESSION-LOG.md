@@ -905,6 +905,79 @@ if (Object.keys(folderSortSettings).length === 0) {
 
 ---
 
+### Book Context Menu Tagging (v5.0.0-alpha.170 - 170.1)
+**Status:** ✅ COMPLETE
+**Reference:** [FOLDER-DRAG-DROP.md](FOLDER-DRAG-DROP.md) line 1514
+
+**Goal:** Add tag management to right-click book context menu (was missing from initial implementation).
+
+---
+
+#### Implementation (alpha.170)
+
+**Tags Submenu Features:**
+- Shows count of unique tags across selected books in menu item: `Tags (3)`
+- **Current Tags section**: Lists tags on selected books with × to remove
+  - Shows partial coverage: `(2/5)` when tag is only on some selected books
+- **Add Tag section**: Search/create input field
+  - Type to filter existing tags
+  - Enter to add matching tag or create new
+  - Click tag to add to all selected books
+- **Manage Tags...** link: Opens tag management modal
+
+**Multi-book Operations:**
+- Add tag: Adds to all selected books that don't have it
+- Remove tag: Removes from all selected books that have it
+- Tag counts updated in registry automatically
+
+**Viewport Positioning:**
+- `tagsItemOffset` (360px) for vertical overflow detection
+- `tagsSubmenuOverflows` flips submenu up when near bottom edge
+- `submenuOnLeft` flips submenu left when near right edge
+- Menu height increased from 480 to 530px for new item
+
+---
+
+#### UX Refinement (alpha.170.1)
+
+**Menu Reorganization:**
+- Moved Tags between Add Note and Set Price Goal
+- Rationale: Group "annotation" items together (Note, Tags, Price Goal)
+- Updated `tagsItemOffset` from 440 to 360 for new position
+
+**Final Menu Structure:**
+```
+Move to           →
+Copy to           →
+─────────────────────
+Cut / Copy / Paste
+─────────────────────
+Open in Amazon
+Copy Titles
+─────────────────────
+Add Note              ← annotation (freeform)
+Tags              →   ← annotation (enumerated)
+Set Price Goal    →   ← annotation (purchase tracking)
+─────────────────────
+Hide Book             ← removal (soft delete)
+Remove from Folder    ← removal (from location)
+```
+
+**UX Principle:** Tags and Notes are both user-applied characteristics (enumerated vs freeform), so they belong together. Hide/Remove are both "make it go away" actions, so they stay grouped.
+
+---
+
+#### Code Locations
+
+| Feature | Lines | Notes |
+|---------|-------|-------|
+| Tags submenu | ~12783-13100 | After Add Note |
+| `tagsItemOffset` | ~12327 | Viewport calculation |
+| `tagsSubmenuOverflows` | ~12329 | Vertical flip logic |
+| Menu height | ~12305 | 530px for all items |
+
+---
+
 ## Pending Bugs
 
 _(None)_
@@ -1052,5 +1125,5 @@ _See Session Checklist in FOLDER-DRAG-DROP.md for full list_
 
 ---
 
-**Last Updated:** 2026-02-02 (alpha.169.12)
+**Last Updated:** 2026-02-02 (alpha.170.1)
 **Next Update:** As features are completed or significant issues encountered
