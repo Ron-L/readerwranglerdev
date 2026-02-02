@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.169.11";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.169.12";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -1328,6 +1328,12 @@
 
             // v5.0.0-alpha.100 - Restore per-folder sort when folder changes
             useEffect(() => {
+                // v5.0.0-alpha.169.12 - Skip if folderSortSettings is still empty (initial state)
+                // State updates are async, so effect may run before setFolderSortSettings propagates
+                if (Object.keys(folderSortSettings).length === 0) {
+                    return;
+                }
+
                 // Check if we have saved sort for this folder
                 const savedSort = folderSortSettings[selectedFolderId];
 
@@ -1336,20 +1342,15 @@
                     setExplorerSort(savedSort);
                 } else if (explorerSettingsLoadedRef.current) {
                     // v5.0.0-alpha.169.10 - Only apply defaults AFTER initial load completes
-                    // This prevents overwriting saved sorts with defaults during startup race condition
                     // No saved sort - use sensible defaults
                     if (selectedFolderId === '__all__') {
-                        // All Books: dateAdded desc (no manual order available)
                         setExplorerSort({ column: 'dateAdded', direction: 'desc' });
                     } else if (selectedFolderId === '__library__') {
-                        // My Library: title asc (folder view)
                         setExplorerSort({ column: 'title', direction: 'asc' });
                     } else {
-                        // User folders: custom (manual order)
                         setExplorerSort({ column: 'custom', direction: 'asc' });
                     }
                 }
-                // If neither condition met, do nothing - wait for initial load
                 // eslint-disable-next-line react-hooks/exhaustive-deps
             }, [selectedFolderId]); // Only re-run when folder changes, not when settings change
 
