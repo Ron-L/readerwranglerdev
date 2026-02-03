@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.171";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.172";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -256,6 +256,12 @@
                 amazon: 70 // v5.0.0-alpha.167.6 - Amazon link column width
             });
             const [resizingColumn, setResizingColumn] = useState(null); // v5.0.0-alpha.109 - { columnId, startX, startWidth }
+            const [columnOrder, setColumnOrder] = useState([ // v5.0.0-alpha.172 - Column display order (drag to reorder)
+                'title', 'author', 'series', 'seriesNum', 'rating',
+                'dateAdded', 'price', 'priceGoal', 'delta', 'amazon'
+            ]);
+            const [draggingColumn, setDraggingColumn] = useState(null); // v5.0.0-alpha.172 - Column header being dragged
+            const [headerDropTarget, setHeaderDropTarget] = useState(null); // v5.0.0-alpha.172 - { column, side: 'left'|'right' }
 
             // v5.0.0 - Special folders
             const FOLDER_ALL_BOOKS = { id: '__all__', name: 'All Books', virtual: true, icon: '📚' };
@@ -1117,6 +1123,7 @@
                             if (explorerData.folderSortSettings) setFolderSortSettings(explorerData.folderSortSettings); // v5.0.0-alpha.100
                             if (explorerData.visibleColumns) setVisibleColumns(explorerData.visibleColumns); // v5.0.0-alpha.104
                             if (explorerData.columnWidths) setColumnWidths(explorerData.columnWidths); // v5.0.0-alpha.109
+                            if (explorerData.columnOrder) setColumnOrder(explorerData.columnOrder); // v5.0.0-alpha.172
                             console.log('📁 Restored Explorer settings from localStorage');
                         }
                         // v5.0.0-alpha.169.10 - Mark settings loaded (even if no saved data)
@@ -1320,10 +1327,11 @@
                     leftPaneWidth, // v5.0.0-alpha.91
                     folderSortSettings, // v5.0.0-alpha.100 - Per-folder sort settings
                     visibleColumns, // v5.0.0-alpha.104 - Column visibility
-                    columnWidths // v5.0.0-alpha.109 - Column widths
+                    columnWidths, // v5.0.0-alpha.109 - Column widths
+                    columnOrder // v5.0.0-alpha.172 - Column display order
                 };
                 localStorage.setItem(EXPLORER_KEY, JSON.stringify(explorerData));
-            }, [viewMode, selectedFolderId, explorerView, explorerSort, explorerCoverCols, leftPaneWidth, folderSortSettings, visibleColumns, columnWidths]);
+            }, [viewMode, selectedFolderId, explorerView, explorerSort, explorerCoverCols, leftPaneWidth, folderSortSettings, visibleColumns, columnWidths, columnOrder]);
 
             // v5.0.0 - Save folders to localStorage
             useEffect(() => {
@@ -9383,92 +9391,35 @@
                                                             </button>
                                                         </div>
                                                         <div className="flex flex-col gap-1.5">
-                                                            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-not-allowed opacity-50">
-                                                                <input type="checkbox" checked={true} disabled className="cursor-not-allowed" />
-                                                                Name (always visible)
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.author}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, author: !prev.author }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Author
-                                                            </label>
-                                                            {/* v5.0.0-alpha.171 - Series columns */}
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.series}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, series: !prev.series }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Series
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.seriesNum}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, seriesNum: !prev.seriesNum }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                #
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.rating}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, rating: !prev.rating }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Rating
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.dateAdded}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, dateAdded: !prev.dateAdded }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Date Added
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.price}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, price: !prev.price }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Price
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.priceGoal}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, priceGoal: !prev.priceGoal }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Goal
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.delta}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, delta: !prev.delta }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Under
-                                                            </label>
-                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={visibleColumns.amazon}
-                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, amazon: !prev.amazon }))}
-                                                                    className="cursor-pointer"
-                                                                />
-                                                                Amazon
-                                                            </label>
+                                                            {/* v5.0.0-alpha.172 - Dynamic column checkboxes in columnOrder */}
+                                                            {(() => {
+                                                                const labels = {
+                                                                    title: 'Name', author: 'Author', series: 'Series', seriesNum: '#',
+                                                                    rating: 'Rating', dateAdded: 'Date Added', price: 'Price',
+                                                                    priceGoal: 'Goal', delta: 'Under', amazon: 'Amazon'
+                                                                };
+                                                                return columnOrder.map(colKey => {
+                                                                    if (colKey === 'title') {
+                                                                        return (
+                                                                            <label key={colKey} className="flex items-center gap-2 text-sm text-gray-600 cursor-not-allowed opacity-50">
+                                                                                <input type="checkbox" checked={true} disabled className="cursor-not-allowed" />
+                                                                                {labels[colKey]} (always visible)
+                                                                            </label>
+                                                                        );
+                                                                    }
+                                                                    return (
+                                                                        <label key={colKey} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={visibleColumns[colKey]}
+                                                                                onChange={() => setVisibleColumns(prev => ({ ...prev, [colKey]: !prev[colKey] }))}
+                                                                                className="cursor-pointer"
+                                                                            />
+                                                                            {labels[colKey]}
+                                                                        </label>
+                                                                    );
+                                                                });
+                                                            })()}
                                                         </div>
                                                         <div className="mt-3 pt-2 border-t border-gray-200">
                                                             <button
@@ -9497,18 +9448,129 @@
                                 </div>
                                 <div className="flex-1 overflow-auto px-4 pb-4">
                                     {explorerView === 'list' ? (
+                                        (() => {
+                                            // v5.0.0-alpha.172 - Column configuration for dynamic rendering
+                                            const columnConfig = {
+                                                title: {
+                                                    label: 'Name', sortKey: 'title', defaultDir: 'asc', cssVar: '--col-title', alwaysVisible: true,
+                                                    cellClass: 'font-medium',
+                                                    render: (book) => book.title
+                                                },
+                                                author: {
+                                                    label: 'Author', sortKey: 'author', defaultDir: 'asc', cssVar: '--col-author',
+                                                    cellClass: 'text-gray-600',
+                                                    render: (book) => book.author
+                                                },
+                                                series: {
+                                                    label: 'Series', sortKey: 'series', defaultDir: 'asc', cssVar: '--col-series',
+                                                    cellClass: 'text-gray-600 text-xs',
+                                                    render: (book) => book.series || '-'
+                                                },
+                                                seriesNum: {
+                                                    label: '#', sortKey: 'seriesNum', defaultDir: 'asc', cssVar: '--col-seriesNum', textCenter: true,
+                                                    cellClass: 'text-gray-600 text-xs text-center',
+                                                    render: (book) => book.seriesPosition || '-'
+                                                },
+                                                rating: {
+                                                    label: 'Rating', sortKey: 'rating', defaultDir: 'asc', cssVar: '--col-rating',
+                                                    cellClass: '',
+                                                    render: (book) => book.rating ? `${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))}` : '-'
+                                                },
+                                                dateAdded: {
+                                                    label: 'Date Added', sortKey: 'dateAdded', defaultDir: 'desc', cssVar: '--col-dateAdded',
+                                                    cellClass: 'text-gray-500 text-xs',
+                                                    render: (book) => {
+                                                        const dateStr = book.acquired || book.addedToWishlist;
+                                                        if (!dateStr) return '-';
+                                                        const date = /^\d{8,}$/.test(dateStr) ? new Date(Number(dateStr)) : new Date(dateStr);
+                                                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                                    }
+                                                },
+                                                price: {
+                                                    label: 'Price', sortKey: 'price', defaultDir: 'asc', cssVar: '--col-price',
+                                                    cellClass: (book) => `text-xs ${book.priceTrigger && book.currentPrice <= book.priceTrigger ? 'text-green-600 font-semibold' : 'text-gray-600'}`,
+                                                    render: (book) => book.currentPrice != null ? `$${book.currentPrice.toFixed(2)}` : '-'
+                                                },
+                                                priceGoal: {
+                                                    label: 'Goal', sortKey: 'priceGoal', defaultDir: 'asc', cssVar: '--col-priceGoal',
+                                                    cellClass: 'text-gray-500 text-xs',
+                                                    render: (book) => book.priceTrigger != null ? `$${book.priceTrigger.toFixed(2)}` : '-'
+                                                },
+                                                delta: {
+                                                    label: 'Under', sortKey: 'delta', defaultDir: 'desc', cssVar: '--col-delta',
+                                                    cellClass: 'text-xs',
+                                                    render: (book) => {
+                                                        if (book.priceTrigger == null || book.currentPrice == null) return '-';
+                                                        const delta = book.priceTrigger - book.currentPrice;
+                                                        const isUnder = delta >= 0;
+                                                        return <span className={isUnder ? 'text-green-600 font-semibold' : 'text-orange-500'}>
+                                                            {isUnder ? `$${delta.toFixed(2)}` : `-$${Math.abs(delta).toFixed(2)}`}
+                                                        </span>;
+                                                    }
+                                                },
+                                                amazon: {
+                                                    label: 'Amazon', sortKey: null, cssVar: '--col-amazon', textCenter: true, noResize: true,
+                                                    cellClass: 'text-center',
+                                                    render: (book) => (
+                                                        <a href={getAmazonUrl(book.asin)} target="_blank" rel="noopener noreferrer"
+                                                            className="text-blue-600 hover:text-blue-800 hover:underline text-xs"
+                                                            onClick={(e) => e.stopPropagation()}>
+                                                            Amazon
+                                                        </a>
+                                                    )
+                                                }
+                                            };
+
+                                            // v5.0.0-alpha.172 - Drag handlers for column reordering
+                                            const handleColumnDragStart = (e, colKey) => {
+                                                setDraggingColumn(colKey);
+                                                e.dataTransfer.effectAllowed = 'move';
+                                                e.dataTransfer.setData('text/plain', colKey);
+                                            };
+
+                                            const handleColumnDragOver = (e, colKey) => {
+                                                e.preventDefault();
+                                                if (!draggingColumn || draggingColumn === colKey) {
+                                                    setHeaderDropTarget(null);
+                                                    return;
+                                                }
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const midpoint = rect.left + rect.width / 2;
+                                                const side = e.clientX < midpoint ? 'left' : 'right';
+                                                setHeaderDropTarget({ column: colKey, side });
+                                            };
+
+                                            const handleColumnDrop = (e, colKey) => {
+                                                e.preventDefault();
+                                                if (!draggingColumn || !headerDropTarget) return;
+                                                const newOrder = [...columnOrder];
+                                                const dragIndex = newOrder.indexOf(draggingColumn);
+                                                newOrder.splice(dragIndex, 1);
+                                                let insertIndex = newOrder.indexOf(colKey);
+                                                if (headerDropTarget.side === 'right') insertIndex++;
+                                                newOrder.splice(insertIndex, 0, draggingColumn);
+                                                setColumnOrder(newOrder);
+                                                setDraggingColumn(null);
+                                                setHeaderDropTarget(null);
+                                            };
+
+                                            const handleColumnDragEnd = () => {
+                                                setDraggingColumn(null);
+                                                setHeaderDropTarget(null);
+                                            };
+
+                                            // Calculate table width dynamically based on columnOrder
+                                            const tableWidth = 72 + columnOrder.reduce((sum, col) => {
+                                                if (col === 'title' || visibleColumns[col]) {
+                                                    return sum + columnWidths[col];
+                                                }
+                                                return sum;
+                                            }, 0);
+
+                                            return (
                                         <table className="text-sm" style={{
                                             tableLayout: 'fixed',
-                                            width: `${72 + columnWidths.title +
-                                                (visibleColumns.author ? columnWidths.author : 0) +
-                                                (visibleColumns.series ? columnWidths.series : 0) +
-                                                (visibleColumns.seriesNum ? columnWidths.seriesNum : 0) +
-                                                (visibleColumns.rating ? columnWidths.rating : 0) +
-                                                (visibleColumns.dateAdded ? columnWidths.dateAdded : 0) +
-                                                (visibleColumns.price ? columnWidths.price : 0) +
-                                                (visibleColumns.priceGoal ? columnWidths.priceGoal : 0) +
-                                                (visibleColumns.delta ? columnWidths.delta : 0) +
-                                                (visibleColumns.amazon ? columnWidths.amazon : 0)}px`
+                                            width: `${tableWidth}px`
                                         }}>
                                             <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-200">
                                                 <tr className="text-left text-gray-600"
@@ -9536,137 +9598,67 @@
                                                     {/* v5.0.0-alpha.121 - Checkbox column (styled div, not input) */}
                                                     <th className="p-2" style={{ width: '24px' }}></th>
                                                     <th className="p-2 w-12"></th>
-                                                    <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-title, ${columnWidths.title}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'title', direction: prev.column === 'title' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                        Name {explorerSort.column === 'title' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                        <div
-                                                            className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'title' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setResizingColumn({ columnId: 'title', startX: e.clientX, startWidth: columnWidths.title });
-                                                            }}
-                                                            title="Drag to resize"
-                                                        />
-                                                    </th>
-                                                    {visibleColumns.author && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-author, ${columnWidths.author}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'author', direction: prev.column === 'author' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            Author {explorerSort.column === 'author' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'author' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'author', startX: e.clientX, startWidth: columnWidths.author });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {/* v5.0.0-alpha.171 - Series columns */}
-                                                    {visibleColumns.series && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-series, ${columnWidths.series}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'series', direction: prev.column === 'series' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            Series {explorerSort.column === 'series' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'series' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'series', startX: e.clientX, startWidth: columnWidths.series });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.seriesNum && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative text-center" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'seriesNum', direction: prev.column === 'seriesNum' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            # {explorerSort.column === 'seriesNum' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'seriesNum' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'seriesNum', startX: e.clientX, startWidth: columnWidths.seriesNum });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.rating && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'rating', direction: prev.column === 'rating' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            Rating {explorerSort.column === 'rating' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'rating' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'rating', startX: e.clientX, startWidth: columnWidths.rating });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.dateAdded && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-dateAdded, ${columnWidths.dateAdded}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'dateAdded', direction: prev.column === 'dateAdded' && prev.direction === 'desc' ? 'asc' : 'desc' }))}>
-                                                            Date Added {explorerSort.column === 'dateAdded' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'dateAdded' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'dateAdded', startX: e.clientX, startWidth: columnWidths.dateAdded });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.price && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-price, ${columnWidths.price}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'price', direction: prev.column === 'price' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            Price {explorerSort.column === 'price' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'price' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'price', startX: e.clientX, startWidth: columnWidths.price });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.priceGoal && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-priceGoal, ${columnWidths.priceGoal}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'priceGoal', direction: prev.column === 'priceGoal' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
-                                                            Goal {explorerSort.column === 'priceGoal' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'priceGoal' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'priceGoal', startX: e.clientX, startWidth: columnWidths.priceGoal });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {visibleColumns.delta && (
-                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-delta, ${columnWidths.delta}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'delta', direction: prev.column === 'delta' && prev.direction === 'desc' ? 'asc' : 'desc' }))}>
-                                                            Under {explorerSort.column === 'delta' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
-                                                            <div
-                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'delta' ? 'bg-blue-500' : 'bg-transparent'}`}
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setResizingColumn({ columnId: 'delta', startX: e.clientX, startWidth: columnWidths.delta });
-                                                                }}
-                                                                title="Drag to resize"
-                                                            />
-                                                        </th>
-                                                    )}
-                                                    {/* v5.0.0-alpha.167.6 - Amazon link column */}
-                                                    {visibleColumns.amazon && (
-                                                        <th className="p-2 text-center" style={{ width: `${columnWidths.amazon}px` }}>
-                                                            Amazon
-                                                        </th>
-                                                    )}
+                                                    {/* v5.0.0-alpha.172 - Dynamic column headers (drag to reorder) */}
+                                                    {columnOrder.filter(colKey => colKey === 'title' || visibleColumns[colKey]).map(colKey => {
+                                                        const config = columnConfig[colKey];
+                                                        const isDragging = draggingColumn === colKey;
+                                                        const isDropTarget = headerDropTarget?.column === colKey;
+                                                        const isSorted = explorerSort.column === config.sortKey;
+
+                                                        return (
+                                                            <th
+                                                                key={colKey}
+                                                                draggable
+                                                                onDragStart={(e) => handleColumnDragStart(e, colKey)}
+                                                                onDragOver={(e) => handleColumnDragOver(e, colKey)}
+                                                                onDragLeave={() => setHeaderDropTarget(null)}
+                                                                onDrop={(e) => handleColumnDrop(e, colKey)}
+                                                                onDragEnd={handleColumnDragEnd}
+                                                                className={`p-2 relative select-none ${config.sortKey ? 'cursor-grab hover:bg-gray-100' : ''} ${config.textCenter ? 'text-center' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'bg-blue-50' : ''}`}
+                                                                style={{ width: `var(${config.cssVar}, ${columnWidths[colKey]}px)` }}
+                                                                onClick={config.sortKey ? () => setExplorerSort(prev => ({
+                                                                    column: config.sortKey,
+                                                                    direction: prev.column === config.sortKey
+                                                                        ? (prev.direction === config.defaultDir ? (config.defaultDir === 'asc' ? 'desc' : 'asc') : config.defaultDir)
+                                                                        : config.defaultDir
+                                                                })) : undefined}
+                                                            >
+                                                                {/* Drop indicator lines */}
+                                                                {isDropTarget && headerDropTarget.side === 'left' && (
+                                                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 z-20" />
+                                                                )}
+                                                                {isDropTarget && headerDropTarget.side === 'right' && (
+                                                                    <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-blue-500 z-20" />
+                                                                )}
+
+                                                                {config.label} {isSorted && (
+                                                                    <>
+                                                                        {explorerSort.direction === 'asc' ? '▲' : '▼'}
+                                                                        {selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && (
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }}
+                                                                                className="ml-2 text-gray-500 hover:text-red-500 font-bold"
+                                                                                title="Return to Manual Order"
+                                                                            >✕</button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+
+                                                                {/* Resize handle */}
+                                                                {!config.noResize && (
+                                                                    <div
+                                                                        className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === colKey ? 'bg-blue-500' : 'bg-transparent'}`}
+                                                                        onMouseDown={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            setResizingColumn({ columnId: colKey, startX: e.clientX, startWidth: columnWidths[colKey] });
+                                                                        }}
+                                                                        title="Drag to resize"
+                                                                    />
+                                                                )}
+                                                            </th>
+                                                        );
+                                                    })}
                                                     {/* v5.0.0-alpha.113 - Spacer column to absorb extra space */}
                                                     <th className="p-2"></th>
                                                 </tr>
@@ -9953,15 +9945,10 @@
                                                                         folder.name
                                                                     )}
                                                                 </td>
-                                                                {visibleColumns.author && <td className="p-2 text-gray-400" style={{ width: `var(--col-author, ${columnWidths.author}px)` }}>—</td>}
-                                                                {visibleColumns.series && <td className="p-2 text-gray-400" style={{ width: `var(--col-series, ${columnWidths.series}px)` }}>—</td>}
-                                                                {visibleColumns.seriesNum && <td className="p-2 text-gray-400" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }}>—</td>}
-                                                                {visibleColumns.rating && <td className="p-2 text-gray-400" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }}>—</td>}
-                                                                {visibleColumns.dateAdded && <td className="p-2 text-gray-400" style={{ width: `var(--col-dateAdded, ${columnWidths.dateAdded}px)` }}>—</td>}
-                                                                {visibleColumns.price && <td className="p-2 text-gray-400" style={{ width: `var(--col-price, ${columnWidths.price}px)` }}>—</td>}
-                                                                {visibleColumns.priceGoal && <td className="p-2 text-gray-400" style={{ width: `var(--col-priceGoal, ${columnWidths.priceGoal}px)` }}>—</td>}
-                                                                {visibleColumns.delta && <td className="p-2 text-gray-400" style={{ width: `var(--col-delta, ${columnWidths.delta}px)` }}>—</td>}
-                                                                {visibleColumns.amazon && <td className="p-2 text-gray-400" style={{ width: `${columnWidths.amazon}px` }}>—</td>}
+                                                                {/* v5.0.0-alpha.172 - Dynamic placeholder cells for folder rows */}
+                                                                {columnOrder.filter(colKey => colKey !== 'title' && visibleColumns[colKey]).map(colKey => (
+                                                                    <td key={colKey} className="p-2 text-gray-400" style={{ width: `var(${columnConfig[colKey].cssVar}, ${columnWidths[colKey]}px)` }}>—</td>
+                                                                ))}
                                                                 <td className="p-2"></td>
                                                             </tr>
                                                         );
@@ -10160,76 +10147,28 @@
                                                             <td className="p-2">
                                                                 <img src={book.coverUrl} alt="" className={`w-8 h-12 object-cover rounded ${book.onWishlist ? 'opacity-40' : ''}`} />
                                                             </td>
-                                                            <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>{book.title}</td>
-                                                            {visibleColumns.author && (
-                                                                <td className="p-2 text-gray-600" style={{ width: `var(--col-author, ${columnWidths.author}px)` }}>{book.author}</td>
-                                                            )}
-                                                            {/* v5.0.0-alpha.171 - Series columns */}
-                                                            {visibleColumns.series && (
-                                                                <td className="p-2 text-gray-600 text-xs" style={{ width: `var(--col-series, ${columnWidths.series}px)` }}>{book.series || '-'}</td>
-                                                            )}
-                                                            {visibleColumns.seriesNum && (
-                                                                <td className="p-2 text-gray-600 text-xs text-center" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }}>{book.seriesPosition || '-'}</td>
-                                                            )}
-                                                            {visibleColumns.rating && (
-                                                                <td className="p-2" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }}>
-                                                                    {book.rating ? `${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))}` : '-'}
-                                                                </td>
-                                                            )}
-                                                            {visibleColumns.dateAdded && (
-                                                                <td className="p-2 text-gray-500 text-xs" style={{ width: `var(--col-dateAdded, ${columnWidths.dateAdded}px)` }}>
-                                                                    {(() => {
-                                                                        const dateStr = book.acquired || book.addedToWishlist;
-                                                                        if (!dateStr) return '-';
-                                                                        const date = /^\d{8,}$/.test(dateStr) ? new Date(Number(dateStr)) : new Date(dateStr);
-                                                                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                                                                    })()}
-                                                                </td>
-                                                            )}
-                                                            {visibleColumns.price && (
-                                                                <td className={`p-2 text-xs ${book.priceTrigger && book.currentPrice <= book.priceTrigger ? 'text-green-600 font-semibold' : 'text-gray-600'}`} style={{ width: `var(--col-price, ${columnWidths.price}px)` }}>
-                                                                    {book.currentPrice != null ? `$${book.currentPrice.toFixed(2)}` : '-'}
-                                                                </td>
-                                                            )}
-                                                            {visibleColumns.priceGoal && (
-                                                                <td className="p-2 text-gray-500 text-xs" style={{ width: `var(--col-priceGoal, ${columnWidths.priceGoal}px)` }}>
-                                                                    {book.priceTrigger != null ? `$${book.priceTrigger.toFixed(2)}` : '-'}
-                                                                </td>
-                                                            )}
-                                                            {visibleColumns.delta && (
-                                                                <td className="p-2 text-xs" style={{ width: `var(--col-delta, ${columnWidths.delta}px)` }}>
-                                                                    {(() => {
-                                                                        if (book.priceTrigger == null || book.currentPrice == null) return '-';
-                                                                        const delta = book.priceTrigger - book.currentPrice;
-                                                                        const isUnder = delta >= 0;
-                                                                        return (
-                                                                            <span className={isUnder ? 'text-green-600 font-semibold' : 'text-orange-500'}>
-                                                                                {isUnder ? `$${delta.toFixed(2)}` : `-$${Math.abs(delta).toFixed(2)}`}
-                                                                            </span>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                            )}
-                                                            {/* v5.0.0-alpha.167.6 - Amazon link column */}
-                                                            {visibleColumns.amazon && (
-                                                                <td className="p-2 text-center" style={{ width: `${columnWidths.amazon}px` }}>
-                                                                    <a
-                                                                        href={getAmazonUrl(book.asin)}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-blue-600 hover:text-blue-800 hover:underline text-xs"
-                                                                        onClick={(e) => e.stopPropagation()}
+                                                            {/* v5.0.0-alpha.172 - Dynamic column cells (order matches headers) */}
+                                                            {columnOrder.filter(colKey => colKey === 'title' || visibleColumns[colKey]).map(colKey => {
+                                                                const config = columnConfig[colKey];
+                                                                const cellClass = typeof config.cellClass === 'function' ? config.cellClass(book) : config.cellClass;
+                                                                return (
+                                                                    <td
+                                                                        key={colKey}
+                                                                        className={`p-2 ${cellClass}`}
+                                                                        style={{ width: `var(${config.cssVar}, ${columnWidths[colKey]}px)` }}
                                                                     >
-                                                                        Amazon
-                                                                    </a>
-                                                                </td>
-                                                            )}
+                                                                        {config.render(book)}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                             <td className="p-2"></td>
                                                         </tr>
                                                     ));
                                                 })()}
                                             </tbody>
                                         </table>
+                                            );
+                                        })()
                                     ) : (
                                         <div className="grid gap-4 pt-1" style={{ gridTemplateColumns: `repeat(${64 - explorerCoverCols}, minmax(40px, 1fr))` }}>
                                             {/* v5.0.0-alpha.54 - Folder tiles (before books) */}
