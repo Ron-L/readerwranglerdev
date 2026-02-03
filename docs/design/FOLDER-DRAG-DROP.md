@@ -1512,7 +1512,7 @@ const PriceGoalDialog = ({ folderId, onClose }) => {
 - [x] **Cut/copy/paste** - ✅ COMPLETE (alpha.168.1-168.4): Keyboard shortcuts Ctrl+X/C/V for book operations, integrated with context menu, visual feedback for cut books, undo/redo support.
 - [x] **Filtered folder view** - ✅ COMPLETE (alpha.169): Auto-hide empty folders when filter active, auto-expand matches, show X/Y counts with color coding, "Showing X of Y folders • Show all/Hide empty" indicator, save/restore expansion state
 - [x] **Book context menu tagging** - ✅ COMPLETE (alpha.170-170.1): Tags submenu with add/remove, multi-book support, viewport-aware positioning. Menu reordered to group annotation items (Note, Tags, Price Goal)
-- [ ] **Series columns** - Add "Series" (text) and "#" (decimal) columns, populated from API or manual entry, supports fractional positions (3.5)
+- [x] **Series columns** - ✅ COMPLETE (alpha.171): Added "Series" (text, 150px) and "#" (decimal, 50px) columns. Sortable, resizable, hidden by default. Supports fractional positions (3.5) via parseFloat. Data from API (book.series, book.seriesPosition).
 - [ ] **Multi-column sorting** - Shift+Click to add secondary/tertiary sorts, visual indicators (↑₁ ↑₂), column menu for discoverability
 - [ ] **Column reordering** - Drag column headers to reorder, ghost preview and drop indicator, persists per folder
 - [ ] **Search (jump-to)** - Jump to book/folder by name (distinct from filter)

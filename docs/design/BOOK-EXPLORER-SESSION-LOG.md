@@ -978,6 +978,51 @@ Remove from Folder    ← removal (from location)
 
 ---
 
+### Series Columns (v5.0.0-alpha.171)
+**Status:** ✅ COMPLETE
+**Reference:** [FOLDER-DRAG-DROP.md](FOLDER-DRAG-DROP.md) line 1515
+
+**Goal:** Add "Series" (text) and "#" (decimal position) columns to Book Explorer list view.
+
+---
+
+#### Implementation
+
+**New Columns:**
+- **Series** - Text column showing `book.series`, 150px default width, sortable A-Z
+- **#** - Numeric column showing `book.seriesPosition`, 50px default width, center-aligned, sortable with decimal support (3.5, 1.1)
+
+**Column Features:**
+- Hidden by default (opt-in via column chooser right-click menu)
+- Column order: Name → Author → **Series** → **#** → Rating → Date Added → Price → Goal → Under → Amazon
+- Resizable via drag handle on header
+- Included in "Show All" button
+
+**Sorting:**
+- Series: Alphabetical via `localeCompare`
+- #: Numeric via `parseFloat()` - books without position sort to end (`Infinity`)
+
+**Data Source:**
+- `book.series` - Series name from Amazon API
+- `book.seriesPosition` - Position in series from Amazon API (supports decimals like 3.5)
+
+---
+
+#### Code Locations
+
+| Feature | Lines | Notes |
+|---------|-------|-------|
+| `visibleColumns` state | ~235-236 | `series: false, seriesNum: false` |
+| `columnWidths` state | ~250-251 | `series: 150, seriesNum: 50` |
+| Column chooser checkboxes | ~9399-9416 | After Author |
+| Table headers | ~9563-9588 | With sort and resize |
+| Table cells | ~10157-10162 | `book.series`, `book.seriesPosition` |
+| Sorting logic (list) | ~9988-9993 | After author sort |
+| Sorting logic (cover) | ~10418-10423 | After author sort |
+| Sort label display | ~9319-9320 | "Series" and "#" |
+
+---
+
 ## Pending Bugs
 
 _(None)_
@@ -1115,8 +1160,6 @@ Focus on:
 ## Future Enhancements (Post-v5.0.0)
 
 From FOLDER-DRAG-DROP.md:
-- Filtered folder view
-- Series columns
 - Multi-column sorting
 - Column reordering
 - Search (jump-to)
@@ -1125,5 +1168,5 @@ _See Session Checklist in FOLDER-DRAG-DROP.md for full list_
 
 ---
 
-**Last Updated:** 2026-02-02 (alpha.170.1)
+**Last Updated:** 2026-02-02 (alpha.171)
 **Next Update:** As features are completed or significant issues encountered
