@@ -1,7 +1,21 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.172";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.172.1";  // Build version for this file
+
+        // v5.0.0-alpha.172.1 - Static column configuration (outside component for performance)
+        const COLUMN_CONFIG = {
+            title: { label: 'Name', sortKey: 'title', defaultDir: 'asc', cssVar: '--col-title', alwaysVisible: true },
+            author: { label: 'Author', sortKey: 'author', defaultDir: 'asc', cssVar: '--col-author' },
+            series: { label: 'Series', sortKey: 'series', defaultDir: 'asc', cssVar: '--col-series' },
+            seriesNum: { label: '#', sortKey: 'seriesNum', defaultDir: 'asc', cssVar: '--col-seriesNum', textCenter: true },
+            rating: { label: 'Rating', sortKey: 'rating', defaultDir: 'asc', cssVar: '--col-rating' },
+            dateAdded: { label: 'Date Added', sortKey: 'dateAdded', defaultDir: 'desc', cssVar: '--col-dateAdded' },
+            price: { label: 'Price', sortKey: 'price', defaultDir: 'asc', cssVar: '--col-price' },
+            priceGoal: { label: 'Goal', sortKey: 'priceGoal', defaultDir: 'asc', cssVar: '--col-priceGoal' },
+            delta: { label: 'Under', sortKey: 'delta', defaultDir: 'desc', cssVar: '--col-delta' },
+            amazon: { label: 'Amazon', sortKey: null, cssVar: '--col-amazon', textCenter: true, noResize: true }
+        };
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -9449,79 +9463,7 @@
                                 <div className="flex-1 overflow-auto px-4 pb-4">
                                     {explorerView === 'list' ? (
                                         (() => {
-                                            // v5.0.0-alpha.172 - Column configuration for dynamic rendering
-                                            const columnConfig = {
-                                                title: {
-                                                    label: 'Name', sortKey: 'title', defaultDir: 'asc', cssVar: '--col-title', alwaysVisible: true,
-                                                    cellClass: 'font-medium',
-                                                    render: (book) => book.title
-                                                },
-                                                author: {
-                                                    label: 'Author', sortKey: 'author', defaultDir: 'asc', cssVar: '--col-author',
-                                                    cellClass: 'text-gray-600',
-                                                    render: (book) => book.author
-                                                },
-                                                series: {
-                                                    label: 'Series', sortKey: 'series', defaultDir: 'asc', cssVar: '--col-series',
-                                                    cellClass: 'text-gray-600 text-xs',
-                                                    render: (book) => book.series || '-'
-                                                },
-                                                seriesNum: {
-                                                    label: '#', sortKey: 'seriesNum', defaultDir: 'asc', cssVar: '--col-seriesNum', textCenter: true,
-                                                    cellClass: 'text-gray-600 text-xs text-center',
-                                                    render: (book) => book.seriesPosition || '-'
-                                                },
-                                                rating: {
-                                                    label: 'Rating', sortKey: 'rating', defaultDir: 'asc', cssVar: '--col-rating',
-                                                    cellClass: '',
-                                                    render: (book) => book.rating ? `${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))}` : '-'
-                                                },
-                                                dateAdded: {
-                                                    label: 'Date Added', sortKey: 'dateAdded', defaultDir: 'desc', cssVar: '--col-dateAdded',
-                                                    cellClass: 'text-gray-500 text-xs',
-                                                    render: (book) => {
-                                                        const dateStr = book.acquired || book.addedToWishlist;
-                                                        if (!dateStr) return '-';
-                                                        const date = /^\d{8,}$/.test(dateStr) ? new Date(Number(dateStr)) : new Date(dateStr);
-                                                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                                                    }
-                                                },
-                                                price: {
-                                                    label: 'Price', sortKey: 'price', defaultDir: 'asc', cssVar: '--col-price',
-                                                    cellClass: (book) => `text-xs ${book.priceTrigger && book.currentPrice <= book.priceTrigger ? 'text-green-600 font-semibold' : 'text-gray-600'}`,
-                                                    render: (book) => book.currentPrice != null ? `$${book.currentPrice.toFixed(2)}` : '-'
-                                                },
-                                                priceGoal: {
-                                                    label: 'Goal', sortKey: 'priceGoal', defaultDir: 'asc', cssVar: '--col-priceGoal',
-                                                    cellClass: 'text-gray-500 text-xs',
-                                                    render: (book) => book.priceTrigger != null ? `$${book.priceTrigger.toFixed(2)}` : '-'
-                                                },
-                                                delta: {
-                                                    label: 'Under', sortKey: 'delta', defaultDir: 'desc', cssVar: '--col-delta',
-                                                    cellClass: 'text-xs',
-                                                    render: (book) => {
-                                                        if (book.priceTrigger == null || book.currentPrice == null) return '-';
-                                                        const delta = book.priceTrigger - book.currentPrice;
-                                                        const isUnder = delta >= 0;
-                                                        return <span className={isUnder ? 'text-green-600 font-semibold' : 'text-orange-500'}>
-                                                            {isUnder ? `$${delta.toFixed(2)}` : `-$${Math.abs(delta).toFixed(2)}`}
-                                                        </span>;
-                                                    }
-                                                },
-                                                amazon: {
-                                                    label: 'Amazon', sortKey: null, cssVar: '--col-amazon', textCenter: true, noResize: true,
-                                                    cellClass: 'text-center',
-                                                    render: (book) => (
-                                                        <a href={getAmazonUrl(book.asin)} target="_blank" rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:text-blue-800 hover:underline text-xs"
-                                                            onClick={(e) => e.stopPropagation()}>
-                                                            Amazon
-                                                        </a>
-                                                    )
-                                                }
-                                            };
-
-                                            // v5.0.0-alpha.172 - Drag handlers for column reordering
+                                            // v5.0.0-alpha.172.1 - Drag handlers for column reordering (config moved to COLUMN_CONFIG)
                                             const handleColumnDragStart = (e, colKey) => {
                                                 setDraggingColumn(colKey);
                                                 e.dataTransfer.effectAllowed = 'move';
@@ -9600,7 +9542,7 @@
                                                     <th className="p-2 w-12"></th>
                                                     {/* v5.0.0-alpha.172 - Dynamic column headers (drag to reorder) */}
                                                     {columnOrder.filter(colKey => colKey === 'title' || visibleColumns[colKey]).map(colKey => {
-                                                        const config = columnConfig[colKey];
+                                                        const config = COLUMN_CONFIG[colKey];
                                                         const isDragging = draggingColumn === colKey;
                                                         const isDropTarget = headerDropTarget?.column === colKey;
                                                         const isSorted = explorerSort.column === config.sortKey;
@@ -9945,9 +9887,9 @@
                                                                         folder.name
                                                                     )}
                                                                 </td>
-                                                                {/* v5.0.0-alpha.172 - Dynamic placeholder cells for folder rows */}
+                                                                {/* v5.0.0-alpha.172.1 - Dynamic placeholder cells for folder rows */}
                                                                 {columnOrder.filter(colKey => colKey !== 'title' && visibleColumns[colKey]).map(colKey => (
-                                                                    <td key={colKey} className="p-2 text-gray-400" style={{ width: `var(${columnConfig[colKey].cssVar}, ${columnWidths[colKey]}px)` }}>—</td>
+                                                                    <td key={colKey} className="p-2 text-gray-400" style={{ width: `var(${COLUMN_CONFIG[colKey].cssVar}, ${columnWidths[colKey]}px)` }}>—</td>
                                                                 ))}
                                                                 <td className="p-2"></td>
                                                             </tr>
@@ -10147,17 +10089,76 @@
                                                             <td className="p-2">
                                                                 <img src={book.coverUrl} alt="" className={`w-8 h-12 object-cover rounded ${book.onWishlist ? 'opacity-40' : ''}`} />
                                                             </td>
-                                                            {/* v5.0.0-alpha.172 - Dynamic column cells (order matches headers) */}
+                                                            {/* v5.0.0-alpha.172.1 - Dynamic column cells with inline JSX (performance fix) */}
                                                             {columnOrder.filter(colKey => colKey === 'title' || visibleColumns[colKey]).map(colKey => {
-                                                                const config = columnConfig[colKey];
-                                                                const cellClass = typeof config.cellClass === 'function' ? config.cellClass(book) : config.cellClass;
+                                                                const cfg = COLUMN_CONFIG[colKey];
+                                                                // Inline cell rendering - avoids function call overhead
+                                                                let content, cellClass = 'p-2';
+                                                                switch (colKey) {
+                                                                    case 'title':
+                                                                        content = book.title;
+                                                                        cellClass += ' font-medium';
+                                                                        break;
+                                                                    case 'author':
+                                                                        content = book.author;
+                                                                        cellClass += ' text-gray-600';
+                                                                        break;
+                                                                    case 'series':
+                                                                        content = book.series || '-';
+                                                                        cellClass += ' text-gray-600 text-xs';
+                                                                        break;
+                                                                    case 'seriesNum':
+                                                                        content = book.seriesPosition || '-';
+                                                                        cellClass += ' text-gray-600 text-xs text-center';
+                                                                        break;
+                                                                    case 'rating':
+                                                                        content = book.rating ? `${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5 - Math.floor(book.rating))}` : '-';
+                                                                        break;
+                                                                    case 'dateAdded': {
+                                                                        const dateStr = book.acquired || book.addedToWishlist;
+                                                                        content = dateStr
+                                                                            ? (/^\d{8,}$/.test(dateStr) ? new Date(Number(dateStr)) : new Date(dateStr))
+                                                                                .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                                            : '-';
+                                                                        cellClass += ' text-gray-500 text-xs';
+                                                                        break;
+                                                                    }
+                                                                    case 'price':
+                                                                        content = book.currentPrice != null ? `$${book.currentPrice.toFixed(2)}` : '-';
+                                                                        cellClass += book.priceTrigger && book.currentPrice <= book.priceTrigger
+                                                                            ? ' text-xs text-green-600 font-semibold'
+                                                                            : ' text-xs text-gray-600';
+                                                                        break;
+                                                                    case 'priceGoal':
+                                                                        content = book.priceTrigger != null ? `$${book.priceTrigger.toFixed(2)}` : '-';
+                                                                        cellClass += ' text-gray-500 text-xs';
+                                                                        break;
+                                                                    case 'delta': {
+                                                                        if (book.priceTrigger == null || book.currentPrice == null) {
+                                                                            content = '-';
+                                                                        } else {
+                                                                            const delta = book.priceTrigger - book.currentPrice;
+                                                                            const isUnder = delta >= 0;
+                                                                            content = <span className={isUnder ? 'text-green-600 font-semibold' : 'text-orange-500'}>
+                                                                                {isUnder ? `$${delta.toFixed(2)}` : `-$${Math.abs(delta).toFixed(2)}`}
+                                                                            </span>;
+                                                                        }
+                                                                        cellClass += ' text-xs';
+                                                                        break;
+                                                                    }
+                                                                    case 'amazon':
+                                                                        content = <a href={getAmazonUrl(book.asin)} target="_blank" rel="noopener noreferrer"
+                                                                            className="text-blue-600 hover:text-blue-800 hover:underline text-xs"
+                                                                            onClick={(e) => e.stopPropagation()}>Amazon</a>;
+                                                                        cellClass += ' text-center';
+                                                                        break;
+                                                                    default:
+                                                                        content = '-';
+                                                                }
                                                                 return (
-                                                                    <td
-                                                                        key={colKey}
-                                                                        className={`p-2 ${cellClass}`}
-                                                                        style={{ width: `var(${config.cssVar}, ${columnWidths[colKey]}px)` }}
-                                                                    >
-                                                                        {config.render(book)}
+                                                                    <td key={colKey} className={cellClass}
+                                                                        style={{ width: `var(${cfg.cssVar}, ${columnWidths[colKey]}px)` }}>
+                                                                        {content}
                                                                     </td>
                                                                 );
                                                             })}
