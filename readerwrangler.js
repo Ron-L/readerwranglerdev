@@ -1,7 +1,7 @@
         // ARCHITECTURE: See docs/design/ARCHITECTURE.md for Version Management, Status Icons, Cache-Busting patterns
         const { useState, useEffect, useRef } = React;
         const APP_VERSION = "4.27.0";  // Release version shown to users
-        const ORGANIZER_VERSION = "5.0.0-alpha.170.1";  // Build version for this file
+        const ORGANIZER_VERSION = "5.0.0-alpha.171";  // Build version for this file
         document.title = "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
@@ -232,6 +232,8 @@
             const [savedExpansionState, setSavedExpansionState] = useState(null); // v5.0.0-alpha.169 - Saved folder expansion state (Map of folderId → collapsed)
             const [visibleColumns, setVisibleColumns] = useState({ // v5.0.0-alpha.104 - Column visibility (Name always visible)
                 author: true,
+                series: false, // v5.0.0-alpha.171 - Series name column (hidden by default)
+                seriesNum: false, // v5.0.0-alpha.171 - Series position column (hidden by default)
                 rating: true,
                 dateAdded: true,
                 price: true,
@@ -244,6 +246,8 @@
             const [columnWidths, setColumnWidths] = useState({ // v5.0.0-alpha.109 - Column widths (px)
                 title: 200,
                 author: 150,
+                series: 150, // v5.0.0-alpha.171 - Series name column width
+                seriesNum: 50, // v5.0.0-alpha.171 - Series position column width
                 rating: 96,
                 dateAdded: 112,
                 price: 80,
@@ -9311,6 +9315,8 @@
                                                 {explorerSort.column === 'custom' ? 'Manual Order' :
                                                  explorerSort.column === 'title' ? 'Name' :
                                                  explorerSort.column === 'author' ? 'Author' :
+                                                 explorerSort.column === 'series' ? 'Series' :
+                                                 explorerSort.column === 'seriesNum' ? '#' :
                                                  explorerSort.column === 'rating' ? 'Rating' :
                                                  explorerSort.column === 'dateAdded' ? 'Date Added' :
                                                  explorerSort.column === 'price' ? 'Price' :
@@ -9390,6 +9396,25 @@
                                                                 />
                                                                 Author
                                                             </label>
+                                                            {/* v5.0.0-alpha.171 - Series columns */}
+                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={visibleColumns.series}
+                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, series: !prev.series }))}
+                                                                    className="cursor-pointer"
+                                                                />
+                                                                Series
+                                                            </label>
+                                                            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={visibleColumns.seriesNum}
+                                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, seriesNum: !prev.seriesNum }))}
+                                                                    className="cursor-pointer"
+                                                                />
+                                                                #
+                                                            </label>
                                                             <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 px-1 rounded">
                                                                 <input
                                                                     type="checkbox"
@@ -9450,6 +9475,8 @@
                                                                 onClick={() => {
                                                                     setVisibleColumns({
                                                                         author: true,
+                                                                        series: true, // v5.0.0-alpha.171
+                                                                        seriesNum: true, // v5.0.0-alpha.171
                                                                         rating: true,
                                                                         dateAdded: true,
                                                                         price: true,
@@ -9474,6 +9501,8 @@
                                             tableLayout: 'fixed',
                                             width: `${72 + columnWidths.title +
                                                 (visibleColumns.author ? columnWidths.author : 0) +
+                                                (visibleColumns.series ? columnWidths.series : 0) +
+                                                (visibleColumns.seriesNum ? columnWidths.seriesNum : 0) +
                                                 (visibleColumns.rating ? columnWidths.rating : 0) +
                                                 (visibleColumns.dateAdded ? columnWidths.dateAdded : 0) +
                                                 (visibleColumns.price ? columnWidths.price : 0) +
@@ -9528,6 +9557,35 @@
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
                                                                     setResizingColumn({ columnId: 'author', startX: e.clientX, startWidth: columnWidths.author });
+                                                                }}
+                                                                title="Drag to resize"
+                                                            />
+                                                        </th>
+                                                    )}
+                                                    {/* v5.0.0-alpha.171 - Series columns */}
+                                                    {visibleColumns.series && (
+                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative" style={{ width: `var(--col-series, ${columnWidths.series}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'series', direction: prev.column === 'series' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
+                                                            Series {explorerSort.column === 'series' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
+                                                            <div
+                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'series' ? 'bg-blue-500' : 'bg-transparent'}`}
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setResizingColumn({ columnId: 'series', startX: e.clientX, startWidth: columnWidths.series });
+                                                                }}
+                                                                title="Drag to resize"
+                                                            />
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.seriesNum && (
+                                                        <th className="p-2 cursor-pointer hover:bg-gray-100 relative text-center" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }} onClick={() => setExplorerSort(prev => ({ column: 'seriesNum', direction: prev.column === 'seriesNum' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
+                                                            # {explorerSort.column === 'seriesNum' && (<>{explorerSort.direction === 'asc' ? '▲' : '▼'}{selectedFolderId !== '__all__' && selectedFolderId !== '__library__' && <button onClick={(e) => { e.stopPropagation(); setExplorerSort({ column: 'custom', direction: 'asc' }); }} className="ml-2 text-gray-500 hover:text-red-500 font-bold" title="Return to Manual Order">✕</button>}</>)}
+                                                            <div
+                                                                className={`absolute right-0 top-0 bottom-0 w-1 hover:bg-blue-400 cursor-col-resize ${resizingColumn?.columnId === 'seriesNum' ? 'bg-blue-500' : 'bg-transparent'}`}
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setResizingColumn({ columnId: 'seriesNum', startX: e.clientX, startWidth: columnWidths.seriesNum });
                                                                 }}
                                                                 title="Drag to resize"
                                                             />
@@ -9896,6 +9954,8 @@
                                                                     )}
                                                                 </td>
                                                                 {visibleColumns.author && <td className="p-2 text-gray-400" style={{ width: `var(--col-author, ${columnWidths.author}px)` }}>—</td>}
+                                                                {visibleColumns.series && <td className="p-2 text-gray-400" style={{ width: `var(--col-series, ${columnWidths.series}px)` }}>—</td>}
+                                                                {visibleColumns.seriesNum && <td className="p-2 text-gray-400" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }}>—</td>}
                                                                 {visibleColumns.rating && <td className="p-2 text-gray-400" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }}>—</td>}
                                                                 {visibleColumns.dateAdded && <td className="p-2 text-gray-400" style={{ width: `var(--col-dateAdded, ${columnWidths.dateAdded}px)` }}>—</td>}
                                                                 {visibleColumns.price && <td className="p-2 text-gray-400" style={{ width: `var(--col-price, ${columnWidths.price}px)` }}>—</td>}
@@ -9927,6 +9987,13 @@
                                                             const dir = explorerSort.direction === 'asc' ? 1 : -1;
                                                             if (explorerSort.column === 'title') return dir * (a.title || '').localeCompare(b.title || '');
                                                             if (explorerSort.column === 'author') return dir * (a.author || '').localeCompare(b.author || '');
+                                                            // v5.0.0-alpha.171 - Series columns sorting
+                                                            if (explorerSort.column === 'series') return dir * (a.series || '').localeCompare(b.series || '');
+                                                            if (explorerSort.column === 'seriesNum') {
+                                                                const posA = parseFloat(a.seriesPosition) || Infinity;
+                                                                const posB = parseFloat(b.seriesPosition) || Infinity;
+                                                                return dir * (posA - posB);
+                                                            }
                                                             if (explorerSort.column === 'rating') return dir * ((a.rating || 0) - (b.rating || 0));
                                                             if (explorerSort.column === 'dateAdded') {
                                                                 // v5.0.0-alpha.169.5 - Use parseBookDate for proper date comparison
@@ -10096,6 +10163,13 @@
                                                             <td className="p-2 font-medium" style={{ width: `var(--col-title, ${columnWidths.title}px)` }}>{book.title}</td>
                                                             {visibleColumns.author && (
                                                                 <td className="p-2 text-gray-600" style={{ width: `var(--col-author, ${columnWidths.author}px)` }}>{book.author}</td>
+                                                            )}
+                                                            {/* v5.0.0-alpha.171 - Series columns */}
+                                                            {visibleColumns.series && (
+                                                                <td className="p-2 text-gray-600 text-xs" style={{ width: `var(--col-series, ${columnWidths.series}px)` }}>{book.series || '-'}</td>
+                                                            )}
+                                                            {visibleColumns.seriesNum && (
+                                                                <td className="p-2 text-gray-600 text-xs text-center" style={{ width: `var(--col-seriesNum, ${columnWidths.seriesNum}px)` }}>{book.seriesPosition || '-'}</td>
                                                             )}
                                                             {visibleColumns.rating && (
                                                                 <td className="p-2" style={{ width: `var(--col-rating, ${columnWidths.rating}px)` }}>
@@ -10340,6 +10414,13 @@
                                                         const dir = explorerSort.direction === 'asc' ? 1 : -1;
                                                         if (explorerSort.column === 'title') return dir * (a.title || '').localeCompare(b.title || '');
                                                         if (explorerSort.column === 'author') return dir * (a.author || '').localeCompare(b.author || '');
+                                                        // v5.0.0-alpha.171 - Series columns sorting
+                                                        if (explorerSort.column === 'series') return dir * (a.series || '').localeCompare(b.series || '');
+                                                        if (explorerSort.column === 'seriesNum') {
+                                                            const posA = parseFloat(a.seriesPosition) || Infinity;
+                                                            const posB = parseFloat(b.seriesPosition) || Infinity;
+                                                            return dir * (posA - posB);
+                                                        }
                                                         if (explorerSort.column === 'rating') return dir * ((a.rating || 0) - (b.rating || 0));
                                                         if (explorerSort.column === 'dateAdded') {
                                                             // v5.0.0-alpha.169.5 - Use parseBookDate for proper date comparison
