@@ -7,7 +7,7 @@
 # IMPORT-004 is TODO "Import files new books once, before the integrity check…" part 1 (LOGGING.md finding F5): today
 # Import's library load runs the integrity check while the new books are in no folder yet, so it "repairs" them into the
 # Inbox and logs a repair on every normal Import. Written to fail before the fix (Ron's rule: a bug fix starts with a
-# failing test).
+# failing test). IMPORT-006 runs first, while the channel is still empty.
 import os
 import sys
 import time
@@ -31,6 +31,17 @@ NEW_BOOKS = [{
 REPAIR = r"Integrity auto-fixed|Library repair"
 
 with App(relay=True) as app:
+    # First, while the channel is still empty: nothing sent yet, OR credentials that don't match the bookmarklet's — the
+    # relay can't tell the two apart (a mistyped Channel ID is an empty channel), so the message names both (Ron,
+    # 2026-11-05).
+    def empty_channel_says_what_to_do():
+        text = app.import_from_relay()
+        for words in ("Nothing is on the relay for these credentials yet.", "New here?", "Download Library",
+                      "Already did that?", "different credentials", "File → Relay Setup"):
+            check(words in text, f"missing {words!r} in: {text}")
+    test("IMPORT-006", "Import on an empty channel says what to do: send your library, or check the credentials",
+         empty_channel_says_what_to_do)
+
     def restore_reaches_relay():
         check("23 books restored" in app.restore(FIXTURE), "the fixture didn't restore")
         line = app.wait_console(r"Restore pushed to relay|relay push failed")

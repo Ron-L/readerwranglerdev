@@ -2816,6 +2816,12 @@ dev in readerwrangler.js:130, mobile.js:31 and bookmarklet-nav-hub.js:52.
    everything else passes untouched. relay-client keeps the real one. An honest error, not a silent substitute.
 4. **A commit check refuses a relay address written outside relay-client.js** (app, phone, bookmarklet files).
 5. Test step: on localhost, Relay Setup's connection test names the **dev** relay.
+6. **Say when the channel is empty** (Ron + Claude, 2026-11-05): today the test reports **connected** for a channel
+   with nothing on it — and a mistyped Channel ID IS an empty channel, so a typo shows green at the very moment it
+   should be caught. Report *"Connected — nothing sent with these credentials yet"* instead (the same two causes Import's
+   "Nothing is on the relay for these credentials yet" names, 7.26.0-alpha.2). A screen test on the local relay
+   (`test/ui/rw.py` `App(relay=True)`): an empty channel's test says so. The Cloud Sync Key's check characters later
+   catch the typo as it's entered.
 
 #### Relay Setup: disconnect, or reset credentials
 <!-- id 20261014-1030am -->

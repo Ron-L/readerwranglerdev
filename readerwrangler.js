@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.1";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.2";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -5595,7 +5595,9 @@
                     const result = await Promise.race([importWork(), timeout]);
 
                     if (result.empty) {
-                        await progress.finish('Relay Import', 'No library data found on the relay. Run the fetcher bookmarklet on your Amazon library page to send it.\n\nIf you recently regenerated your credentials, update your bookmarklet via File → Relay Setup.');
+                        // 7.26.0-alpha.2 (Ron) - The relay can't tell "nothing sent yet" from "credentials that don't match the
+                        // bookmarklet's" (a mistyped Channel ID is just an empty channel), so name both. Test: IMPORT-006.
+                        await progress.finish('Relay Import', 'Nothing is on the relay for these credentials yet.\n\n• New here? On your Amazon library page, click the ReaderWrangler bookmarklet and choose Download Library (then Download Collections). Then come back and Import from Relay.\n\n• Already did that? Then this app and your bookmarklet are using different credentials. Open File → Relay Setup, check them, and update your bookmarklet.');
                         return;
                     }
 

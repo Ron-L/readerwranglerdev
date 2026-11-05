@@ -763,6 +763,7 @@ row — the menus are where the power hides.
 | "Sync data check failed / checksum mismatch" | A Relay write was interrupted (rare since v7's sealed-packet sync) | Follow the dialog: full fetch rebuilds, then import — local data is intact |
 | Slow first "Checking pending additions" | First fetch after new relay data does extra accounting | Let it run; later fetches are quick |
 | Bookmarklet fetches the wrong library / mismatch warning | Bookmarklet carries older credentials than the app | Recreate the bookmarklet from Relay Setup |
+| Import from Relay says "Nothing is on the relay for these credentials yet" (7.26.0) | Either nothing has been sent yet, or the app and the bookmarklet use different credentials — the Relay can't tell the two apart (a mistyped Channel ID is simply an empty channel) | New: on the Amazon library page, bookmarklet → **Download Library** (then **Download Collections**), then Import. Already sent: File → Relay Setup — check the credentials, then update the bookmarklet |
 
 ## 20. A suggested way to organize (one of many)
 
