@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.2";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.3";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -5542,7 +5542,6 @@
                     return;
                 }
                 dataOpInProgressRef.current = true;
-                const bookIdsBefore = new Set(books.map(b => b.id)); // v6.0.0-alpha.53 - Track IDs for Inbox placement
                 const booksBefore = books.length;
                 setRelayImporting(true);
                 const progress = showProgressDialog('Relay Import', 'Importing from relay…');
@@ -5601,21 +5600,9 @@
                         return;
                     }
 
-                    // v6.3.0 - Use newBookIds returned by loadLibrary (no more IndexedDB re-read race)
-                    const newBookIds = (result.newBookIds || []).filter(id => !bookIdsBefore.has(id));
-                    if (newBookIds.length > 0) {
-                        console.log(`📥 Adding ${newBookIds.length} new books to Inbox`);
-                        setFolders(prev => prev.map(f => {
-                            if (f.id !== '__inbox__') return f;
-                            // v6.12.0-alpha.55 - Dedup: never prepend an id already in Inbox. A re-import / double-import
-                            // could otherwise land the same book twice (folder membership is a set — same invariant the
-                            // move/paste paths already enforce). This was the transient "book shown twice" after a re-import.
-                            const existing = new Set(f.bookIds || []);
-                            const toAdd = newBookIds.filter(id => !existing.has(id));
-                            return { ...f, bookIds: [...toAdd.reverse(), ...(f.bookIds || [])] };
-                        }));
-                    }
-
+                    // (7.26.0-alpha.3 - the new books are already filed: loadLibrary files them, before its integrity check —
+                    // fileNewBooksInInbox, the one placement path. Its set check keeps v6.12.0-alpha.55's rule: a book is
+                    // never added to the Inbox twice.)
                     setRelayManifest(null); // Clear banner after successful import
                     console.log('✅ Relay import complete');
 
@@ -6422,6 +6409,29 @@
                 return mergedBooks;
             };
 
+            // 7.26.0-alpha.3 - THE one place an Import files its new books (TODO "Import files new books once, before the
+            // integrity check…"). It runs BEFORE the integrity check, so the check sees only genuine problems — before, the
+            // check met the new books first and reported them as a repair on every Import (LOGGING.md F5).
+            // Part 2 is a BACKSTOP: only books in no folder go to the Inbox. Normally every new book is in no folder; the two
+            // differ only when the books and the folders get out of step (they're kept in separate browser stores) — on Sep 3
+            // an emptied book store made every book look new, and all 3,076 were copied into the Inbox.
+            // No state of its own: returns the folder list with the new books filed; says what it did in the console.
+            // Tests: IMPORT-003, 004, 007, 008 (test/ui/test_import_from_relay.py).
+            const fileNewBooksInInbox = (folderList, newIds) => {
+                const filed = new Set(folderList.flatMap(f => f.bookIds || []));
+                const toFile = newIds.filter(id => !filed.has(id));
+                const alreadyFiled = newIds.length - toFile.length;
+                if (alreadyFiled > 0) {
+                    console.log(`📥 Inbox backstop: ${alreadyFiled.toLocaleString()} book${alreadyFiled !== 1 ? 's' : ''} new to the book store ${alreadyFiled !== 1 ? 'are' : 'is'} already in folders — not added to the Inbox`);
+                }
+                if (toFile.length === 0) return folderList;
+                console.log(`📥 Adding ${toFile.length} new book${toFile.length !== 1 ? 's' : ''} to Inbox`);
+                const withInbox = folderList.some(f => f.id === '__inbox__')
+                    ? folderList
+                    : [...folderList, { id: '__inbox__', name: 'Inbox', bookIds: [], parentId: null }];
+                return withInbox.map(f => f.id !== '__inbox__' ? f : { ...f, bookIds: [...[...toFile].reverse(), ...(f.bookIds || [])] });
+            };
+
             const loadLibrary = async (content, onComplete = null, organizationFromFile = null, onPhase = null) => {
                 const phase = (msg) => { if (onPhase) onPhase(msg); };
                 const parsedData = JSON.parse(content);
@@ -6724,9 +6734,13 @@
                             });
                         }
 
+                        // 7.26.0-alpha.3 - An Import files its new books FIRST, so the check below reports only real repairs
+                        // (a backup restore takes the backup's folders exactly as they are)
+                        const placedFolders = isBackupRestore ? restoredFolders : fileNewBooksInInbox(restoredFolders, newBookIds);
+
                         // v6.3.0 - Run integrity check on restored folders (replaces v5.1.0-alpha.8 inline orphan cleanup)
-                        const integrityResult = runIntegrityCheck(mergedBooks, restoredFolders);
-                        const finalFolders = integrityResult ? integrityResult.correctedFolders : restoredFolders;
+                        const integrityResult = runIntegrityCheck(mergedBooks, placedFolders);
+                        const finalFolders = integrityResult ? integrityResult.correctedFolders : placedFolders;
                         if (integrityResult?.autoFixed?.length > 0) {
                             console.log(`🔧 Integrity auto-fixed during restore:`, integrityResult.autoFixed.map(f => f.description));
                         }
@@ -6737,6 +6751,7 @@
                     } else {
                         // No folders in backup - preserve existing folders from localStorage (backward compatibility)
                         console.log('📁 No folders in backup - keeping existing folder structure');
+                        if (!isBackupRestore && newBookIds.length > 0) setFolders(prev => fileNewBooksInInbox(prev, newBookIds)); // 7.26.0-alpha.3
                     }
 
                     // v5.0.0-alpha.101 - Restore Explorer settings from backup (if present)
@@ -6825,6 +6840,7 @@
                 }
 
                 // No organization found, start fresh
+                if (!isBackupRestore && newBookIds.length > 0) setFolders(prev => fileNewBooksInInbox(prev, newBookIds)); // 7.26.0-alpha.3
                 setDataSource('enriched');
                 setLastSyncTime(Date.now());
                 setSyncStatus('fresh');

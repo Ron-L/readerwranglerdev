@@ -111,4 +111,29 @@ with App(relay=True) as app:
     test("IMPORT-008", "a fresh app's first Import puts every book in the Inbox, with no repair reported",
          first_import_fills_inbox)
 
+    # The filing step's other two call sites (readerwrangler.js loadLibrary): an Import finds a saved organization with
+    # no folders in it, or none at all — each still files its new book into the Inbox, with no repair reported. The saved
+    # organization (uiHelpers.js STORAGE_KEY) is edited just before the Import, which reads it.
+    def import_without_saved_folders(n, edit_js, branch_proof):
+        book = dict(FIRST_BOOKS[0], asin=f"TST000070{n}", title=f"A Late Arrival, Part {n}")
+        all_books, inbox = app.left_count("All Books"), app.left_count("Inbox")
+        app.upload_fetch([book])
+        app.page.evaluate(edit_js)
+        lines_before = len(app.console)
+        text = app.import_from_relay()
+        branch_proof([x for _, x in app.console[lines_before:]])
+        check("1 new" in text, "the Import's report: " + text)
+        got = {k: app.left_count(k) for k in ("All Books", "Inbox")}
+        check(got == {"All Books": all_books + 1, "Inbox": inbox + 1}, f"left pane {got}, expected one more in each")
+        check(not app.console_matching(REPAIR), "a repair was reported: " + str(app.console_matching(REPAIR)))
+    test("IMPORT-009", "an Import with a saved organization that has no folders still files its new book in the Inbox",
+         lambda: import_without_saved_folders(1, """() => { const s = JSON.parse(localStorage.getItem('readerwrangler-state'));
+             delete s.organization.folders; localStorage.setItem('readerwrangler-state', JSON.stringify(s)); }""",
+             lambda lines: check(any("No folders in backup" in x for x in lines), "the Import didn't take the no-folders path")))
+    test("IMPORT-010", "an Import with no saved organization at all still files its new book in the Inbox",
+         lambda: import_without_saved_folders(2, """() => { const s = JSON.parse(localStorage.getItem('readerwrangler-state'));
+             delete s.organization; localStorage.setItem('readerwrangler-state', JSON.stringify(s)); }""",
+             lambda lines: check(not any("Restored organization from" in x for x in lines),
+                                 "the Import found a saved organization — it didn't take the no-organization path")))
+
 done()

@@ -114,7 +114,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 47 | readerwrangler.js:5512 | log | `` `✏️ F2: Renaming "${currentFolder.name}" in left panel`); `` | remove | UI |  | noise |
 | 48 | readerwrangler.js:5541 | warn | `'⚠️ Data operation already in progress, skipping import');` | warning | IMPORT | IMPORT-001 | FINDING F2: Import skipped SILENTLY while another operation runs |
 | 49 | readerwrangler.js:5566 | log | `` `📬 ${pending.length} pending run(s) in the mailbox`); `` | debug | IMPORT |  |  |
-| 50 | readerwrangler.js:5605 | log | `` `📥 Adding ${newBookIds.length} new books to Inbox`); `` | info | IMPORT |  |  |
+| 50 | readerwrangler.js:5605 | log | `` `📥 Adding ${newBookIds.length} new books to Inbox`); `` | info | IMPORT |  | moved into `fileNewBooksInInbox` (7.26.0-alpha.3), beside a new line: "📥 Inbox backstop: N books … already in folders" — **info**, IMPORT |
 | 51 | readerwrangler.js:5618 | log | `'✅ Relay import complete');` | info | IMPORT |  |  |
 | 52 | readerwrangler.js:5629 | log | `` `📦 Canonical consolidated: generation ${manifest.gen} (${manifest.bookCount} books, ${c.absorbe… `` | info | SYNC |  |  |
 | 53 | readerwrangler.js:5633 | warn | `'⚠️ Consolidation deferred (will retry on next import):', err.message);` | warning | SYNC | SYNC-005 | retried at the next import |
@@ -166,7 +166,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 99 | readerwrangler.js:6626 | log | `` `   - Sample noted: "${sampleNoted.title}" has note:`, sampleNoted.userNote); `` | remove | IMPORT |  | FINDING F4: prints the text of a user's NOTE — personal; never in a copied log |
 | 100 | readerwrangler.js:6653 | log | `` `🧹 Purged undo history referencing ${removedIds.length} import-removed book(s)`); `` | info | UNDO |  |  |
 | 101 | readerwrangler.js:6716 | log | `'Note: Could not read localStorage organization');` | warning | STORE | STORE-004 |  |
-| 102 | readerwrangler.js:6778 | log | `` `🔧 Integrity auto-fixed during restore:`, integrityResult.autoFixed.map(f => f.description)); `` | **error** | INTEG | INTEG-006 | FINDING F5: fires on EVERY Import with new books today (the Import-order task) |
+| 102 | readerwrangler.js:6778 | log | `` `🔧 Integrity auto-fixed during restore:`, integrityResult.autoFixed.map(f => f.description)); `` | **error** | INTEG | INTEG-006 | FINDING F5: fired on EVERY Import with new books — ✅ fixed 7.26.0-alpha.3 (IMPORT-004); now fires only for a real repair |
 | 103 | readerwrangler.js:6783 | log | `` `✅ Restored ${restoredFolders.length} folders from ${orgSource}`); `` | info | BACKUP |  |  |
 | 104 | readerwrangler.js:6786 | log | `'📁 No folders in backup - keeping existing folder structure');` | info | BACKUP |  | an old backup |
 | 105 | readerwrangler.js:6817 | log | `'📁 No explorer settings in backup - keeping existing preferences');` | debug | BACKUP |  |  |
@@ -257,12 +257,14 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 5. **F5 — the integrity alarm fires on every normal Import** (#102): the known false alarm (Small fixes: "Import files
    new books once, before the integrity check…"). Making it an **error** before that fix lands would raise the banner on
    every Import in diagnostics mode — so **that fix comes first, in this branch** (it's small and in the same code).
+   ✅ **Fixed in 7.26.0-alpha.3** (2026-11-05), with the task's part 2 (only books in no folder go to the Inbox): one
+   placement path before the integrity check; tests `IMPORT-001`–`010` on a local relay.
 6. **relay-client.js also runs inside the fetchers** on Amazon's pages (#158–176): the logging module must load there
    too, or relay-client falls back to the plain console — decide when building (TODO task, item 10).
 
 ## 5. Build order (this branch, `feature/logging`)
 
-1. The Import-order fix (F5) — first, so the integrity alarm is real before it becomes an error.
+1. ✅ The Import-order fix (F5) — first, so the integrity alarm is real before it becomes an error (7.26.0-alpha.3).
 2. The module: levels, areas, IDs, the kept log (rate limiting, page loads), the scrubber — function tests first.
 3. The gate (`?log=`), the banner, critical shown to users — screen tests first.
 4. Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides.
