@@ -291,7 +291,9 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
    critical** — every screen test also checks "nothing went wrong underneath".
 10. **The fetchers and the bookmarklet menu** run on Amazon's site, whose stored settings are separate from ours, so they
    read the same-named level in amazon.com's storage (set from the console, or a toggle in the bookmarklet menu's
-   developer mode) — decide the details when building.
+   developer mode). **Two logs, never the relay** (2026-11-05, LOGGING.md §2b): the fetchers keep theirs on amazon.com;
+   a fetch's warnings and errors ride inside its existing upload (zero extra relay writes), so the app's Diagnostics
+   view shows the last fetch's problems beside its own log.
 
 **How (technical)**
 - **One logging module** (the chokepoint) — `log.debug/info/warning/error/critical(area, id, text, data)`, the global

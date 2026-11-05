@@ -42,6 +42,22 @@ collide with the test-ID areas (APP, DRV, ORG, MERGE, …).
 | **PHONE** | the phone app: pairing, loading |
 | **UI** | screen-level coding checks |
 
+## 2b. Where the logs live (Ron + Claude, 2026-11-05)
+
+1. **In the browser, never the relay.** Relay writes are the free plan's tight limit (~1,000 a day for the whole
+   account) — a flood would burn them; a log on the server would also be information about the user's activity
+   ("the server holds nothing readable about you"); and it's end-to-end encrypted, so nobody could read it there anyway.
+2. **So two logs, because a browser keeps storage per site:** the app's (and the phone's, on its own device) on
+   readerwrangler.com; the fetchers' on amazon.com — the same split as the `?log=` setting.
+3. **Repeats are counted in memory, not in storage.** The log is written to the browser's storage **in batches** — at
+   most every few seconds, and when the tab is left — so a thousand identical messages cost one local write ("×1000")
+   and never a relay write.
+4. **The last fetch's problems ride in its existing upload.** At the end of a fetch the fetcher already sends one upload
+   (its mailbox letter); its **warnings and errors from that run** (capped ~50, IDs removed) go inside it — **zero
+   extra relay writes** — and the app's Diagnostics view shows them beside its own log, so one **Copy diagnostics**
+   gives support both halves. The fetcher's full log (its ~430 progress lines included) stays on amazon.com, with a
+   **Copy fetch log** in the bookmarklet menu for when the details are needed.
+
 ## 3. The sort — every console line in the app's own code (177, counted 2026-11-05)
 
 Files: readerwrangler.js (123), mobile.js (16), storage.js (18), relay-client.js (19), integrity.js (1); none in
