@@ -247,6 +247,26 @@ class App:
         box.get_by_role("button", name="OK").click()
         return text
 
+    def reload(self):
+        """Reload the page the way a person would (F5) and wait until the app is up again."""
+        self.page.reload()
+        self.page.wait_for_selector("#splash", state="detached", timeout=APP_TIMEOUT_MS)
+
+    def empty_book_store(self):
+        """Empty the browser's book store (storage.js: ReaderWranglerDB → books) and leave the folders alone — the two live
+        in separate stores and can get out of step (TODO "Import files new books once…", part 2: the Sep 3 case). Takes
+        effect at the next reload()."""
+        self.page.evaluate("""() => new Promise((resolve, reject) => {
+            const r = indexedDB.open('ReaderWranglerDB');
+            r.onerror = () => reject(r.error);
+            r.onsuccess = () => {
+                const db = r.result, tx = db.transaction(['books'], 'readwrite');
+                tx.objectStore('books').clear();
+                tx.oncomplete = () => { db.close(); resolve(); };
+                tx.onerror = () => reject(tx.error);
+            };
+        })""")
+
     def wait_console(self, pattern, timeout_s=60):
         """Wait until a console line matching `pattern` has appeared (a condition, never a fixed sleep — §7)."""
         deadline = time.time() + timeout_s
