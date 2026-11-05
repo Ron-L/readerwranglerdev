@@ -324,9 +324,9 @@ Ron's real library (Ron, 2026-11-04: "it would be nice to migrate away").
 4. **Covers generated, served by the repo itself** — no website: a small **SVG** per cover (a solid background by genre,
    the title on top — a tiny text file, no image library needed) in `test/fixtures/covers/`, which serve.py already
    serves to the tests on Ron's PC: no internet, nothing test-related on readerwrangler.com or the home server, identical
-   every run. The scale library reuses a pool of ~50 rather than committing thousands. Check when building: one import
-   path builds an Amazon image link from the ASIN when a book has no cover (readerwrangler.js ~6433) — with made-up
-   ASINs that would reach Amazon, and the screen tests' request detector would flag it.
+   every run. The scale library reuses a pool of ~50 rather than committing thousands. (The one path that built an
+   Amazon image link from the ASIN — the old CSV loader — was dead code, deleted in 7.26.0-alpha.1; nothing in the
+   app's code builds one now, checked 2026-11-05. The screen tests' request detector would catch a new one.)
 5. **Ron's library snapshot stays, used rarely** (`.private/test/`): only for "does real data have a quirk we never
    thought to generate" checks — real data catches what nobody imagined.
 
@@ -2232,6 +2232,12 @@ a recovery moment — exactly when a mess in the Inbox hurts most.
 **How (technical)**
 - Filter the Import's `newBookIds` (readerwrangler.js ~5603) to books in no folder. The `getAllBookIdsInFolders()`
   named when this was filed no longer exists (checked 2026-10-20) — build the set from the folders at that point.
+
+**Tests** (`test/ui/test_import_from_relay.py` — a local relay on Ron's PC, never the dev relay; 7.26.0-alpha.1)
+- `IMPORT-001`–`005`: Restore sends its copy to the relay; a fetch's 3 new books arrive through File → Import from
+  Relay ("3 new"), land in All Books and the Inbox; **`IMPORT-004` — no repair reported for a normal Import — fails
+  today** (part 1 reproduced, 2026-11-05); nothing unexpected in the console, no request to a real relay or Amazon.
+- Part 2's test ("Import into an empty book store → the Inbox is unchanged") goes in the same file when part 2 is built.
 
 ##### With a filter on, the right pane still shows subfolders with no matching books
 <!-- id 20261103-1651 -->

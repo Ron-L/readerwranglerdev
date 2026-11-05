@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.25.0";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.1";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -6389,55 +6389,6 @@
                     console.error('Failed to clear library:', error);
                     showInfoDialog('Reset Error', 'Failed to clear library data.');
                 }
-            };
-
-            const handleFileUpload = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const text = await file.text();
-
-                if (file.name.endsWith('.json')) {
-                    await loadLibrary(text);
-                } else if (file.name.endsWith('.csv')) {
-                    loadBooksFromCSV(text);
-                }
-                trackEvent('file-imported'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
-            };
-
-            const loadBooksFromCSV = (csvContent) => {
-                const lines = csvContent.split('\n');
-                const parsedBooks = [];
-
-                const startLine = lines[0].includes('ASIN') ? 1 : 0;
-
-                for (let i = startLine; i < lines.length && parsedBooks.length < 100; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-
-                    const parts = line.split(',');
-                    let asin = parts[0]?.trim().replace(/[="']/g, '');
-
-                    if (asin && asin.length < 10 && /^[0-9]+$/.test(asin)) {
-                        asin = asin.padStart(10, '0');
-                    }
-
-                    if (asin && asin.length === 10) {
-                        parsedBooks.push({
-                            id: asin,  // Use ASIN as stable ID instead of sequential number
-                            asin: asin,
-                            title: parts[6] || 'Unknown',
-                            author: parts[13] || 'Unknown',
-                            acquired: parts[2] || '',
-                            series: parts[12] || '',
-                            coverUrl: `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.LZZZZZZZ.jpg`,
-                            hasEnrichedData: false
-                        });
-                    }
-                }
-
-                setBooks(parsedBooks);
-                setDataSource('csv');
             };
 
             const mergeCollectionsIntoBooks = async (booksToMerge) => {

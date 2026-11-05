@@ -148,4 +148,12 @@ A test that fails sometimes teaches everyone to ignore failures (Law 12: an alar
      `DRV-001`–`003` (the driver's own reachability checks). ~50 s a
      run today — the in-browser compile; the precompile cuts it;
   4. the first screen tests — from anomaly reporting and the Delete key fix (step 4), each starting from a failing test.
+- **Built 2026-11-05 (branch `feature/logging`):** **Cloud Sync in screen tests** — `App(relay=True)` starts a **local
+  relay** (`rw.LocalRelay`: Cloudflare's own emulator, `wrangler dev --local`, running relay-worker.js with an empty
+  store made for the run and deleted after; the test page's address allowed for that run only, wrangler.toml untouched;
+  stopped by its exact process tree), points the app at it and gives the fresh profile a made-up test channel (planted at
+  run time — never in a data file). `app.upload_fetch(items)` sends books as the library fetcher does;
+  `app.import_from_relay()` runs File → Import from Relay. First use: `IMPORT-001`–`005`
+  (`test/ui/test_import_from_relay.py`), whose `IMPORT-004` reproduces the Import's false "repair" (LOGGING.md F5)
+  before its fix. Adds ~5 s to a run. Known noise gained one entry: a new, empty channel's two "not found" answers.
 - From then on, every task follows §6.
