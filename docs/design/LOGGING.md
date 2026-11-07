@@ -22,8 +22,8 @@ on any error or critical.
 
 ## 2. Areas and IDs
 
-Every message carries an **area** and a **level**; warning and above also carry a **stable code** — `AREA-NN`
-(`IMPORT-12`), never reused or renumbered (support can ask "what codes do you see?"; the help notes can explain each).
+Every message carries a **level** and a **code**: the bare area (`IMPORT` — a general line, info and debug) or the
+area plus a number (`IMPORT-12` — one specific message; required for warning and above), never reused or renumbered (support can ask "what codes do you see?"; the help notes can explain each).
 **The level is not part of the code** — a message's level can be re-judged later (F5's line became an error) without
 its code changing. No product prefix (Ron, 2026-11-07: the log is our own, and our console lines are recognizable by
 their shape). Test NAMES keep their own shape, `AREA-NNN` (three digits, e.g. the screen test `IMPORT-004`) — they
@@ -299,3 +299,30 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 4. Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides.
 5. The Diagnostics view in Data Status (filter, Copy).
 6. The browser driver at `?log=debug`, failing a test on any error or critical.
+
+## 6. The module's shape (Ron + Claude, 2026-11-07)
+
+1. **One call:** `rwLog.log(level, code, text, data, { test: true })` — `data` and the options are optional.
+   - **level** — `'debug' | 'info' | 'warning' | 'error' | 'critical'`, written at the call site, where the message is
+     written (Ron: "it is easier to define the criticality as you type the msg into the code").
+   - **code** — `'IMPORT'` (the bare area: a general line) or `'IMPORT-12'` (one specific message). Warning and above
+     must use the numbered form — those are what support asks about.
+2. **The module is agnostic about the messages:** no table of codes or levels in it. It knows only the five levels and
+   the **13 area names**, as a frozen object (JavaScript has no enums; a frozen object is the standard stand-in) — so a
+   typo like `IMPRT` is caught when it happens. A malformed call (an unknown level or area, a badly shaped code, a
+   warning without a number) is reported by the module itself as an error, and the message is still logged.
+3. **The rules, checked at every commit** by a scan of the source (`tools/message_codes.py`): every code well-formed;
+   warning and above numbered; each numbered code used at exactly ONE call (so the level has one home — the call — and
+   a code always means one message); every area from the list.
+4. **The support table is generated, never kept by hand** (Ron): the same scan writes `docs/design/MESSAGE-CODES.md` —
+   code, level, area, the message text, file and line — sorted by area. The commit check refuses a commit whose table
+   is stale ("run py tools/message_codes.py"), the TODO table-of-contents pattern. When the precompile build exists,
+   the build produces it and the check stays as the safety net.
+5. **Messages a test plants:** the `test` option, shown to people as `IMPORT-!TEST!` / `IMPORT-12-!TEST!` (§2); the
+   marker a constant in the module.
+6. **The rest as decided:** the kept log (§1: the last ~500, repeats counted, batched saves, page loads), the scrubber
+   (Channel IDs and the passphrase removed before anything is stored or copied), and "ours only" (our scripts'
+   uncaught errors and failed promises logged as errors; extension messages ignored).
+7. **Step 2 builds:** `logger.js` (loaded first in readerwrangler.html), its function tests written first
+   (`test/logger.test.js`), and the scan + table + commit check. Not yet: the `?log=` threshold, the banner, critical
+   shown to users (step 3); switching the 177 lines (step 4); the Diagnostics view (step 5).
