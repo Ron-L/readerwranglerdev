@@ -1,6 +1,6 @@
 # Screen test: the app opens, and the made-up library restores and shows correctly (the base every screen test uses).
 # tags: app, restore, driver, tier 2
-# covers: readerwrangler.html, readerwrangler.js, storage.js, bookFields.js, integrity.js
+# covers: readerwrangler.html, readerwrangler.js, storage.js, bookFields.js, integrity.js, logger.js
 # Run: py tools/run_tests.py --tier 2     (or directly with the venv's Python)
 import os
 import sys
@@ -36,6 +36,19 @@ with App() as app:
     test("APP-004", "after the restore: still no unexpected console messages and no requests to a relay or Amazon",
          lambda: (check(not app.unexpected_console(), app.unexpected_console()),
                   check(not app.violations, app.violations)))
+
+    def logger_is_up():
+        # 7.26.0 - the logging module (logger.js, loaded first): window.rwLog exists, and the page load was kept with
+        # this page's build (the page defines APP_VERSION after logger.js loads — the entry waits for it)
+        got = app.page.evaluate("""() => {
+            if (!window.rwLog) return { missing: true };
+            const loads = window.rwLog.entries().filter(e => e.code === 'BOOT' && e.text.startsWith('Page loaded'));
+            return { build: typeof APP_VERSION !== 'undefined' ? APP_VERSION : null,
+                     last: loads.length ? loads[loads.length - 1].text : null };
+        }""")
+        check(not got.get("missing"), "window.rwLog is missing")
+        check(got["last"] and got["build"] and got["build"] in got["last"], f"page-load entry: {got}")
+    test("APP-005", "the logging module is running: window.rwLog, and the page load kept with this build", logger_is_up)
 
     print("    screenshot:", app.shot("APP-restored"))
 

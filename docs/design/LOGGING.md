@@ -294,7 +294,9 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 ## 5. Build order (this branch, `feature/logging`)
 
 1. ✅ The Import-order fix (F5) — first, so the integrity alarm is real before it becomes an error (7.26.0-alpha.3).
-2. The module: levels, areas, IDs, the kept log (rate limiting, page loads), the scrubber — function tests first.
+2. ✅ The module: levels, areas, codes, the kept log (repeats counted, page loads), the scrubber — function tests first
+   (7.26.0-alpha.5: `logger.js` + LOG-001–015; `tools/message_codes.py` + MSG-001–013 + the commit check + the generated
+   `docs/design/MESSAGE-CODES.md`).
 3. The gate (`?log=`), the banner, critical shown to users — screen tests first.
 4. Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides.
 5. The Diagnostics view in Data Status (filter, Copy).

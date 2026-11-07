@@ -51,3 +51,12 @@ fi
 #    when no test covers the change. Screen tests (tier 2) run before each alpha; relay tests (tier 3) never here.
 #    (tools/run_tests.py; its own tests: test/test_run_tests.py)
 python tools/run_tests.py --changed --tier 1 --quiet || exit 1
+
+# 8. The logging rules + the support table (2026-11-07, docs/design/LOGGING.md §6): when an app script at the repo root
+#    or the table is staged, every rwLog.log(…) call is checked — a known level; code AREA or AREA-NN from logger.js's
+#    areas; warning and above numbered; each numbered code at ONE call — and docs/design/MESSAGE-CODES.md must match what
+#    the code says (refused with "run py tools/message_codes.py" if not). Checks the STAGED copies.
+#    (tools/message_codes.py; its tests: test/test_message_codes.py)
+if git diff --cached --name-only --diff-filter=ACMD | grep -qE '^[^/]+\.js$|^docs/design/MESSAGE-CODES\.md$'; then
+    python tools/message_codes.py --check || exit 1
+fi

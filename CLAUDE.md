@@ -156,6 +156,11 @@ Bypass (Ron's call only): `git commit --no-verify`.
 - **Tier-1 tests for what changed** (`tools/run_tests.py --changed`, pre-commit step 7): the function tests whose
   `covers:` header names a changed file run on every commit; silent when none apply. The whole library:
   `py tools/run_tests.py --tier all` (docs/design/TESTING.md).
+- **Logging rules + the message-code table** (`tools/message_codes.py --check`, pre-commit step 8), when an app script
+  or the table is staged: every `rwLog.log(level, code, text…)` call has a known level, a code `AREA` or `AREA-NN` from
+  logger.js's areas, a numbered code for warning and above, each numbered code at ONE call — and
+  `docs/design/MESSAGE-CODES.md` (generated, never edited) matches the code. Fix: `py tools/message_codes.py` and stage
+  the table (2026-11-07; docs/design/LOGGING.md §6).
 - **TODO table-of-contents check** (`git-hooks/check-toc.js`), when
   `TODO.md` is staged: refuses a table of contents that doesn't match the headers. The table is built by the VS Code
   extension "Auto Markdown TOC" only on a VS Code save — edits made any other way leave it stale. Fix: Ron saves the
