@@ -270,6 +270,12 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    whole class becomes TODO "One table for every move, copy, paste and delete".
 2. **F2 — Import and Restore skip silently** (#48, #58) when another data operation is already running — the click
    just does nothing. Fix: say so ("Another operation is still running — try again in a moment"), or queue it.
+   **Decided** (Ron + Claude, 2026-11-07): checked — no person can reach it today (every way to start Import or Restore
+   is covered by the running one's progress box; the menu item is disabled during an Import), so it's a guard against a
+   double start. Keep the guard; if it's ever reached, a toast names what's running (*"An Import is already running —
+   it will finish in a moment."* / *"A restore is already running…"*) and it logs a **warning** (`IMPORT-01` /
+   `BACKUP-01`) so we learn where from. No queueing (an Import piled after a Restore isn't what anyone clicked for).
+   Built with step 4 (the IMPORT and BACKUP lines), not its own alpha; a function test of the message if cheap.
 3. **F3 — Reset App can report success without deleting the book store** (#153): when another tab holds the
    store open, the delete is "blocked" and the code carries on as if done (`resolve()`). Check what the user sees; fix
    with "close your other ReaderWrangler tabs" and a real retry. ✅ **Fixed in 7.25.1** — measured worse: the reload
