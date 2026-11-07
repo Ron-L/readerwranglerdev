@@ -246,9 +246,14 @@ not the test one.
 2026-11-04). Move the real pointer along their path, check what is actually under it (`document.elementFromPoint`) and
 that it has a size. Reading an attribute proves a thing exists, not that anyone can get to it. (Paid for there: a
 tooltip passed a test that read its `title`, but leaving the chart switched the panel away before anyone could see it.)
+**The test's browser must see what the person sees** (7.25.1): Playwright hides scrollbars in a hidden browser by
+default, and emulated zoom scales the browser's own scrollbars with the page (real zoom doesn't) — both hid a scrollbar
+the status bar covered on Ron's screen. When a person's screen shows what the test can't reproduce, ask for their
+picture FIRST, then measure the layers (Law 19).
 **Enforcement**: the alpha cadence itself; test instructions with precise expected values — magnitude AND
 shape (`feedback_debugging` Rule 4); the driver's `hover()` / `click_reachable()` (`test/ui/rw.py`) move the real pointer
-and refuse a covered target (naming what covers it) or one with no size.
+and refuse a covered target (naming what covers it) or one with no size. The driver runs Chrome (Ron's browser) with scrollbars shown
+(`test/ui/rw.py`, 7.25.1).
 
 ### 9. Guarded persistence — every irreplaceable datum gets a load-gated writer
 An unguarded save-effect stamps defaults over saved data on mount; a restore gated on the wrong condition
