@@ -77,12 +77,14 @@ HONESTY -- are you being straight about it?
 11. Did Ron approve THIS specific change? Discussion is not approval. [Law 1]
 
 DEBUGGING -- are you chasing it in the right place?
-12. Fixing a reported bug and this is the 3rd+ change chasing the SAME symptom? STOP -- question the
-    abstraction: is the bug even IN the layer you keep patching? Re-derive from a different angle -- go
+12. Fixing a reported bug and this is the 3rd+ change chasing the SAME symptom -- or the 2nd RELATED thing you've
+    found broken (two answers to one question that disagree)? STOP -- question the abstraction: a missing structure
+    (one table / one function), not two bugs. Otherwise: is the bug even IN the layer you keep patching? Re-derive from a different angle -- go
     to the TRUE source (the raw event/state/inputs, not a value handed downstream); try a second pivot.
     Tell: a logged value that stays CONSTANT while the input varies means you're measuring downstream.
     (Earned 7.18.0: 5 alphas "fixing" CursorPopup while the bug was a hardcoded pre-clamp in the trigger
-    -- the click x never changed as Ron clicked different spots, and that tell sat in every debug dump.) [Laws 3, 4]
+    -- the click x never changed as Ron clicked different spots, and that tell sat in every debug dump. 2026-11-06:
+    four disagreeing "where can books be pasted?" lists.) [Laws 3, 4]
 
 STALENESS -- is the plan still right?
 13. Building from a TODO or design decision? Check its date against PRINCIPLES: does a law written since
@@ -171,7 +173,13 @@ fix's first test: **a bug fix starts with a failing test** (docs/design/TESTING.
 **Enforcement**: `feedback_debugging` Rule 1b; two-rounds-of-theory stop rule; pre-build gate item 12; the browser
 driver (`test/ui/rw.py` — real input through Edge) and the regression library's routine (TESTING.md).
 
-### 4. After 3 iterations, question the abstraction
+### 4. After 3 iterations, or the 2nd related break, question the abstraction
+**Two related things broken together are one missing structure** (a rule written in several places), not two bugs:
+stop patching, name the structure, build it once (Ron, 2026-11-06 — the same spell as the 3-iteration rule, counted
+across sites instead of over time). Paid for the same day: Ctrl+V refused a paste into the Inbox while the right-click
+menu's Paste allowed it, and "where can books be pasted?" was answered by four lists that disagreed — the cure is ONE
+table (gesture → verb; verb × what's moved × from × to → outcome) read by one function every gesture calls (TODO "Move
+and copy books anywhere", with Delete), not a fifth list.
 Proposed 2025-11-11; ignored through 26 alphas (v3.14.0 drag-drop) and 9 alphas (v6.11.2 — where one
 question, "why aren't these just items?", replaced all nine). If each fix adds a special case instead of
 removing one, the design is wrong: stop, list the edge cases, ask "are these actually different things?",
@@ -394,6 +402,22 @@ would SURPRISE (Ron, 2026-10-21). Pairs with Law 16 (perceivable at the point of
 happened visible.
 **Enforcement**: `feedback_dont_block_the_user` memory; the TODO "Move and copy books anywhere" (reverses the
 2026-08 "block Book List moves" decision) as the worked example.
+
+### 19. When the screen looks wrong, make the boxes visible before theorizing (Ron's idea)
+Outline every box at the broken spot, each layer in its own color, and ask the page what is actually on top there
+(`document.elementFromPoint`). **Outline, not border:** a border takes space and moves the very edges you're looking
+at. One picture shows which box runs under which; a theory about styling can't. (Paid for 2026-11-06: a scrollbar
+"thin at 125% zoom, invisible at 150%" was first blamed on a `thin` scrollbar style that turned out to be used
+nowhere. The cause: the status bar floated over the window's bottom edge, the panes left a fixed 24 px for it, and
+with Cloud Sync on, its 24 px icon made the bar 33 px tall, so it covered the panes' bottom 9 px, where the scrollbar
+is. Measuring the layers showed it at once. Fixed in 7.25.1 by making the bar a row of the layout.) Corollary: **a
+fixed gap that guesses another element's size is a bug waiting for that element to change**. Let the layout carry the
+relationship (Law 17's spirit: structure, not a hand-kept number).
+**Enforcement**: the driver's `show_boxes()` (test/ui/rw.py) outlines a target and every box around it, labels
+where each ends, and saves the picture; a failing layout test attaches it (`test/ui/test_layout.py`, LAYOUT-001–007:
+nothing covers a scroll area or its scrollbar, at two zooms, with the status bar as it is and as tall as the Cloud
+Sync icon makes it). The driver shows scrollbars: Playwright hides them in a hidden browser by default, which hid
+this very bug.
 
 ---
 

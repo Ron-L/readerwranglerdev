@@ -139,7 +139,7 @@
     <script src="bookFields.js?v=7.19.0"></script>
     <!-- v7.17.0 - Book-merge implementation (reads the table above); node-unit-tested; loads before storage.js -->
     <script src="bookMerge.js?v=7.19.0"></script>
-    <script src="storage.js?v=7.21.0"></script>
+    <script src="storage.js?v=7.25.1"></script>
     <!-- v7.18.0 - Overlay layer registry (pure JS; the ordered dialog/popover stack); node-unit-tested; loads before the app script -->
     <script src="overlayRegistry.js?v=7.19.0"></script>
     <!-- v6.3.0 - Data integrity checks -->
@@ -169,7 +169,7 @@
     <script>
         // APP_VERSION - Single source of truth for cache busting
         // Update this on each release to force browsers to fetch new code
-        const APP_VERSION = "7.25.0";
+        const APP_VERSION = "7.25.1";
 
         // v7.21.2 - Every year the code actually changed, listed — About shows "Copyright © ‹this›". A list, not a range:
         // a year with no changes is skipped (a range like 2025–2030 would claim the gap years too), and nothing is
@@ -358,7 +358,7 @@
                 ov.innerHTML =
                     '<div style="background:var(--bg-surface,#fff);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:24px 28px;max-width:400px;width:90%;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">' +
                         '<div style="font-size:1.1em;font-weight:700;color:var(--text-primary,#1e293b);margin-bottom:10px;">Reset ReaderWrangler?</div>' +
-                        '<div style="font-size:.9em;line-height:1.6;color:var(--text-muted,#64748b);margin-bottom:20px;">This clears all ReaderWrangler data from this browser.<br><br>Your files on disk are safe &#8212; import your backup file after the reset to restore everything.</div>' +
+                        '<div id="emergencyMsg" style="font-size:.9em;line-height:1.6;color:var(--text-muted,#64748b);margin-bottom:20px;">This clears all ReaderWrangler data from this browser.<br><br>Your files on disk are safe &#8212; import your backup file after the reset to restore everything.</div>' +
                         '<div style="text-align:right;">' +
                             '<button id="emergencyCancelBtn" style="padding:9px 18px;background:var(--bg-surface,#fff);color:var(--text-primary,#334155);border:1px solid var(--border-default,#cbd5e1);border-radius:8px;font-size:.9em;font-weight:600;cursor:pointer;margin-right:8px;">Cancel</button>' +
                             '<button id="emergencyEraseBtn" style="padding:9px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:.9em;font-weight:600;cursor:pointer;">Erase and Reset</button>' +
@@ -369,8 +369,22 @@
                 document.getElementById('emergencyEraseBtn').addEventListener('click', function() {
                     var keys = ['readerwrangler-state','readerwrangler-enriched-cache','readerwrangler-settings','readerwrangler-status','readerwrangler-filters','readerwrangler-explorer','readerwrangler-folders','readerwrangler-mobile-prefs','readerwrangler-theme','readerwrangler-desktopMode'];
                     keys.forEach(function(k) { localStorage.removeItem(k); });
-                    var req = indexedDB.deleteDatabase('ReaderWranglerDB');
-                    req.onsuccess = req.onerror = req.onblocked = function() { location.reload(); };
+                    // 7.25.1 - storage.js's deleteBookStore (the one delete): a delete another tab blocks is WAITED for,
+                    // saying why — reloading on "blocked" hung the reload behind the pending delete. (A raw delete only if
+                    // storage.js itself failed to load.)
+                    var reload = function() { location.reload(); };
+                    var blocked = function() {
+                        document.getElementById('emergencyMsg').textContent = (typeof BOOK_STORE_TEXT !== 'undefined')
+                            ? BOOK_STORE_TEXT.blocked : 'Close your other ReaderWrangler tabs to finish the reset.';
+                        document.getElementById('emergencyEraseBtn').disabled = true;
+                    };
+                    if (typeof deleteBookStore === 'function') {
+                        deleteBookStore({ onBlocked: blocked }).then(reload, reload);
+                    } else {
+                        var req = indexedDB.deleteDatabase('ReaderWranglerDB');
+                        req.onsuccess = req.onerror = reload;
+                        req.onblocked = blocked;
+                    }
                 });
             });
         }, window._appTimeout || 15000);

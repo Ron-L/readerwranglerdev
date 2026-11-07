@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.25.1] - 2026-11-06
+
+### Fixed
+- **Pasting into a Book List works.** Copy a book (Ctrl+C) and paste it into a Book List (Ctrl+V, or right-click →
+  Paste) to add it. Cut (Ctrl+X) and paste *moves* it: out of the folder you cut it from and onto the list — and if
+  that was its only folder, it goes to the Inbox, and the message says so. One Ctrl+Z puts everything back. Before,
+  a cut pasted into a Book List or the Trash took the book out of its folder and put it nowhere.
+- **Ctrl+V pastes into the Inbox**, as right-click → Paste always did. Where a paste can't go — All Books, the Trash —
+  it now says why instead of doing nothing.
+- **Messages after a cut and paste were blank.** They show what happened now.
+- **The right pane's sideways scrollbar is always usable.** With Cloud Sync on, the status bar along the bottom covered
+  it — at some zoom levels it was a thin sliver or disappeared entirely.
+- **Reset App with other ReaderWrangler tabs open.** The reset could stop halfway while saying it was done, the page
+  could hang on reload, and another open tab could bring your old folders back. Now the other tabs say *"ReaderWrangler
+  was reset in another tab. This tab's contents are out of date. Reload it to continue."* and stop saving, and if a tab
+  still holds on, Reset waits and asks you to close it.
+
+### Behind the scenes — no change for you
+- **Automatic tests in a real browser.** Changes are now checked by tests that drive the app in Chrome the way a person
+  does — clicking, typing, pasting, opening two tabs — with a made-up library, before each release. Every fix above
+  started with a test that showed the problem.
+
 ## [7.25.0] - 2026-10-31
 
 ### Security

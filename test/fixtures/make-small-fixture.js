@@ -52,7 +52,7 @@ B.saga2 = book({ title: 'The Test Saga, Book Two', series: 'The Test Saga', seri
 B.saga3 = book({ title: 'The Test Saga, Book Three', series: 'The Test Saga', seriesPosition: '3' });
 B.saga25 = book({ title: 'The Test Saga: Between the Books', series: 'The Test Saga', seriesPosition: '2.5' });
 // Two authors on one book (never parsed — the whole text is the author).
-B.coauthored = book({ title: 'Written Together', author: 'Avery Testwriter, Blake Coauthor' });
+B.coauthored = book({ title: 'Written Together', author: 'Avery Testwriter, Blake Coauthor' }); // filed in TWO folders (Fantasy, Science Fiction): a move out of one isn't its last folder
 // One book per ownership kind (the wishlist one carries a price goal).
 for (const kind of OWNERSHIP_KINDS) {
     B['own_' + kind] = book({
@@ -81,7 +81,7 @@ const folders = [
       pinned: true, childFolderIds: ['f-saga'] },
     { id: 'f-saga', name: 'The Test Saga', bookIds: ids('saga1', 'saga2', 'saga25', 'saga3'), parentId: 'f-fantasy',
       collapsed: false, sortIndex: 0 },
-    { id: 'f-scifi', name: 'Science Fiction', bookIds: ids('hidden', 'nodesc'), parentId: null, collapsed: false,
+    { id: 'f-scifi', name: 'Science Fiction', bookIds: ids('hidden', 'nodesc', 'coauthored'), parentId: null, collapsed: false,
       sortIndex: 2, childFolderIds: ['f-space'] },
     { id: 'f-space', name: 'Space Opera', bookIds: [], parentId: 'f-scifi', collapsed: true, sortIndex: 0,
       childFolderIds: ['f-old'] },

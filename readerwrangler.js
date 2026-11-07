@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.3";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.4";  // Build version for this file (main merged in: 7.25.1)
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -212,7 +212,7 @@
         const IS_CONTRIBUTOR = isContributor();
         document.title = IS_CONTRIBUTOR ? "ReaderWrangler (local · contributor)" : IS_LOCAL_HOST ? "ReaderWrangler (local)" : "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
-        // saveBooksToIndexedDB, loadBooksFromIndexedDB, clearIndexedDB - see storage.js
+        // saveBooksToIndexedDB, loadBooksFromIndexedDB, deleteBookStore, onBookStoreGone - see storage.js
         // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, formatRelativeTime - see uiHelpers.js
         // buildCoverUrlMap, populateCoverCache - see storage.js
 
@@ -1348,6 +1348,7 @@
             const [integrityResults, setIntegrityResults] = useState(() => loadIntegrityResults()); // v6.3.0
             const [integrityCheckPending, setIntegrityCheckPending] = useState(false); // v6.3.0 - triggers post-import check
             const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+            const [bookStoreGone, setBookStoreGone] = useState(null); // 7.25.1 - 'reset' / 'upgraded' by another tab (storage.js)
             const [collectionsData, setCollectionsData] = useState(null); // Map of ASIN -> {readStatus, collections[]}
             const [collectionFilter, setCollectionFilter] = useState(''); // Filter by collection name or special values
             // v4.8.0 - Undo/Redo state
@@ -2034,6 +2035,139 @@
                 setBookLists(prev => prev.map(b => b.id === bookListId ? { ...b, bookIds: [...(b.bookIds || []), ...toAdd] } : b));
                 recordAction({ type: 'BOOKLIST_ADD', bookListId, bookIds: toAdd, label: `Add ${bookCountLabel(toAdd)} to '${bl.name}'` }); // v6.12.0 - undoable; v7.8.0-alpha.4 named target
                 return toAdd.length;
+            };
+
+            // 7.25.1-alpha.2 - THE paste. Ctrl+V and the book right-click menu's Paste both call pasteClipboard() — they were
+            // two hand-kept copies of one paste that knew only folders, so a cut pasted into a Book List or the Trash took
+            // the book out of its folder and put it nowhere, then said "Pasted 'X' into 'folder'". pasteRefusal(place) is
+            // the ONE answer to "can books be pasted here?": the key's toast and the menu item's greyed state + tooltip both
+            // read it (Law 16). Interim: "One table for every move, copy, paste and delete" (TODO) turns the answer into
+            // rows of its table; these operations stay. Tests: PASTE-001… (test/ui/test_paste.py).
+            const pasteRefusal = (placeId) => {
+                if (folders.some(f => f.id === placeId) || isBookListFolder(placeId)) return null; // a real folder (the Inbox is one) or a Book List
+                if (placeId === '__trash__') return "Can't paste into the Trash. To put books in the Trash, press Delete.";
+                if (placeId === '__all__' || placeId === '__library__') return 'Every book is already in All Books. Open a folder or Book List to paste into it.';
+                return 'Open a folder or Book List to paste into it.';
+            };
+            // Returns true when there was something to paste (the key then claims the keystroke).
+            const pasteClipboard = () => {
+                if (!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0) return false;
+                const refusal = pasteRefusal(selectedFolderId);
+                if (refusal) { showToast(refusal); return true; }
+                if (isBookListFolder(selectedFolderId)) pasteBooksIntoBookList(getBookListId(selectedFolderId), clipboard);
+                else pasteBooksIntoFolder(selectedFolderId, clipboard);
+                if (clipboard.type === 'cut') { // a cut pastes once
+                    setClipboard(null);
+                    setFooterClipboardVisible(false);
+                    // (not setClipboardMessage(null): that state IS the toast's text — clearing it blanked every cut-paste
+                    // receipt, in both old copies of the paste. PASTE-002 / 003.)
+                }
+                return true;
+            };
+            const pasteClipboardRef = useRef(null);
+            pasteClipboardRef.current = pasteClipboard; // the keyboard listener reads it through the ref: never a stale clipboard
+
+            // A paste into a folder — the code both copies used (v5.0.0-alpha.168; receipts v7.10.1-alpha.2), unchanged.
+            const pasteBooksIntoFolder = (targetFolderId, clip) => {
+                const targetName = (folders.find(f => f.id === targetFolderId) || {}).name || 'folder';
+                if (clip.type === 'cut') {
+                    // Cut: remove from the source folders, add to the target
+                    const sourcesByFolder = {};
+                    clip.sourcePositions.forEach(pos => {
+                        if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
+                        sourcesByFolder[pos.folderId].push(pos.bookId);
+                    });
+                    setFolders(prev => prev.map(folder => {
+                        if (sourcesByFolder[folder.id]) {
+                            return { ...folder, bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id)) };
+                        }
+                        if (folder.id === targetFolderId) {
+                            const newBookIds = clip.bookIds.filter(id => !folder.bookIds.includes(id));
+                            return { ...folder, bookIds: [...folder.bookIds, ...newBookIds] };
+                        }
+                        return folder;
+                    }));
+                    recordAction({
+                        type: 'PASTE_BOOKS_CUT', bookIds: clip.bookIds, sourcePositions: clip.sourcePositions, targetFolderId,
+                        label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
+                    });
+                    showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}' — moved from the original folder`);
+                    console.log(`📥 Pasted ${clip.bookIds.length} book(s) (cut) to folder`);
+                } else {
+                    // Copy: just add to the target
+                    setFolders(prev => prev.map(folder => {
+                        if (folder.id !== targetFolderId) return folder;
+                        const newBookIds = clip.bookIds.filter(id => !folder.bookIds.includes(id));
+                        return { ...folder, bookIds: [...folder.bookIds, ...newBookIds] };
+                    }));
+                    recordAction({
+                        type: 'PASTE_BOOKS_COPY', bookIds: clip.bookIds, targetFolderId,
+                        label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
+                    });
+                    showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}'`);
+                    console.log(`📥 Pasted ${clip.bookIds.length} book(s) (copy) to folder`);
+                }
+            };
+
+            // A paste into a Book List, per "Move and copy books anywhere" (decisions 2-4; re-checked 2026-11-06): a copy
+            // adds the books; a cut MOVES them — out of the folder or Book List they were cut from, onto this list — and a
+            // book leaving its LAST folder goes to the Inbox (every book lives in a folder; the Inbox means "not filed
+            // yet"), which the receipt says. One undo step: PASTE_TO_BOOKLIST_CUT, applied by applyBookListCut (redo too).
+            const pasteBooksIntoBookList = (bookListId, clip) => {
+                const bl = bookLists.find(b => b.id === bookListId);
+                if (!bl) return;
+                const ids = clip.bookIds.filter(id => bookMap.has(id));
+                const added = ids.filter(id => !(bl.bookIds || []).includes(id));
+                if (clip.type !== 'cut') {
+                    addBooksToBookList(bookListId, ids);
+                    showToast(added.length > 0 ? `Added ${bookCountLabel(added)} to '${bl.name}'` : `Already on '${bl.name}'`);
+                    return;
+                }
+                const sourceId = (clip.sourcePositions[0] || {}).folderId;
+                const sourceList = getBookList(sourceId);
+                if (sourceList && sourceList.id === bookListId) { showToast(`Already on '${bl.name}'`); return; }
+                const sourceFolder = folders.find(f => f.id === sourceId);
+                const inAnotherFolder = (id) => folders.some(f => f.id !== sourceId && (f.bookIds || []).includes(id));
+                // (a book cut from the Inbox and in no other folder would land straight back there — it stays put)
+                const removedFromFolder = !sourceFolder ? [] : ids
+                    .filter(id => (sourceFolder.bookIds || []).includes(id) && !(sourceFolder.id === '__inbox__' && !inAnotherFolder(id)))
+                    .map(id => ({ bookId: id, index: sourceFolder.bookIds.indexOf(id) }));
+                const sentToInbox = sourceFolder && sourceFolder.id !== '__inbox__'
+                    ? removedFromFolder.map(r => r.bookId).filter(id => !inAnotherFolder(id)) : [];
+                const removedFromList = sourceList ? ids.filter(id => (sourceList.bookIds || []).includes(id)) : [];
+                const action = {
+                    type: 'PASTE_TO_BOOKLIST_CUT', bookListId, added,
+                    sourceFolderId: sourceFolder ? sourceFolder.id : null, removedFromFolder, sentToInbox,
+                    sourceListId: sourceList ? sourceList.id : null, removedFromList,
+                    label: `Move ${bookCountLabel(ids)} to '${bl.name}'`
+                };
+                applyBookListCut(action);
+                recordAction(action);
+                const moved = removedFromFolder.length > 0 || removedFromList.length > 0;
+                const from = sourceFolder ? ` from '${sourceFolder.name}'` : sourceList ? ` from '${sourceList.name}'` : '';
+                const n = sentToInbox.length;
+                const inbox = n === 0 ? ''
+                    // (7.25.1-alpha.3, Ron: "in no folder… in the Inbox" contradicted itself — the Inbox IS a folder; say the reason)
+                    : ids.length === 1 ? " It wasn't in any other folder, so it went to the Inbox."
+                    : n === 1 ? " 1 wasn't in any other folder, so it went to the Inbox."
+                    : ` ${n} weren't in any other folder, so they went to the Inbox.`;
+                showToast(`${moved ? 'Moved' : 'Added'} ${bookCountLabel(ids)}${moved ? from : ''} to '${bl.name}'.${inbox}`);
+            };
+            const applyBookListCut = (a) => {
+                setBookLists(prev => prev.map(bl => {
+                    if (bl.id === a.bookListId) return { ...bl, bookIds: [...(bl.bookIds || []), ...a.added.filter(id => !(bl.bookIds || []).includes(id))] };
+                    if (bl.id === a.sourceListId) return { ...bl, bookIds: (bl.bookIds || []).filter(id => !a.removedFromList.includes(id)) };
+                    return bl;
+                }));
+                if (a.removedFromFolder.length === 0) return;
+                const out = new Set(a.removedFromFolder.map(r => r.bookId));
+                setFolders(prev => prev.map(f => {
+                    if (f.id === a.sourceFolderId) return { ...f, bookIds: (f.bookIds || []).filter(id => !out.has(id)) };
+                    if (f.id === '__inbox__' && a.sentToInbox.length > 0) {
+                        return { ...f, bookIds: [...a.sentToInbox, ...(f.bookIds || []).filter(id => !a.sentToInbox.includes(id))] };
+                    }
+                    return f;
+                }));
             };
 
             // v6.13.1-alpha.9 (ops refactor #3) - Single source of truth for creating / deleting a Book List (both
@@ -4890,6 +5024,14 @@
 
             // v5.0.0-alpha.175.49.1 - Removed settings save useEffect (dead code, settings state removed in v175.48)
 
+            // 7.25.1 - Another tab reset (or upgraded) the book store, so this tab's library is out of date. storage.js has
+            // already let go of the store and refuses book saves; close the organization gate too, so nothing here writes
+            // the old folders back (that half-undid a reset), and show the one-button window below. RESET-002/003.
+            useEffect(() => onBookStoreGone((state) => {
+                orgLoadedRef.current = false;
+                setBookStoreGone(state);
+            }), []);
+
             // Save libraryStatus and collectionsStatus to localStorage (v3.7.0.n)
             useEffect(() => {
                 // v7.7.0-alpha.1 (F1) - Load gate: don't stamp defaults over the saved statuses on mount
@@ -5249,84 +5391,11 @@
                         return; // Don't fall through to Columns App handler
                     }
 
-                    // v5.0.0-alpha.168 - Ctrl+V in Explorer view: Paste books to current folder
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !dialogUp() && clipboard && clipboard.bookIds && clipboard.bookIds.length > 0) { // v7.10.1-alpha.5 - modal guard
+                    // v5.0.0-alpha.168 - Ctrl+V in Explorer view: paste books here. 7.25.1-alpha.2 - through the ONE paste
+                    // (pasteClipboard, shared with the right-click menu), read via its ref so this listener — registered
+                    // with only a few dependencies — never sees a stale clipboard.
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !dialogUp() && pasteClipboardRef.current && pasteClipboardRef.current()) { // v7.10.1-alpha.5 - modal guard
                         e.preventDefault();
-                        // Can't paste to special folders
-                        if (['__all__', '__library__', '__inbox__'].includes(selectedFolderId)) {
-                            console.log('⚠️ Cannot paste into virtual folders');
-                            return;
-                        }
-                        const targetFolderId = selectedFolderId;
-
-                        if (clipboard.type === 'cut') {
-                            // Cut: Remove from source folders, add to target
-                            const sourcesByFolder = {};
-                            clipboard.sourcePositions.forEach(pos => {
-                                if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
-                                sourcesByFolder[pos.folderId].push(pos.bookId);
-                            });
-
-                            setFolders(prev => prev.map(folder => {
-                                // Remove from source folders
-                                if (sourcesByFolder[folder.id]) {
-                                    return {
-                                        ...folder,
-                                        bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
-                                    };
-                                }
-                                // Add to target folder
-                                if (folder.id === targetFolderId) {
-                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                    return {
-                                        ...folder,
-                                        bookIds: [...folder.bookIds, ...newBookIds]
-                                    };
-                                }
-                                return folder;
-                            }));
-
-                            // v7.10.1-alpha.2 (Ron) - label says what the user DID ('Paste', not 'Move'/'Copy' —
-                            // which read as un-copying the clipboard in the undo toast), and paste finally gets
-                            // a receipt (it never had one; predates the receipts doctrine).
-                            recordAction({
-                                type: 'PASTE_BOOKS_CUT',
-                                bookIds: clipboard.bookIds,
-                                sourcePositions: clipboard.sourcePositions,
-                                targetFolderId,
-                                label: `Paste ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'`
-                            });
-                            showToast(`Pasted ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}' — moved from the original folder`);
-
-                            // Clear clipboard after cut-paste
-                            setClipboard(null);
-                            setClipboardMessage(null);
-                            setFooterClipboardVisible(false);
-                            console.log(`📥 Pasted ${clipboard.bookIds.length} book(s) (cut) to folder`);
-                        } else {
-                            // Copy: Just add to target folder
-                            setFolders(prev => prev.map(folder => {
-                                if (folder.id === targetFolderId) {
-                                    const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                    return {
-                                        ...folder,
-                                        bookIds: [...folder.bookIds, ...newBookIds]
-                                    };
-                                }
-                                return folder;
-                            }));
-
-                            recordAction({
-                                type: 'PASTE_BOOKS_COPY',
-                                bookIds: clipboard.bookIds,
-                                targetFolderId,
-                                label: `Paste ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'` // v7.10.1-alpha.2 - 'Paste', not 'Copy' (undo-toast ambiguity)
-                            });
-                            showToast(`Pasted ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'`); // v7.10.1-alpha.2 - paste receipt
-
-                            // Clipboard persists after copy-paste
-                            console.log(`📥 Pasted ${clipboard.bookIds.length} book(s) (copy) to folder`);
-                        }
                         return; // Don't fall through to Columns App handler
                     }
 
@@ -6328,7 +6397,10 @@
             const confirmReset = async () => {
                 setResetConfirmOpen(false);
                 try {
-                    await clearIndexedDB();
+                    // 7.25.1 - a delete another tab blocks is WAITED for, saying why (it said "done" before — RESET-004)
+                    let waitBox = null;
+                    await deleteBookStore({ onBlocked: () => { if (!waitBox) waitBox = showProgressDialog('Reset App', BOOK_STORE_TEXT.blocked); } });
+                    if (waitBox) waitBox.close();
                     localStorage.removeItem(STORAGE_KEY);
                     localStorage.removeItem(CACHE_KEY);
                     localStorage.removeItem(STATUS_KEY); // v3.7.0.n - clear saved status
@@ -7283,7 +7355,7 @@
                 REORDER_BOOKS_BOOKLIST: 'Reorder Book List', PASTE_BOOKS_CUT: 'Paste books', PASTE_BOOKS_COPY: 'Paste books',
                 MOVE_ITEMS: 'Move items', CREATE_FOLDER: 'Create folder', DELETE_FOLDERS: 'Delete folder',
                 REORDER_FOLDER: 'Reorder folders', REPARENT_FOLDER: 'Move folder',
-                COPY_PASTE_FOLDER: 'Copy folder', BOOKLIST_ADD: 'Add to Book List',
+                COPY_PASTE_FOLDER: 'Copy folder', BOOKLIST_ADD: 'Add to Book List', PASTE_TO_BOOKLIST_CUT: 'Move to Book List', // 7.25.1-alpha.2
                 BOOKLIST_REMOVE: 'Remove from Book List', BOOKLIST_CREATE: 'Create Book List', BOOKLIST_DELETE: 'Delete Book List',
                 EDIT_BOOK: 'Edit book', BULK_EDIT_BOOKS: 'Edit books', TOGGLE_HIDE: 'Hide / unhide books',
                 SOFT_DELETE_BOOKS: 'Delete books', RESTORE_BOOKS: 'Restore books', SEQUENCE_SERIES: 'Number series',
@@ -7495,6 +7567,28 @@
                         setBookLists(prev => prev.map(bl => bl.id === action.bookListId
                             ? { ...bl, bookIds: [...(bl.bookIds || []), ...action.bookIds.filter(id => !(bl.bookIds || []).includes(id))] }
                             : bl));
+                        break;
+                    // 7.25.1-alpha.2 - a cut pasted into a Book List (pasteBooksIntoBookList), one step back: off the list,
+                    // back onto the list it was cut from, back into its folder at its old place, out of the Inbox
+                    case 'PASTE_TO_BOOKLIST_CUT':
+                        setBookLists(prev => prev.map(bl => {
+                            if (bl.id === action.bookListId) return { ...bl, bookIds: (bl.bookIds || []).filter(id => !action.added.includes(id)) };
+                            if (bl.id === action.sourceListId) return { ...bl, bookIds: [...(bl.bookIds || []), ...action.removedFromList.filter(id => !(bl.bookIds || []).includes(id))] };
+                            return bl;
+                        }));
+                        if (action.removedFromFolder.length > 0) setFolders(prev => prev.map(f => {
+                            if (f.id === action.sourceFolderId) {
+                                const ids = (f.bookIds || []).slice();
+                                [...action.removedFromFolder].sort((a, b) => a.index - b.index).forEach(({ bookId, index }) => {
+                                    if (!ids.includes(bookId)) ids.splice(index < 0 ? ids.length : Math.min(index, ids.length), 0, bookId);
+                                });
+                                return { ...f, bookIds: ids };
+                            }
+                            if (f.id === '__inbox__' && action.sentToInbox.length > 0) {
+                                return { ...f, bookIds: (f.bookIds || []).filter(id => !action.sentToInbox.includes(id)) };
+                            }
+                            return f;
+                        }));
                         break;
                     // v6.12.0-alpha.54 - Book List create/delete (undo = reverse)
                     case 'BOOKLIST_CREATE':
@@ -8070,6 +8164,9 @@
                         setBookLists(prev => prev.map(bl => bl.id === action.bookListId
                             ? { ...bl, bookIds: (bl.bookIds || []).filter(id => !action.bookIds.includes(id)) }
                             : bl));
+                        break;
+                    case 'PASTE_TO_BOOKLIST_CUT': // 7.25.1-alpha.2 - redo = the paste's own apply step
+                        applyBookListCut(action);
                         break;
                     // v6.12.0-alpha.54 - Book List create/delete (redo = re-apply)
                     case 'BOOKLIST_CREATE':
@@ -11771,6 +11868,22 @@
                         </Dialog>
                     )}
 
+                    {/* 7.25.1 - ANOTHER tab reset (or upgraded) the book store: this tab is out of date. One button, nothing to
+                        dismiss — every edit here would be lost or would bring the old library back (Law 18's exception:
+                        there's no intent left to honor but reloading). Words from storage.js BOOK_STORE_TEXT (Ron's). */}
+                    {bookStoreGone && (
+                        <Dialog onClose={() => {}} showClose={false} zIndexClass="z-[100]" maxWidthClassName="max-w-md">
+                            <div className="p-6">
+                                <h2 data-select-text className="text-lg font-semibold text-gray-900 mb-2">{BOOK_STORE_TEXT.goneTitle(bookStoreGone)}</h2>
+                                <p data-dialog-body className="text-sm text-gray-700 mb-5">{BOOK_STORE_TEXT.goneBody}</p>
+                                <div className="text-right">
+                                    <button onClick={() => location.reload()} autoFocus
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Reload</button>
+                                </div>
+                            </div>
+                        </Dialog>
+                    )}
+
                     {/* v6.8.0 - New folder hidden by active filters alert */}
                     {/* v7.18.0 - first <Dialog> consumer (DIALOG-DISMISSAL-AUDIT.md Phase 1): scrim, panel,
                         header, ✕, Esc, backdrop, and the keystroke fence are all provided by the primitive. */}
@@ -14345,7 +14458,10 @@
 
                     {/* v5.0.0 - Book Explorer view (hidden when no books - welcome screen shown instead) */}
                     {!(books.length === 0 && syncStatus !== 'loading') && (
-                    <div className="flex-1 min-h-0 flex mb-6">
+                    <div className="flex-1 min-h-0 flex">
+                        {/* 7.25.1-alpha.1 - no bottom gap: the status bar is now the layout's own last row (below), so the panes
+                            end exactly where it starts. The old fixed 24 px gap was a guess at its height — with Cloud Sync's
+                            24 px icon the bar is 33 px and covered the panes' bottom, the right pane's scrollbar (LAYOUT-002). */}
                         {/* Left pane: Folder tree */}
                             {/* v5.0.0-alpha.49 - onDragOver prevents browser "split view" prompt */}
                             {/* v5.0.0-alpha.91 - Resizable left pane */}
@@ -19309,11 +19425,13 @@
                                     <span className="ml-auto text-xs text-gray-400">Ctrl+C</span>
                                 </div>
 
-                                {/* Paste - always visible, grayed when no clipboard or in special folder */}
-                                {(!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0 || isSpecialFolder) ? (
+                                {/* Paste - always visible, grayed when there's nothing to paste or books can't be pasted here.
+                                    7.25.1-alpha.2 - "can't be pasted here" and its why-tooltip come from pasteRefusal (the one answer
+                                    Ctrl+V reads too), and a click runs the one pasteClipboard — this was a second copy of the paste. */}
+                                {(!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0 || pasteRefusal(selectedFolderId)) ? (
                                     <div
                                         className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
-                                        title={isSpecialFolder ? "Cannot paste into virtual folders" : "Nothing to paste"}>
+                                        title={(clipboard && clipboard.bookIds && clipboard.bookIds.length > 0 && pasteRefusal(selectedFolderId)) || "Nothing to paste"}>
                                         <span>📥</span>
                                         <span>Paste</span>
                                         <span className="ml-auto text-xs">Ctrl+V</span>
@@ -19322,65 +19440,7 @@
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         onClick={() => {
-                                            const targetFolderId = selectedFolderId;
-
-                                            if (clipboard.type === 'cut') {
-                                                const sourcesByFolder = {};
-                                                clipboard.sourcePositions.forEach(pos => {
-                                                    if (!sourcesByFolder[pos.folderId]) sourcesByFolder[pos.folderId] = [];
-                                                    sourcesByFolder[pos.folderId].push(pos.bookId);
-                                                });
-
-                                                setFolders(prev => prev.map(folder => {
-                                                    if (sourcesByFolder[folder.id]) {
-                                                        return {
-                                                            ...folder,
-                                                            bookIds: folder.bookIds.filter(id => !sourcesByFolder[folder.id].includes(id))
-                                                        };
-                                                    }
-                                                    if (folder.id === targetFolderId) {
-                                                        const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                                        return {
-                                                            ...folder,
-                                                            bookIds: [...folder.bookIds, ...newBookIds]
-                                                        };
-                                                    }
-                                                    return folder;
-                                                }));
-
-                                                recordAction({
-                                                    type: 'PASTE_BOOKS_CUT',
-                                                    bookIds: clipboard.bookIds,
-                                                    sourcePositions: clipboard.sourcePositions,
-                                                    targetFolderId,
-                                                    label: `Paste ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'` // v7.10.1-alpha.2
-                                                });
-                                                showToast(`Pasted ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}' — moved from the original folder`); // v7.10.1-alpha.2 - paste receipt
-
-                                                setClipboard(null);
-                                                setClipboardMessage(null);
-                                                setFooterClipboardVisible(false);
-                                            } else {
-                                                setFolders(prev => prev.map(folder => {
-                                                    if (folder.id === targetFolderId) {
-                                                        const newBookIds = clipboard.bookIds.filter(id => !folder.bookIds.includes(id));
-                                                        return {
-                                                            ...folder,
-                                                            bookIds: [...folder.bookIds, ...newBookIds]
-                                                        };
-                                                    }
-                                                    return folder;
-                                                }));
-
-                                                recordAction({
-                                                    type: 'PASTE_BOOKS_COPY',
-                                                    bookIds: clipboard.bookIds,
-                                                    targetFolderId,
-                                                    label: `Paste ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'` // v7.10.1-alpha.2
-                                                });
-                                                showToast(`Pasted ${bookCountLabel(clipboard.bookIds)} into '${(folders.find(f => f.id === targetFolderId) || {}).name || 'folder'}'`); // v7.10.1-alpha.2 - paste receipt
-                                            }
-
+                                            pasteClipboard();
                                             setExplorerBookContextMenu(null);
                                             setContextSubmenu(null);
                                         }}>
@@ -20311,7 +20371,9 @@
 
                     {/* Affiliate Disclosure Footer (v4.4.0) */}
                     {/* v4.16.0.j - Restructured to include clipboard message on left */}
-                    <div className="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-200 py-1 px-4 text-xs text-gray-500 z-40 flex items-center justify-between">
+                    {/* 7.25.1-alpha.1 - a row of the layout (flex-shrink-0), not floating over the window's bottom edge: the
+                        panes above end where it starts, whatever it holds and at any zoom (LAYOUT-001–007) */}
+                    <div className="flex-shrink-0 relative bg-gray-100 border-t border-gray-200 py-1 px-4 text-xs text-gray-500 z-40 flex items-center justify-between">
                         {/* Left: Clipboard and Selection status (v4.16.0.n - clipboard first for toast target) */}
                         <div className="text-left flex items-center gap-3">
                             {/* v7.6.2-alpha.2 - Toast history: the session's receipts (last 50), for every

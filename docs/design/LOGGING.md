@@ -103,7 +103,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 36 | readerwrangler.js:5211 | log | `` `✅ Selected ${allIds.length} item(s) in Explorer`); `` | debug | MOVE |  |  |
 | 37 | readerwrangler.js:5234 | log | `` `✂️ Cut ${bookIds.length} book(s) to clipboard (Explorer)`); `` | debug | MOVE |  |  |
 | 38 | readerwrangler.js:5248 | log | `` `📋 Copied ${bookIds.length} book(s) to clipboard (Explorer)`); `` | debug | MOVE |  |  |
-| 39 | readerwrangler.js:5257 | log | `'⚠️ Cannot paste into virtual folders');` | info | MOVE |  | FINDING F1: the paste is refused SILENTLY — the user isn't told |
+| 39 | readerwrangler.js:5257 | log | `'⚠️ Cannot paste into virtual folders');` | info | MOVE |  | FINDING F1 — ✅ fixed 7.25.1; this line no longer exists |
 | 40 | readerwrangler.js:5305 | log | `` `📥 Pasted ${clipboard.bookIds.length} book(s) (cut) to folder`); `` | debug | MOVE |  |  |
 | 41 | readerwrangler.js:5328 | log | `` `📥 Pasted ${clipboard.bookIds.length} book(s) (copy) to folder`); `` | debug | MOVE |  |  |
 | 42 | readerwrangler.js:5385 | log | `'📋 Clipboard cleared');` | debug | MOVE |  |  |
@@ -217,7 +217,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 150 | storage.js:246 | warn | `'🔎[schema] Unknown book field(s) on loaded books:', list,` | **error** | FIELD | FIELD-004 | a field nothing knows — schema drift |
 | 151 | storage.js:269 | log | `'✅ Deleted IndexedDB:', DB_NAME); resolve(); };` | info | STORE |  | Reset App |
 | 152 | storage.js:270 | error | `'❌ Failed to delete IndexedDB:', DB_NAME, request.error); reject(request.error); };` | **error** | STORE | STORE-008 | Reset App couldn't delete the book store |
-| 153 | storage.js:271 | warn | `'⚠️ IndexedDB delete blocked — close other tabs'); resolve(); };` | warning | STORE | STORE-009 | FINDING F3: blocked by another tab — the reset carries on as if done |
+| 153 | storage.js:271 | warn | `'⚠️ IndexedDB delete blocked — close other tabs'); resolve(); };` | warning | STORE | STORE-009 | FINDING F3 — ✅ fixed 7.25.1 (now `deleteBookStore`'s info line): blocked by another tab — the reset carried on as if done |
 | 154 | storage.js:293 | log | `` `📷 Cover cache: ${Object.keys(urlMap).length}/${books.length} covers loaded from cache in ${ela… `` | debug | COVER |  |  |
 | 155 | storage.js:295 | error | `'Cover cache read failed:', e);` | warning | COVER | COVER-002 |  |
 | 156 | storage.js:340 | log | `` `📷 Cover cache populated: ${cached} already cached, ${fetched} newly fetched, ${failed} failed … `` | debug | COVER |  |  |
@@ -246,12 +246,17 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 ## 4. Findings from the sort (not logging — things the lines revealed)
 
 1. **F1 — a refused paste says nothing** (#39): Ctrl+V into All Books, the Inbox or another virtual folder is refused
-   with only a console line; the user isn't told (Law 16). Fix: a toast saying why.
+   with only a console line; the user isn't told (Law 16). Fix: a toast saying why. ✅ **Fixed in 7.25.1** — and it
+   was bigger: a cut pasted into a Book List or the Trash took the book out of its folder and put it nowhere. One paste
+   (`pasteClipboard`) and one "can books be pasted here?" (`pasteRefusal`) now; the console line (#39) is gone. The
+   whole class becomes TODO "One table for every move, copy, paste and delete".
 2. **F2 — Import and Restore skip silently** (#48, #58) when another data operation is already running — the click
    just does nothing. Fix: say so ("Another operation is still running — try again in a moment"), or queue it.
 3. **F3 — Reset App can report success without deleting the book store** (#153): when another tab holds the
    store open, the delete is "blocked" and the code carries on as if done (`resolve()`). Check what the user sees; fix
-   with "close your other ReaderWrangler tabs" and a real retry.
+   with "close your other ReaderWrangler tabs" and a real retry. ✅ **Fixed in 7.25.1** — measured worse: the reload
+   could hang and the other tab wrote the old folders back. Each tab keeps one connection and lets go on request; one
+   delete (`deleteBookStore`) for all four resets waits, saying why; line #153 is now an info line in that function.
 4. **F4 — personal text in the console** (#98, #99): an import prints a book's tags and the full text of a user's
    NOTE. Remove them — a copied diagnostics log must never carry a note.
 5. **F5 — the integrity alarm fires on every normal Import** (#102): the known false alarm (Small fixes: "Import files

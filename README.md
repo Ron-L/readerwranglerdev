@@ -146,6 +146,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 <!-- SYNC: Keep "Coming Soon" / "Future Features" in sync with features.html -->
 ## Coming Soon!
 
+- **Opens in a second** — ReaderWrangler starts almost instantly instead of making you wait
 - **Move any window aside** — Drag any window out of the way to see what's behind it
 - **A calmer book editor** — In edit mode, nothing changes until you press Save — and one undo reverses the whole save
 - **Fetch & import reports that tell the whole story** — "3 wishlist books now owned, 1 became a sample," in the dialog and the toast history

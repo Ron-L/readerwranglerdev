@@ -28,7 +28,7 @@ Plus for exactly want of this.)
 1. **Function tests** — fast, sturdy, most of the library. For logic: merging, the book-field table, the ownership
    rules, date labels, the key format and its check characters, Auto-Organize, the overlay stack. Plain Node files in
    `test/` (the five that exist today).
-2. **Screen tests** — through the browser driver (Playwright for Python, the installed Edge, a throwaway profile).
+2. **Screen tests** — through the browser driver (Playwright for Python, the installed Chrome — Ron's browser — a throwaway profile, scrollbars shown).
    Only for what only the screen can show: what the Delete key targets, focus staying inside a window, drag labels,
    two tabs catching up, a menu item disabled rather than missing.
 
@@ -68,8 +68,10 @@ Plus a short **manual list per release** (§8) for what can't be automated.
 - **The project's own Python for screen tests** (Ron, 2026-11-04): Playwright lives in a venv at the repo root
   (`.venv/`, ignored by git), pinned in `requirements-dev.txt` — set up once with `py -m venv .venv` then
   `.venv\Scripts\pip install -r requirements-dev.txt`. The runner starts tier-2 files with that Python and fails loud
-  with that command if it's missing; tier 1 and the commit hook need no venv. Playwright drives the **installed Edge**
-  (`channel="msedge"`), so no browser download. Claude's ad-hoc looks use Playwright's command-line tool through
+  with that command if it's missing; tier 1 and the commit hook need no venv. Playwright drives the **installed Chrome**
+  (`channel="chrome"`; Edge until 2026-11-06 — `RW_BROWSER=msedge` still runs it), so no browser download. Scrollbars are
+  shown (Playwright hides them in a hidden browser by default, which hid a covered scrollbar); `App(zoom=, size=)`
+  emulates browser zoom and window size. Claude's ad-hoc looks use Playwright's command-line tool through
   `npx @playwright/cli@<exact version>` — nothing installed system-wide.
 
 ## 5. Test data — three kinds

@@ -13,31 +13,18 @@ const STORAGE_KEYS = [
     'readerwrangler-folders'
 ];
 
-// IndexedDB to clear (from storage.js)
-const DB_NAME = 'ReaderWranglerDB';
-
-// Clear IndexedDB
-async function clearIndexedDB() {
-    return new Promise((resolve, reject) => {
-        console.log(`🗑️ Deleting IndexedDB: ${DB_NAME}`);
-        const request = indexedDB.deleteDatabase(DB_NAME);
-
-        request.onsuccess = () => {
-            console.log(`✅ IndexedDB deleted: ${DB_NAME}`);
-            resolve();
-        };
-
-        request.onerror = () => {
-            console.error(`❌ Failed to delete IndexedDB: ${DB_NAME}`, request.error);
-            reject(request.error);
-        };
-
-        request.onblocked = () => {
-            console.warn(`⚠️ IndexedDB deletion blocked (close other tabs using ReaderWrangler)`);
-            // Resolve anyway - deletion will complete when other tabs close
-            resolve();
-        };
-    });
+// The book store is deleted by storage.js's deleteBookStore (7.25.1 — loaded before this file by reset.html): the one
+// delete every reset uses. This page used to treat a delete another tab blocks as done; now it waits, saying why.
+function showBlockedNotice() {
+    if (document.getElementById('resetBlocked')) return;
+    const box = document.createElement('div');
+    box.id = 'resetBlocked';
+    box.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    box.innerHTML = `<div class="bg-white rounded-lg shadow-2xl p-8 max-w-md text-center">
+        <div class="text-5xl mb-4">⏳</div>
+        <p class="text-gray-800 font-medium"></p></div>`;
+    box.querySelector('p').textContent = BOOK_STORE_TEXT.blocked;
+    document.body.appendChild(box);
 }
 
 // Clear all localStorage keys
@@ -65,7 +52,9 @@ async function performReset() {
         clearLocalStorage();
 
         // Clear IndexedDB
-        await clearIndexedDB();
+        await deleteBookStore({ onBlocked: showBlockedNotice });
+        const blockedBox = document.getElementById('resetBlocked');
+        if (blockedBox) blockedBox.remove();
 
         console.log('✅ Reset complete!');
 

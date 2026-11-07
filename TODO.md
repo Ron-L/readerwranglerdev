@@ -3,10 +3,10 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [✅ Carry over the utilities project's improvements: the browser driver, a parse check for every script, the "open" shortcut](#carry-over-the-utilities-projects-improvements-the-browser-driver-a-parse-check-for-every-script-the-open-shortcut)
       - [One logging module: severity, area and ID for every message; a display threshold, an always-on log, a reader](#one-logging-module-severity-area-and-id-for-every-message-a-display-threshold-an-always-on-log-a-reader)
       - [Generated test libraries: made-up books at any size, with their own covers](#generated-test-libraries-made-up-books-at-any-size-with-their-own-covers)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
+      - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
       - [Relay worker: one release of changes (backup alerter, clearer daily email, strict ID check)](#relay-worker-one-release-of-changes-backup-alerter-clearer-daily-email-strict-id-check)
       - [Outside reviews before building: launch risks, security, data safety, a newcomer's first look](#outside-reviews-before-building-launch-risks-security-data-safety-a-newcomers-first-look)
       - [Turn more of our working rules into automatic checks (my tooling)](#turn-more-of-our-working-rules-into-automatic-checks-my-tooling)
@@ -39,7 +39,7 @@
       - [The left pane, one release](#the-left-pane-one-release)
         - [Book Lists and Searches: pin and sort them like Folders](#book-lists-and-searches-pin-and-sort-them-like-folders)
         - [A type-to-filter box for the left pane](#a-type-to-filter-box-for-the-left-pane)
-        - [Left pane: put the jump-to-top / bottom buttons by the scrollbar](#left-pane-put-the-jump-to-top--bottom-buttons-by-the-scrollbar)
+        - [Jump-to-top / bottom buttons by the scrollbar, in both panes](#jump-to-top--bottom-buttons-by-the-scrollbar-in-both-panes)
       - [Everyday organizing](#everyday-organizing)
         - [Folder dragging: where you drop decides pinned, and the level](#folder-dragging-where-you-drop-decides-pinned-and-the-level)
         - [Stray double spaces in author names create duplicate authors](#stray-double-spaces-in-author-names-create-duplicate-authors)
@@ -64,6 +64,7 @@
       - ["Bake this order into Manual" for a folder's books and a Book List, from the Sort menu](#bake-this-order-into-manual-for-a-folders-books-and-a-book-list-from-the-sort-menu)
       - [Small fixes](#small-fixes)
         - [✅ Import files new books once, before the integrity check — and only books in no folder](#import-files-new-books-once-before-the-integrity-check--and-only-books-in-no-folder)
+        - [What a reset clears: four resets, four different lists](#what-a-reset-clears-four-resets-four-different-lists)
         - [Tidy up the notes](#tidy-up-the-notes)
         - [Leave the affiliate tag off Amazon links on the test rig](#leave-the-affiliate-tag-off-amazon-links-on-the-test-rig)
         - [Switch the affiliate tag to "readerwrangler-20"](#switch-the-affiliate-tag-to-readerwrangler-20)
@@ -174,64 +175,6 @@ In priority order (Ron re-ranked 2026-10-14). **High priority**, then **Polish**
 7. The rest of the TODO.
 
 ### High priority
-
-#### ✅ Carry over the utilities project's improvements: the browser driver, a parse check for every script, the "open" shortcut
-<!-- id 20261031-1701 -->
-
-**Done 2026-11-04** (branch `feature/carry-over`): the parse check; the regression library's runner, harness and
-tier-1 commit check; the project venv with Playwright 1.64.1 driving the installed Edge; the shared screen-test setup
-(`test/ui/rw.py`, with `hover()` / `click_reachable()`) and the made-up fixture library; the first screen tests; the
-utilities project's Laws 18 and 21 in PRINCIPLES (under Laws 3 and 8). Playwright was picked over copying
-`drive_page.mjs` (the tool survey). The "open" shortcut moved to its own task: "The 'open' shortcut: start serve.py if
-needed and open the app".
-
-_Why it matters:_ The utilities project (Hsv-Utilities-App) built three things RW lacks: a way for Claude to test the
-UI the way Ron uses it (real clicks, drags, keys, hovers — then read what is really on screen), a commit check that
-refuses any script that doesn't parse, and an "open" shortcut. Its own list of these (its docs/DESIGN.md §12) was
-handed over to this TODO on 2026-10-31 — this is now the only record (items 2–3 there, the private-value checks and
-the history scan, shipped the same day).
-
-**Decided** (Ron + Claude, 2026-10-31)
-1. **The browser driver** — copy `tools/drive_page.mjs` from the utilities project (real browser-level mouse and
-   keyboard through Edge's debugging port; `hover` reports what is actually under the pointer, refuses a covered or
-   zero-size target):
-   - a **throwaway browser profile** (a fresh temp folder, deleted at close) — Ron's real browser is never touched;
-   - **Ron's latest backup with its credentials removed** — so tests run at his scale, not the demo's (Ron:
-     "restore from my latest backup … just don't use my credentials"); the test copy of the app then has no Cloud
-     Sync and never contacts either relay; loaded through the real File → Restore path (add a "pick this file" helper);
-   - **`serve.py` on its own test port**, started and stopped by the test (it already takes a port);
-   - **only ReaderWrangler's pages, never Amazon's** (book covers still load from Amazon's image servers, as in
-     normal use); screenshots stay in Claude's scratch folder;
-   - **Edge** (Ron, 2026-10-31: "Edge is fine" — the same engine as Chrome);
-   - the utilities project's Law 18 ("reproduce a reported problem with real input before explaining it") and Law 21
-     ("test what a person reaches by going there the way they would") go into RW's PRINCIPLES as enforcement under
-     Laws 3 and 8.
-2. **A parse check for every script** — port the utilities project's pre-commit `syntax_errors`: every STAGED `.js`,
-   `.mjs` and `.py` must parse. Today `git-hooks/check-names.js` parses only the scripts `readerwrangler.html` loads
-   (plus its inline scripts and mobile.js) and reads them from disk, not as staged — so the fetchers and the bookmarklet
-   menu (shipped code that runs on Amazon's pages), the relay worker, `reset.js`, the `.mjs` tests and every Python
-   file are unchecked (checked 2026-10-31).
-3. **The "open" shortcut + `tools/shortcuts.py`** (later — a convenience): opens the page, starting `serve.py` first if
-   it isn't running; `shortcuts.py` writes the shortcut(s). The open half only — no restart or shutdown: `serve.py`
-   only serves files and rarely changes, and it listens on the home network on purpose, so an off switch any device
-   there could press gains nothing (the utilities project's decision).
-
-**How (technical)**
-- Sources: `C:\Users\Ron\Projects\Hsv-Utilities-App\tools\drive_page.mjs`, `…\hooks\pre-commit` (`syntax_errors`),
-  `…\tools\shortcuts.py`; its PRINCIPLES Laws 18 and 21. RW's own rules govern the work here (branch, commit checks).
-- A test stops what it started by its exact process id (Law 5, 7.25.0).
-- **The testing plan is docs/design/TESTING.md** (Ron + Claude, 2026-11-04): this task builds its §9 first steps — the
-  parse check, the runner (`tools/run_tests.py`: tiers, tags, IDs, `--changed`), the driver (Playwright for Python +
-  the installed Edge; Playwright's command-line tool for Claude's ad-hoc looks), the fixture library's first version.
-- **Before building, weigh Playwright against copying `drive_page.mjs`** (Ron, 2026-10-31). Microsoft's Playwright —
-  its agent CLI (`npm install -g @playwright/cli`) or its library — is maintained, records video and traces (the
-  screen capture pass's scripted reel), and checks before every click that the target is visible and not covered
-  (Law 21, built in). `drive_page.mjs` is 121 lines, no dependency, already proven on the utilities project. Pick
-  one; port `hover`'s "what is under the pointer" report if it's Playwright.
-- **Tool survey 2026-11-03 (docs/design/TOOL-SURVEY.md): Playwright's command-line tool + its skills (`@playwright/cli`) — Microsoft's own
-  pick for coding agents over its tool server; records video natively — and axe-core (`@axe-core/playwright`) for
-  accessibility checks from the same driver. Pin exact versions; test only with the demo library (what the driver
-  shows Claude goes to Anthropic).
 
 #### One logging module: severity, area and ID for every message; a display threshold, an always-on log, a reader
 <!-- id 20261102-1435; merged 20261014-1030m -->
@@ -358,11 +301,71 @@ selection before and after.
 3. **Don't ship single-only** — that's more confusing than neither.
 4. **One operation for every way in:** the key and the folder right-click menu's Delete both use one
    `deleteFolders(…)` operation, so they can't disagree.
+5. **Delete's rules go in the one table** (Ron + Claude, 2026-11-06 — "One table for every move, copy, paste and delete…", just below):
+   what Del does depends on what's selected and where you are, the same kind of rows as move / copy. This fix is the
+   table's **first user**: its design doc (the whole matrix, for Ron's red pen) is written first, then the Delete rows
+   are built and tested; move / copy / paste follow in their own task.
 
 **How (technical)**
 - Today: `if (e.key === 'Delete' && !isSpecialFolder && getSelectedBookIds().length === 0) await deleteFolder(currentFolder)`
   — uses the current folder instead of `getSelectedFolderIds()`. Single via `deleteFolder`; several via a batch
   confirm and one compound undo — the new `deleteFolders(folders)`. Surfaced during the operations refactor.
+
+#### One table for every move, copy, paste and delete: what each gesture does in each place
+<!-- id 20261106-1237 -->
+
+_Why it matters:_ "Where can books be pasted?" was answered by four lists in the code that disagreed (2026-11-06): Ctrl+V
+refused the Inbox while the menu allowed it, and a cut pasted into a Book List or the Trash took the book out of its
+folder and put it nowhere, then said "Pasted". Law 4 (Ron, 2026-11-06): the 2nd related break means a missing structure
+— one table, read by one function every gesture calls, not a fifth list.
+
+**Decided** (Ron + Claude, 2026-11-06)
+1. **Two small tables, one function** — `decide(gesture, what, from, to)`:
+   - **gesture → verb:** Ctrl+X then paste = move, Ctrl+C then paste = copy, Shift-drag = move, Ctrl-drag = copy, a
+     plain drag = move within one kind / copy across kinds ("Move and copy books anywhere" decisions 6–7), right-click
+     Move to / Copy to / Add to Book List >, Delete;
+   - **verb × what's moved × from × to → outcome:** do it, with its effects (add / take out of the source / re-file /
+     last folder → Inbox) and its receipt; refuse, **with the reason's words in the table**; or ask.
+2. **The table drives everything that answers "can I do this here?":** the keys and drags; the right-click menus' enabled
+   / greyed items and their "why" tooltips (Law 16); the drag's live label; the tests — a function test fails if any
+   combination has no row (like bookMerge.js's ownership registry), and screen tests check each gesture goes through it.
+   A pure module, node-tested (the bookFields.js precedent). The work itself goes through the existing operations
+   (`moveItems`, the delete operation) — the table decides, it doesn't do.
+3. **Delete joins it** — what Del does depends on what's selected and where you are. "The Delete key deletes the folder
+   you're in…" (above) is the table's **first user**.
+4. **Design doc first, for Ron's red pen:** the whole matrix as readable tables (rows = from, columns = to, one table
+   per verb and per kind of thing moved), with **today's behavior** beside the decided one — today's measured by a
+   screen test that tries every cell (the LOGGING.md pattern; the 2026-11-06 paste probe was its first slice).
+
+**The survey — at a minimum** (Ron asked, 2026-11-06)
+- **Every gesture:** Ctrl+X / Ctrl+C / Ctrl+V; drag — plain, Shift, Ctrl — in the right pane, the left pane and between
+  them; right-click Move to / Copy to / **Add to Book List >** / Remove from list / Delete; the Delete key; Restore from
+  the Trash; the left pane's own drags (a folder onto a folder, onto a Book List, between two Book List entries — "Move
+  and copy books anywhere" decision 10); reordering (folders, pins, Book Lists, books in Manual order); the phone's
+  gestures (mobile.js), if any reach the same operations; the keyboard in the left pane.
+- **What's moved:** one book, several, books and folders together; a folder (with subfolders); a Book List; a Search.
+- **From / to — every kind of place:** a folder (top level, subfolder, pinned), the Inbox, All Books, the library view,
+  a Search, a Book List, the Trash, the Removed books review, the section headers (Searches / Book Lists / Folders), a
+  left-pane position between entries, the place itself (pasting where it came from).
+- **The book's situation:** in one folder or several (last folder → Inbox), already in the destination, hidden, in the
+  Trash, a wishlist / sample / owned book, filtered out of view.
+- **Each cell's outcome:** do / refuse / ask; the receipt or refusal wording; one undo step; what the menu shows there.
+- **Where the code answers today** (the site map — two independent searches, Law 5): the four paste lists (see "Move
+  and copy books anywhere" → How), Ctrl+X's refusal list (~5223), every `isSpecialFolder` variant, each menu's
+  enable / disable condition, the drop-target highlighting ("no fake drop signals", its decision 11), the integrity
+  check's repair (books in no folder → Inbox). **Also found 2026-11-06:** a SECOND keyboard handler (readerwrangler.js,
+  "Keyboard shortcuts for folder operations", ~5390) answers Ctrl+X / C / V too, on a separate folder clipboard — one
+  Ctrl+C on a selected book was seen copying the current folder as well (timing-dependent; no harm reproduced); and the
+  main keyboard listener's dependency list omits the clipboard (stale-closure risk — paste now reads it through a ref).
+  And a receipt that claims what didn't happen: Ctrl+V of a book into a folder it's already in changes nothing but says
+  *"Pasted 'Written Together' into 'Fantasy'"* (seen 2026-11-06) — an "already there" row needs its own words.
+- **Built ahead of the table, in 7.25.1** (the stopgap it replaces — the operations stay): one paste for Ctrl+V and the
+  menu (`pasteClipboard`), one answer to "can books be pasted here?" (`pasteRefusal`: a real folder — the Inbox included
+  — or a Book List), and the Book List paste (`pasteBooksIntoBookList`: copy adds; cut moves, last folder → Inbox, one
+  undo step `PASTE_TO_BOOKLIST_CUT`). Tests PASTE-001–009 — the start of this table's paste rows.
+
+**Related:** "Move and copy books anywhere" (Polish) holds the move / copy semantics this table encodes; its decisions
+become rows. 7.25.1 fixes Ctrl+V's harmful cells by those decisions ahead of the table (the stopgap the table replaces).
 
 #### Relay worker: one release of changes (backup alerter, clearer daily email, strict ID check)
 <!-- id 20261024-1045 -->
@@ -1295,7 +1298,8 @@ tasks: "Import summary: count every ownership change, by kind", "Keep the Import
 
 Pins and sorting for Book Lists and Searches, a type-to-filter box, and the jump buttons all change
 the left pane's chrome — decided as one release (2026-10-16 / 10-22) so it's designed once. Gathered here 2026-11-04
-(TODO scan); the jump buttons came from Small fixes. Its keyboard part is item 4 of "Finish keyboard accessibility".
+(TODO scan); the jump buttons came from Small fixes (and gained the right pane 2026-11-06, one shared component). Its
+keyboard part is item 4 of "Finish keyboard accessibility".
 
 
 ##### Book Lists and Searches: pin and sort them like Folders
@@ -1345,13 +1349,18 @@ _Why it matters:_ With many folders, Book Lists and Searches, typing a few lette
 
 **Status:** Ron, 2026-09-10; design settled 2026-10-16.
 
-##### Left pane: put the jump-to-top / bottom buttons by the scrollbar
+##### Jump-to-top / bottom buttons by the scrollbar, in both panes
 <!-- id 20261014-1030aa -->
 
-_Why it matters:_ They sit at the bottom left today, not where you'd look for them.
+_Why it matters:_ They sit at the bottom left today, not where you'd look for them, and the right pane, the long
+list of books, has none.
 
 **What you see**
 - Both jump buttons (to top / to bottom) sit at the bottom-left of the left pane. You expected top-at-top and bottom-at-bottom, by the scrollbar.
+- They're pinned to the window, not to the folder list (readerwrangler.js ~18117, `fixed left-2 bottom-8`): they show
+  on the Welcome screen, where there is no folder list, and their height above the status bar is a guess (checked
+  2026-11-06, with the 7.25.1 status-bar fix; Law 19's corollary).
+- The right pane (the books) has no jump buttons at all.
 
 **Decided**
 - No per-section jumps (Searches / Book Lists / Folders) — collapsing sections already handles that.
@@ -1362,6 +1371,14 @@ _Why it matters:_ They sit at the bottom left today, not where you'd look for th
   at the bottom, neither when the pane doesn't scroll. (Not the menu rule's case — a floating helper shifts nothing,
   and a scroll button with nothing to scroll is clutter.)
 - **Home / End do the same jumps** — overlaps "Finish keyboard accessibility" (Polish).
+- (Ron, 2026-11-06) **The right pane gets them too**, by the same rules — it's the long list (3,270 books in Ron's
+  library). There, ▲ sits just below the column headings (List View) and ▼ just above the horizontal scrollbar.
+- **One floating component for any scroll area** (Claude, 2026-11-06): the left and right panes share one implementation
+  and one placement rule, each button positioned inside its own pane (never against the window), so it appears only
+  with that pane and never depends on the status bar's height.
+- **Tests:** a layout test (`test/ui/test_layout.py`, with the driver's `covered_scroll_boxes()`): the buttons never
+  cover a scrollbar or the column headings, at two zooms; ▲ / ▼ show and hide by scroll position; none on the Welcome
+  screen.
 - **Build with the left-pane release** (pins + the filter box + the section overview — "Book Lists and Searches: pin
   and sort them like Folders"), so the pane's chrome is decided once and the filter box and ▲ don't collide.
 
@@ -1509,8 +1526,13 @@ half-done move, not a bad gesture: the cure is complete moves, not forbidding th
      books). Book Lists are never touched by a move — only Delete reaches them.
 3. **A book that leaves its last folder goes to the Inbox** — "every book is in at least one folder" is a design rule
    the app enforces (integrity.js: books with no folder are repaired into the Inbox), and the Inbox means "not filed
-   yet". No dialog; the receipt says it: *"Moved 'Dune' to 'Beach Reads' — it's no longer in any folder, so it's in the
-   Inbox."* Undo if you didn't want that.
+   yet". No dialog; the receipt says it: *"Moved 'Dune' from 'Fantasy' to 'Beach Reads'. It wasn't in any other folder,
+   so it went to the Inbox."* (wording Ron + Claude 2026-11-06 — "no folder… in the Inbox" contradicted itself: the
+   Inbox IS a folder). Undo if you didn't want that. **Re-checked 2026-11-06** (Ron asked, with the least-astonishment principle in mind:
+   refuse instead?): keep it. Cut says "take it out of here", so leaving the folder is what the user predicted; the
+   Inbox step can't be avoided, only made manual (Add to Book List >, then remove from the folder → the same Inbox);
+   a command that doesn't do what it says is the bigger astonishment; and Ctrl+X is an explicit verb (Law 18 corollary
+   4), unlike a plain drag. Only the LAST folder sends a book to the Inbox — a book filed elsewhere just leaves.
 4. **Copy works everywhere** — it only adds the book to the destination. Book Lists keep **Move to** and **Copy to** in
    their right-click menu.
 5. **One rule, asked by every gesture** (menu, drag, keyboard) — a class of sites: list them with two independent
@@ -1549,9 +1571,21 @@ different one; Ctrl always copies, Shift always moves)
     last may be done._
 12. **On ship:** update SUPPORT-KB §8 and §6 (they describe today's behavior).
 
+**The one table** (Ron + Claude, 2026-11-06): every gesture's move / copy / paste rule becomes a row of ONE table —
+see "One table for every move, copy, paste and delete…" (High, after the Delete key task). These decisions are its
+rows.
+
 **How (technical)**
+- **Where "can books be pasted here?" is answered today — four lists that disagree** (found 2026-11-06, the logging
+  comb's finding F1): Ctrl+V refuses All Books, the library view AND the Inbox (readerwrangler.js ~5255, and silently —
+  only a console line); the book right-click menu's Paste refuses only All Books and the library view (~18936 — its
+  comment: "v6.0.0-alpha.53 - Inbox is a real folder, allow Cut/Move/Paste", which Ctrl+V missed); two more lists at
+  ~5404 (adds the Searches header) and ~18406 (adds `__my__`). None names a Book List, a Search or the Trash. Ctrl+V's
+  paste is also hand-written (its own `setFolders`), not `moveItems` — the one move/copy operation the menu and drag use.
 - Today: Ctrl+X is refused only in All Books / the library view (readerwrangler.js ~5223); in a Book List or Search it
-  records the view as the source, but paste-cut only removes from **folders**, so the book stays in the list. Found in
+  records the view as the source, but paste-cut only removes from **folders**, so the book stays in the list. (Still
+  true for a cut from a Book List pasted into a FOLDER after 7.25.1; a cut from a Book List pasted into another Book List
+  now leaves the first list — 7.25.1's Book List paste.) Found in
   7.10.1-alpha.7, filed not fixed.
 
 #### Retire two leftover book fields: the hidden "seen" flag and the old price-goal field
@@ -1917,7 +1951,7 @@ behind it, you can't see where the keyboard is, and right-click menus have no ar
 2. **A visible focus outline** for keyboard users — today only the note editor has a focus style.
 3. **Keyboard access to the right-click menus** — Down / Up move, Enter runs, Esc closes (Esc already works).
 4. **Keyboard navigation in the left pane** (moved here 2026-11-03 from "Leftover desktop polish") — including Home /
-   End for its jumps to top and bottom ("Left pane: put the jump-to-top / bottom buttons by the scrollbar").
+   End for its jumps to top and bottom ("Jump-to-top / bottom buttons by the scrollbar, in both panes").
 
 **Decided** (Ron + Claude, 2026-11-03, in the TODO review)
 1. **Moved up from After launch to Polish** — since 7.18 it's small: every window goes through one `<Dialog>`, every menu
@@ -2061,6 +2095,39 @@ later duplicate step is gone.
   first). `IMPORT-009` / `010` the placement's other two call sites (a saved organization with no folders; none at all)
   — shown to fail with the fix's lines removed. `IMPORT-007` is the pre-launch test Decided item 2 asks for (the
   pre-launch gate is now part of docs/design/TESTING.md).
+
+##### What a reset clears: four resets, four different lists
+<!-- id 20261106-1715 -->
+
+_Why it matters:_ "Reset" should mean the same thing everywhere. The app has four resets and each clears its own hand-kept
+list of saved settings — so an Emergency Reset can leave things a Reset App clears, and old Book Lists may come back
+(Law 4: four answers to one question = one missing list). Found 2026-11-06 while fixing F3 (all four now share ONE
+delete of the book store, storage.js `deleteBookStore` — 7.25.1).
+
+**What each clears today** (besides the book store; checked 2026-11-06)
+
+| Saved setting | Tools → Reset App | "Erase and Reset" (app won't load) | Emergency Reset page | Phone's Reset |
+|---|---|---|---|---|
+| library state, cache, status, filters, view, folders | ✅ | ✅ | ✅ | ✅ |
+| **Book Lists** (`readerwrangler-booklists`) | ✅ | ❌ | ❌ | ❌ |
+| settings (`readerwrangler-settings`) | ❌ | ✅ | ✅ | ✅ |
+| theme, phone preferences | ❌ | ✅ | ❌ | ✅ |
+| Cloud Sync credentials + status | ❌ (kept) | ❌ (kept) | ❌ (kept) | ✅ (says so in its confirm) |
+| wizard settings, search history, phone navigation, desktop mode | mixed — see the four lists |
+
+- **Likely bug:** the library load falls back to the separate Book Lists entry when no saved organization exists
+  (readerwrangler.js ~4489) — so after any reset but Reset App, the old Book Lists may reappear. Check with a test.
+- Where: readerwrangler.js `confirmReset` (~6400); readerwrangler.html (the inline emergency reset, ~372); reset.js
+  `STORAGE_KEYS`; mobile.js `handleReset` (~2815).
+
+**To decide (Ron):** what a reset clears — everything, or everything but the Cloud Sync Key (the desktop keeps it, the
+phone clears it — deliberate?) — then ONE list (with the delete, in storage.js), every reset calls it, and a test
+compares the browser's storage after each reset.
+
+**Test gaps from 7.25.1** (filed per TESTING.md §6): RESET-001–005 cover Tools → Reset App only. The emergency "Erase
+and Reset" (needs the app made to fail its load), the phone's Reset (the phone page) and the Emergency Reset page each
+use the shared delete but have no test of their own — including the "Close your other tabs" wait. Build them with this
+task's storage-comparison test.
 
 ##### Tidy up the notes
 <!-- id 20261020-1448 -->

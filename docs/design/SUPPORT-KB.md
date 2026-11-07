@@ -8,7 +8,7 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-10-31 (through release 7.25.0)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-06 (through release 7.25.1)** — all sections human-reviewed (§1–21).
 7.25.0: signed relay changes — §2's credentials answer (the passphrase also signs every change) and §14 item 6 (the
 three new refusals); comb for "relay", "revoked", "credentials", "Channel ID", "passphrase": no other wording changed.
 7.24.0: Tag from Collections redesigned + exact-text tag names + undo removes a created tag — §9 rewritten (new Qs:
@@ -202,7 +202,11 @@ Ctrl+click, Shift+click for ranges, Ctrl+A for all). Plain **drag moves; Ctrl+dr
 the toast confirms which happened (kept in the 🕐 message log by the status bar — see §13). Right-click → **Move to ▸ / Copy to ▸** offers the folder
 tree as a menu (in your sidebar's order), including "New folder…" targets. Cut/copy/paste
 works too: Ctrl+X marks books with a dashed "marching ants" border — **nothing moves until
-you paste** into the destination folder (Esc cancels a pending cut from anywhere).
+you paste** into the destination folder (Esc cancels a pending cut from anywhere). **Pasting into a Book List**
+(7.25.1): a copy adds the books to the list; a cut **moves** them — out of the folder they were cut from, onto the list —
+and a book that leaves its **last** folder goes to the Inbox (every book lives in a folder; the Inbox means "not filed
+yet"); the message says so, and Ctrl+Z puts it all back. Paste can't go into All Books or the Trash — it says why (to put
+books in the Trash, press Delete).
 
 **Can a book be in two folders?** Yes — a deliberate copy (Ctrl+drag or Copy to) gives it two
 homes; both show the same book. Hover a cover to see everywhere it lives ("Found in… / On
@@ -732,7 +736,7 @@ The app's own list: Help → **Keyboard Shortcuts**. The core set:
 |---|---|
 | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) | Undo / Redo (toasts name the target) |
 | Ctrl+A | Select all in the current view · **in a window (7.19.0): acts on the part you last clicked** — a title or paragraph → just that text; a checkbox list → checks that whole list (= its Select all); nothing clicked yet → the main text. Button labels are never selected. · in a hover popup you've clicked: select its text |
-| Ctrl+X / Ctrl+C / Ctrl+V | Cut (marks) / Copy / Paste books into the current folder |
+| Ctrl+X / Ctrl+C / Ctrl+V | Cut (marks) / Copy / Paste books into the current folder or Book List |
 | Ctrl+Click / Shift+Click | Multi-select / range-select |
 | DEL | Delete selection (context-aware — see §12) |
 | Esc | Close the innermost menu or window (one press per layer — closing a menu keeps your selection) · otherwise cancel pending cut · clear selection |
@@ -762,6 +766,8 @@ row — the menus are where the power hides.
 | Loading feels stuck / "Page Unresponsive" | The app compiles in your browser on every load (~15–25s); the loading screen says so | Wait it out — don't reset |
 | "Sync data check failed / checksum mismatch" | A Relay write was interrupted (rare since v7's sealed-packet sync) | Follow the dialog: full fetch rebuilds, then import — local data is intact |
 | Slow first "Checking pending additions" | First fetch after new relay data does extra accounting | Let it run; later fetches are quick |
+| "ReaderWrangler was reset in another tab. This tab's contents are out of date." (7.25.1) | Reset App ran in another tab of the same browser; this tab still shows the library from before, and stopped saving so it can't bring that library back | Press **Reload** |
+| Reset App says "Close your other ReaderWrangler tabs to finish the reset" (7.25.1) | Another tab still holds the library open (usually one running an older version) | Close the other ReaderWrangler tabs — the reset finishes by itself |
 | Bookmarklet fetches the wrong library / mismatch warning | Bookmarklet carries older credentials than the app | Recreate the bookmarklet from Relay Setup |
 | Import from Relay says "Nothing is on the relay for these credentials yet" (7.26.0) | Either nothing has been sent yet, or the app and the bookmarklet use different credentials — the Relay can't tell the two apart (a mistyped Channel ID is simply an empty channel) | New: on the Amazon library page, bookmarklet → **Download Library** (then **Download Collections**), then Import. Already sent: File → Relay Setup — check the credentials, then update the bookmarklet |
 

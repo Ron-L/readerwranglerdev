@@ -12,12 +12,51 @@ const BOOKS_STORE = "books";
 const COVER_CACHE_NAME = 'rw-covers';
 
 // ===== IndexedDB Helper Functions =====
+// 7.25.1 - ONE connection per tab, released when another tab asks. Every load and save used to open a NEW connection and
+// none was ever closed, and no tab listened for another tab deleting the store — so Reset App with a second tab open was
+// blocked (and said "done" anyway), the reset tab's reload could hang behind the pending delete, and the other tab's next
+// save wrote the old library back (a reset half undone). Now, when another tab deletes (or upgrades) the store, this tab
+// closes its connection at once, stops saving — openDB refuses, because its in-memory library is out of date — and tells
+// the page (onBookStoreGone), which says so. Tests: RESET-001–005 (test/ui/test_reset.py).
+// The tab's relation to the store, one state (Law 17): 'ready' (normal) · 'deleting' (THIS tab is deleting it — its own
+// connection closing isn't news) · 'reset' / 'upgraded' (ANOTHER tab took it away — final; only a reload leaves it).
+let _storeState = 'ready';
+let _dbPromise = null;            // this tab's one connection (opened on first use)
+const _goneListeners = [];
+const _storeGone = () => _storeState === 'reset' || _storeState === 'upgraded';
+// The words every page shows (the desktop app, the phone page, the reset page, the emergency reset) — one source.
+const BOOK_STORE_TEXT = {
+    goneTitle: (state) => `ReaderWrangler was ${state === 'upgraded' ? 'updated' : 'reset'} in another tab.`,
+    goneBody: "This tab's contents are out of date. Reload it to continue.", // Ron's words, 2026-11-06
+    blocked: 'Close your other ReaderWrangler tabs to finish the reset.'
+};
+// Subscribe to "another tab took the store away" (called with 'reset' or 'upgraded'); returns the unsubscribe.
+// Fires at once if it already happened.
+const onBookStoreGone = (fn) => {
+    _goneListeners.push(fn);
+    if (_storeGone()) fn(_storeState);
+    return () => { const i = _goneListeners.indexOf(fn); if (i >= 0) _goneListeners.splice(i, 1); };
+};
+
 const openDB = () => {
-    return new Promise((resolve, reject) => {
+    if (_storeGone()) return Promise.reject(new Error(BOOK_STORE_TEXT.goneTitle(_storeState) + ' ' + BOOK_STORE_TEXT.goneBody));
+    if (_dbPromise) return _dbPromise;
+    _dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => { _dbPromise = null; reject(request.error); };
+        request.onsuccess = () => {
+            const db = request.result;
+            db.onversionchange = (event) => {
+                db.close();
+                _dbPromise = null;
+                if (_storeState !== 'ready') return;   // this tab is the one deleting, or already gone
+                _storeState = event.newVersion === null ? 'reset' : 'upgraded';
+                console.log(`📦 ${BOOK_STORE_TEXT.goneTitle(_storeState)} This tab let go of the book store and stopped saving.`);
+                _goneListeners.slice().forEach(fn => { try { fn(_storeState); } catch (e) { console.error(e); } });
+            };
+            resolve(db);
+        };
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
@@ -26,7 +65,30 @@ const openDB = () => {
             }
         };
     });
+    return _dbPromise;
 };
+
+// 7.25.1 - THE way to delete the book store: Reset App, the "Erase and Reset" offered when the app won't load, the
+// Emergency Reset page and the phone's Reset all call it. It resolves only when the store is really gone. If a tab that
+// doesn't let go (an older build) blocks it, onBlocked() runs — say BOOK_STORE_TEXT.blocked — and the promise keeps
+// waiting: the delete finishes by itself once those tabs close. (Every caller used to treat "blocked" as done.)
+const deleteBookStore = ({ onBlocked } = {}) => new Promise((resolve, reject) => {
+    const own = _dbPromise;
+    _dbPromise = null;
+    if (_storeState === 'ready') _storeState = 'deleting';
+    const settle = () => { if (_storeState === 'deleting') _storeState = 'ready'; };
+    const go = () => {
+        const request = indexedDB.deleteDatabase(DB_NAME);
+        request.onsuccess = () => { settle(); console.log('✅ Deleted IndexedDB:', DB_NAME); resolve(); };
+        request.onerror = () => { settle(); console.error('❌ Failed to delete IndexedDB:', DB_NAME, request.error); reject(request.error); };
+        request.onblocked = () => {
+            console.log('⏳ The book store is held open by another tab — waiting for it to close');
+            if (onBlocked) onBlocked();
+        };
+    };
+    // close this tab's own connection first — it would block its own delete
+    if (own) own.then(db => db.close(), () => {}).then(go); else go();
+});
 
 // v6.3.0 - Write serialization mutex: queues concurrent saveBooksToIndexedDB calls
 // so each completes before the next starts (prevents interleaving clear+add)
@@ -263,14 +325,7 @@ const loadBooksFromIndexedDB = async () => {
     });
 };
 
-const clearIndexedDB = () => {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.deleteDatabase(DB_NAME);
-        request.onsuccess = () => { console.log('✅ Deleted IndexedDB:', DB_NAME); resolve(); };
-        request.onerror = () => { console.error('❌ Failed to delete IndexedDB:', DB_NAME, request.error); reject(request.error); };
-        request.onblocked = () => { console.warn('⚠️ IndexedDB delete blocked — close other tabs'); resolve(); };
-    });
-};
+// (7.25.1 - clearIndexedDB, which treated a blocked delete as done, is replaced by deleteBookStore above.)
 
 // ===== Cover Image Caching (v4.13.0) =====
 

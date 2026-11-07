@@ -21,8 +21,9 @@ with App() as app:
         check("23 books restored" in restored["text"], restored["text"])
     test("APP-002", "File → Restore Backup… restores the made-up library (23 books)", restore_fixture)
 
-    # The fixture's shape (test/fixtures/make-small-fixture.js): 22 live books + 1 in the Trash.
-    EXPECTED = {"All Books": 22, "Inbox": 2, "Fantasy": 5, "The Test Saga": 4, "Science Fiction": 4,
+    # The fixture's shape (test/fixtures/make-small-fixture.js): 22 live books + 1 in the Trash; "Written Together" is filed in
+    # two folders (Fantasy and Science Fiction — 2026-11-06, for the paste tests).
+    EXPECTED = {"All Books": 22, "Inbox": 2, "Fantasy": 5, "The Test Saga": 4, "Science Fiction": 5,
                 "Space Opera": 2, "Every Ownership Kind": 11, "An Empty Folder": 0, "Trash": 1,
                 "The Saga": 4, "Tagged Read": 2, "Read Next": 3, "An Empty Book List": 0}
 

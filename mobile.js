@@ -1,6 +1,6 @@
 // mobile.js — ReaderWrangler Mobile Viewer
 // MOBILE_VERSION tracks mobile-specific iterations
-const MOBILE_VERSION = '1.10.1'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
+const MOBILE_VERSION = '1.10.2'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
 console.log(`✅ Mobile viewer ${MOBILE_VERSION} | APP_VERSION: ${APP_VERSION}`);
 
 // v1.7.0 - Which server is this copy talking to? Derived from the page's own address, so an
@@ -2801,13 +2801,24 @@ function MobileApp() {
         setPairingScreen('prompt');
     };
 
+    // 1.10.2 (7.25.1) - the book store and other tabs (storage.js): a notice that covers the page — "reset in another
+    // tab, this tab's contents are out of date" (with Reload), or "close your other tabs" while a reset waits for them.
+    // null | { title, body, reload }. Words from storage.js BOOK_STORE_TEXT.
+    const [storeNotice, setStoreNotice] = useState(null);
+    useEffect(() => onBookStoreGone((state) => setStoreNotice({
+        title: BOOK_STORE_TEXT.goneTitle(state), body: BOOK_STORE_TEXT.goneBody, reload: true
+    })), []);
+
     // Reset App: clear all data and return to pairing screen
     const handleReset = () => {
         if (!confirm('This will clear all ReaderWrangler data from this device, including your pairing credentials.\n\nYou will need to re-pair with your desktop (scan QR code or enter credentials manually) to restore your library.\n\nTip: Use Save Credentials in the Sync section before resetting.\n\nContinue?')) return;
         const keys = ['readerwrangler-state', 'readerwrangler-enriched-cache', 'readerwrangler-settings', 'readerwrangler-status', 'readerwrangler-filters', 'readerwrangler-explorer', 'readerwrangler-folders', 'readerwrangler-mobile-prefs', 'readerwrangler-theme', 'readerwrangler-relay', 'readerwrangler-mobile-nav'];
         keys.forEach(k => localStorage.removeItem(k));
-        const req = indexedDB.deleteDatabase('ReaderWranglerDB');
-        req.onsuccess = req.onerror = req.onblocked = () => location.reload();
+        // 1.10.2 (7.25.1) - the one delete: a delete another tab blocks is WAITED for, saying why (reloading on
+        // "blocked" hung the reload behind the pending delete)
+        const reload = () => location.reload();
+        deleteBookStore({ onBlocked: () => setStoreNotice({ title: '', body: BOOK_STORE_TEXT.blocked, reload: false }) })
+            .then(reload, reload);
     };
     const handleSelectFolder = (folderId) => {
         if (folderId === '__all__') {
@@ -3030,6 +3041,22 @@ function MobileApp() {
 
     return (
         <div className="min-h-screen" style={{ background: 'var(--bg-page, #ffffff)', color: 'var(--text-primary, #1e293b)' }}>
+            {/* 1.10.2 (7.25.1) - the book-store notice covers everything: nothing behind it may be edited */}
+            {storeNotice && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                    <div style={{ background: 'var(--bg-surface, #fff)', borderRadius: '12px', padding: '20px', maxWidth: '360px', width: '100%' }}>
+                        {storeNotice.title && <div style={{ fontWeight: 600, marginBottom: '8px' }}>{storeNotice.title}</div>}
+                        <div style={{ fontSize: '14px', marginBottom: storeNotice.reload ? '16px' : 0 }}>{storeNotice.body}</div>
+                        {storeNotice.reload && (
+                            <div style={{ textAlign: 'right' }}>
+                                <button onClick={() => location.reload()} style={{ background: '#2563eb', color: '#fff', border: 'none',
+                                    borderRadius: '8px', padding: '8px 16px', fontSize: '14px', touchAction: 'manipulation' }}>Reload</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             {/* v1.7.0-alpha.24 - Freshness banner (mobile twin of desktop's 📡 strip) */}
             {newerAvailable && (
                 <div onClick={() => location.reload()} style={{

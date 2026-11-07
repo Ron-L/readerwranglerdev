@@ -872,7 +872,8 @@
     "name": "Science Fiction",
     "bookIds": [
      "TST0000017",
-     "TST0000018"
+     "TST0000018",
+     "TST0000005"
     ],
     "parentId": null,
     "collapsed": false,
