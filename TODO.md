@@ -194,8 +194,12 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
    never happen" — a bug), **critical** (your data may be at risk: a save failed, a repair that couldn't repair).
    Syslog's Emergency and Alert don't apply — there's no system to bring down.
 2. **Every message:** level + **area** (relay, import, storage, restore, integrity, ui, …) + text; warning and above also
-   carry a **stable ID** (`RELAY-012`) — support can ask "what codes do you see?", and the help notes can explain each
-   code (the same idea as the test IDs). Debug lines get no ID (busywork).
+   carry a **stable ID** — `AREA-NN`, e.g. `IMPORT-12` (Ron, 2026-11-07: no product prefix; the level is a separate
+   field, never part of the code) — support can ask "what codes do you see?", and the help notes can explain each
+   code. Test names keep their own three-digit shape (`IMPORT-004`) and never appear in the log. Debug lines get no ID.
+   **Messages a test plants** carry an explicit `test: true` field, kept all the way through (the kept log, the
+   Diagnostics badge and filter, Copy, the driver's fail-on-error rule), shown to people as `IMPORT-12-!TEST!`; the
+   marker defined once in the module; no reserved numbers (Ron + Claude, 2026-11-07 — LOGGING.md §2).
 3. **Two thresholds — what's shown, and what's kept:**
    - **Shown:** in **diagnostics mode**, error and above raise the **banner** — red, stays until clicked, the details and
      a Copy button, a "Turn off" link; if DevTools is open, also a stop in the debugger. **Never a blocking pause**
