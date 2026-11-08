@@ -308,7 +308,25 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 
 ## 6. The module's shape (Ron + Claude, 2026-11-07)
 
-1. **One call:** `rwLog.log(level, code, text, data, { test: true })` — `data` and the options are optional.
+1. **One call:** `rwLog.log(level, code, text, data, { test, toast, hint })` — `data` and the options are optional.
+   **Where a message goes — the whole rule** (Ron + Claude, 2026-11-08; the "handlers" pattern of Python's `logging` /
+   log4j's appenders: one call, each destination with its own rule):
+
+   | Destination | Takes |
+   |---|---|
+   | the kept log | everything info and up (debug too at `?log=debug`) |
+   | the console | the chosen level and up (info and up for everyone) |
+   | **the user (a toast)** | only messages whose call says `toast: true` (or `toast: { x, y }` — near the click); red for error and up; into the 🕐 history unless `hint: true` (a passing hint such as "Nothing to undo") |
+   | the banner / the critical box | error and up in diagnostics mode / critical for every user (step 3) |
+
+   One message, one call: a failed restore is `rwLog.log('error', 'BACKUP-03', 'Restore failed: …', data, { toast: true })`
+   — the user sees it, support sees its code, diagnostics raises the banner. The app hands its toast routine to the logger
+   at startup (`rwLog.setToaster(fn)`), so the logger never depends on the app: before the app is up (or after it has
+   crashed) a `toast` message still reaches the log and the console, and a critical one still gets the logger's own box
+   (a critical message shows that box, not a toast). `showToast`'s 122 callers move to `rwLog.log(…, { toast })` area by
+   area in step 4; then a commit check refuses a direct `showToast(` call. **Dialogs are not messages** (Ron: "different
+   animals") — info boxes, confirmations and the progress box's finish keep their own routines, each logging what it
+   showed (one line inside each), so everything the user saw is in the log.
    - **level** — `'debug' | 'info' | 'warning' | 'error' | 'critical'`, written at the call site, where the message is
      written (Ron: "it is easier to define the criticality as you type the msg into the code").
    - **code** — `'IMPORT'` (the bare area: a general line) or `'IMPORT-12'` (one specific message). Warning and above
