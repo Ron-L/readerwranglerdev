@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.7";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.8";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -4612,7 +4612,7 @@
                         // in place one release as an inert rollback net.
                         let orgState = null;
                         try { orgState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
-                        catch (e) { console.warn('⚠️ Organization store unreadable (continuing with fallbacks):', e); }
+                        catch (e) { rwLog.log('critical', 'STORE-01', 'Your saved organization could not be read — ReaderWrangler is using a fallback copy.', { error: String(e) }); }
                         const org = (orgState && orgState.organization) || null;
 
                         let loadedFolders = (org && Array.isArray(org.folders) && org.folders.length > 0) ? org.folders : [];
@@ -4802,10 +4802,13 @@
                     };
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 } catch (e) {
-                    console.error('❌ Could not save organization:', e);
+                    // 7.26.0 - critical: the user gets the critical box (it was a toast) — once a session; when storage is full
+                    // EVERY change fails, so later failures are logged (the log counts them) without re-opening the box
                     if (!blobSaveFailWarnedRef.current) {
                         blobSaveFailWarnedRef.current = true;
-                        showToast('⚠️ Your library organization could not be saved — browser storage may be full');
+                        rwLog.log('critical', 'STORE-02', 'Your library organization could not be saved — browser storage may be full.', { error: String(e) });
+                    } else {
+                        rwLog.log('error', 'STORE-10', 'Your library organization still can\'t be saved', { error: String(e) });
                     }
                 }
             }, [folders, blankImageBooks, dataSource, lastSyncTime, hiddenInstances, tagRegistry, savedSearches, bookLists]);
@@ -6457,10 +6460,10 @@
                     setBookLists([]); // v6.12.0 - Clear Book Lists on reset
                     setExplorerView('list');
 
-                    console.log('✅ Cleared library - app reset to initial state');
+                    rwLog.log('info', 'STORE', 'Reset App: the library was cleared');
                     trackEvent('app-reset'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                 } catch (error) {
-                    console.error('Failed to clear library:', error);
+                    rwLog.log('error', 'STORE-03', `Reset App failed: ${error && error.message}`, { error: String(error) });
                     showInfoDialog('Reset Error', 'Failed to clear library data.');
                 }
             };
@@ -6761,7 +6764,7 @@
                             }
                         }
                     } catch (e) {
-                        console.log('Note: Could not read localStorage organization');
+                        rwLog.log('warning', 'STORE-04', 'Could not read the saved organization while loading a library — the folders were left as they are', { error: String(e) });
                     }
                 }
 
