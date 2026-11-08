@@ -21,10 +21,11 @@ with App() as app:
     app.page.evaluate("() => rwLog.setLevel('debug')")
 
     def refused_file():
-        # an old Collections file, marked as a backup so it gets past the file box's "Not a Backup File" check
+        # an old Collections file, marked as a backup and given an (empty) organization so it gets past the file box's
+        # own checks ("Not a Backup File", BACKUP-003's) to the load, which refuses it
         path = os.path.join(tempfile.mkdtemp(prefix="rw-test-restore-"), "old-collections.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"isBackup": True, "type": "collections"}, f)
+            json.dump({"isBackup": True, "type": "collections", "organization": {}}, f)
         n0 = len(app.console)
         text = app.restore(path, expect="Restore Error")
         lines = [(t, x) for t, x in app.console[n0:]]
@@ -43,5 +44,25 @@ with App() as app:
         check(hit, "no 'Backup restored' line naming the books and folders")
         check(not [x for t, x in app.console[n0:] if t == "error"], "the restore logged an error")
     test("BACKUP-002", "a restore that works logs what it brought back: the books and the folders", restored)
+
+    # 2026-11-08 (Ron): a backup with no organization section (no folders or lists) is refused. It used to load like an
+    # Import — merged into the library here, folders kept — breaking Restore's "exactly the backup" promise; no file
+    # today's app saves lacks it, so the only way to get one is to cut it out by hand.
+    def no_organization_refused():
+        with open(FIXTURE, encoding="utf-8") as f:
+            data = json.load(f)
+        del data["organization"]
+        path = os.path.join(tempfile.mkdtemp(prefix="rw-test-restore-"), "no-organization.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        before = {k: app.left_count(k) for k in ("All Books", "Inbox")}
+        n0 = len(app.console)
+        text = app.restore(path, expect="Restore Error")
+        check("no folders or lists" in text, "the box doesn't say why: " + text)
+        check(any(re.search(r"^warning · BACKUP-02 · ", x) for _, x in app.console[n0:]), "no BACKUP-02 warning")
+        after = {k: app.left_count(k) for k in ("All Books", "Inbox")}
+        check(after == before, f"the library changed: {before} → {after}")
+    test("BACKUP-003", "a backup with no folders or lists is refused, and the library is left as it was",
+         no_organization_refused)
 
 done()

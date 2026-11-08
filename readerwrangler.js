@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.12";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.13";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -4882,7 +4882,7 @@
             }, [syncStatus, folders, blankImageBooks, dataSource, lastSyncTime, hiddenInstances, tagRegistry, savedSearches, bookLists, books]); // v6.12.0 Phase 8 - bookLists so list-only edits push
 
             // v6.3.0 - Post-import/restore integrity check
-            // Fires when integrityCheckPending is set by importFromRelay / importBackup.
+            // Fires when integrityCheckPending is set by importFromRelay / performRestore.
             // Runs after React has settled all state updates from loadLibrary, so books + folders are fresh.
             // 7.26.0-alpha.10 - Armed ONLY by an operation that loaded a library, and disarmed whenever it runs — even with no
             // books. It used to stay armed after an Import that found nothing (0 books → return before disarming), then went
@@ -5935,10 +5935,7 @@
                         } else {
                             rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders, lists and view settings');
                         }
-                    } else {
-                        // (it then loads like an Import: the folders already here are kept)
-                        rwLog.log('warning', 'BACKUP-02', 'This backup holds no folders or settings — restoring only its books; the folders already here are kept');
-                    }
+                    }   // (a backup without one is refused before it gets here — restoreBackup, 7.26.0-alpha.13)
                     // v7.14.3 - Apply the credential decision made above; never silently overwrites
                     // existing creds (RELAY-CRED-MISMATCH). adoptBackupCreds is true only for a fresh
                     // app, the same channel, or an explicit "use the backup's" choice.
@@ -5996,7 +5993,7 @@
                 }
             };
 
-            const importBackup = async () => {
+            const restoreBackup = async () => {
                 // Close the dialog immediately when file picker opens
                 setStatusModalOpen(false);
 
@@ -6013,6 +6010,14 @@
                         // v6.0.0: Only accept backup files — library data syncs via relay
                         if (parsedData.isBackup !== true) {
                             showInfoDialog('Not a Backup File', 'This is not a backup file. Library data now syncs automatically through the cloud.');
+                            return;
+                        }
+                        // 7.26.0-alpha.13 - Restore puts back EXACTLY the backup, so one without its organization (no
+                        // folders or lists — never saved that way by the app; only cut out by hand) is refused, not
+                        // loaded like an Import into the library here (Ron, 2026-11-08)
+                        if (!parsedData.organization) {
+                            rwLog.log('warning', 'BACKUP-02', 'Refused a backup with no organization section (no folders or lists) — nothing was changed');
+                            showInfoDialog('Restore Error', "This backup has no folders or lists in it, so it can't be restored. Nothing was changed.\n\nChoose a backup made with File → Save Backup.");
                             return;
                         }
 
@@ -9593,7 +9598,7 @@
                                                     Relay Setup…
                                                 </MenuBarItem>
                                                 <MenuDivider />
-                                                <MenuBarItem onClick={menuAction(importBackup)}>📂 Restore Backup…</MenuBarItem>
+                                                <MenuBarItem onClick={menuAction(restoreBackup)}>📂 Restore Backup…</MenuBarItem>
                                                 <MenuBarItem onClick={menuAction(exportBackup)} disabled={books.length === 0}>💾 Save Backup…</MenuBarItem>
                                                 {/* v7.10.0 - Save Spreadsheet (CSV) — first user-requested feature */}
                                                 <MenuBarItem onClick={menuAction(exportSpreadsheet)} disabled={books.length === 0}
