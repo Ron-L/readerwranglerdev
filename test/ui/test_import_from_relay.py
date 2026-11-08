@@ -31,6 +31,8 @@ NEW_BOOKS = [{
 REPAIR = r"Integrity auto-fixed|Library repair"
 
 with App(relay=True) as app:
+    # at ?log=debug, so the after-Import check's own debug line is kept (IMPORT-004 proves it still runs)
+    app.page.evaluate("() => window.rwLog.setLevel('debug')")
     # First, while the channel is still empty: nothing sent yet, OR credentials that don't match the bookmarklet's — the
     # relay can't tell the two apart (a mistyped Channel ID is an empty channel), so the message names both (Ron,
     # 2026-11-05).
@@ -59,6 +61,7 @@ with App(relay=True) as app:
 
     def import_brings_new_books():
         app.upload_fetch(NEW_BOOKS)
+        imported["checks_before"] = app.page.evaluate("() => window.rwLog.entries().filter(e => e.text.startsWith('After-Import check sees')).length")
         imported["text"] = app.import_from_relay()
         check("3 new" in imported["text"], "the Import's report: " + imported["text"])
     test("IMPORT-002", "a fetch sends 3 new books; File → Import from Relay reports them (\"3 new\")",
@@ -76,6 +79,10 @@ with App(relay=True) as app:
         app.page.wait_for_timeout(2500)
         check(len(app.console_matching(REPAIR)) == repairs_before,
               "a repair was reported for the normal path: " + str(app.console_matching(REPAIR)[repairs_before:]))
+        # …and the after-Import check still RUNS after a successful Import (alpha.10 arms it only then — not switched
+        # off): counted since this Import began (the Restore before it runs the check too)
+        ran = app.page.evaluate("() => window.rwLog.entries().filter(e => e.text.startsWith('After-Import check sees')).length") - imported.get("checks_before", 0)
+        check(ran >= 1, "the after-Import check didn't run after the Import")
     test("IMPORT-004", "a normal Import reports no library repair — after the screen has settled too (F5, and 2026-11-08)",
          no_repair_after_settling)
 

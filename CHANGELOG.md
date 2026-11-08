@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 7.26.0 (draft; Ron's word before release)
+
+### Fixed
+- **Import no longer reports a false "Library repair".** There were two causes, both fixed. First, every Import with
+  new books ran the library's safety check before filing those books into the Inbox, so it "repaired" brand-new books.
+  Then, once that was fixed, a second check showed up: an Import that found nothing to bring in (a brand-new channel,
+  for example) left a follow-up check waiting, and it misfired during your next Restore or Import — reporting
+  "Library repair: 22 issues fixed" for books that were fine. Real repairs are still found and reported.
+
 ## [7.25.1] - 2026-11-06
 
 ### Fixed

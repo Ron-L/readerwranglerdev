@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.9";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.10";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -4880,10 +4880,15 @@
             // v6.3.0 - Post-import/restore integrity check
             // Fires when integrityCheckPending is set by importFromRelay / importBackup.
             // Runs after React has settled all state updates from loadLibrary, so books + folders are fresh.
+            // 7.26.0-alpha.10 - Armed ONLY by an operation that loaded a library, and disarmed whenever it runs — even with no
+            // books. It used to stay armed after an Import that found nothing (0 books → return before disarming), then went
+            // off mid-way through the NEXT operation, against the folders from before it: a false "Library repair: 22 issues
+            // fixed" (proved 2026-11-08 by the two INTEG debug lines; IMPORT-001). Related to the alpha.3 Import-order fix
+            // (F5), which fixed the check INSIDE the load; this is the second check, after it.
             useEffect(() => {
                 if (!integrityCheckPending) return;
+                setIntegrityCheckPending(false);           // disarm first — an armed check must never outlive its operation
                 if (books.length === 0) return;
-                setIntegrityCheckPending(false);
                 {   // 2026-11-08 diagnostics: what this check sees (it once read folders that hadn't landed yet)
                     const filed = new Set(folders.flatMap(f => f.bookIds || []));
                     rwLog.log('debug', 'INTEG', `After-Import check sees ${books.length} books, ${books.filter(b => !b.isDeleted && filed.has(b.id)).length} of them in its ${folders.length} folders`);
@@ -5688,6 +5693,7 @@
                         await progress.finish('Relay Import', 'Nothing is on the relay for these credentials yet.\n\n• New here? On your Amazon library page, click the ReaderWrangler bookmarklet and choose Download Library (then Download Collections). Then come back and Import from Relay.\n\n• Already did that? Then this app and your bookmarklet are using different credentials. Open File → Relay Setup, check them, and update your bookmarklet.');
                         return;
                     }
+                    setIntegrityCheckPending(true); // 7.26.0-alpha.10 - a library loaded: arm the after-check (not on "nothing found" / failure)
 
                     // (7.26.0-alpha.3 - the new books are already filed: loadLibrary files them, before its integrity check —
                     // fileNewBooksInInbox, the one placement path. Its set check keeps v6.12.0-alpha.55's rule: a book is
@@ -5769,7 +5775,8 @@
                 } finally {
                     setRelayImporting(false);
                     dataOpInProgressRef.current = false;
-                    setIntegrityCheckPending(true); // v6.3.0 - triggers integrity check after state settles
+                    // (7.26.0-alpha.10 - the after-check is armed on success above, not here: an Import that found nothing or
+                    // failed left it armed for the next operation)
                 }
             };
 
@@ -5946,6 +5953,7 @@
                         clearTimeout(timeoutId);
                         progress.close(); // the "Backup Restored" dialog takes over from here
                     }, organizationFromFile, (msg) => progress.update(msg));
+                    setIntegrityCheckPending(true); // 7.26.0-alpha.10 - a library loaded: arm the after-check (not on failure)
 
                     // v6.19.0 - Push the restore to the relay as a reset run (background)
                     sendRestoreToRelay(parsedData);
@@ -5964,7 +5972,7 @@
                     }
                 } finally {
                     dataOpInProgressRef.current = false;
-                    setIntegrityCheckPending(true); // v6.3.0 - triggers integrity check after state settles
+                    // (7.26.0-alpha.10 - armed on success above, not here)
                 }
             };
 
