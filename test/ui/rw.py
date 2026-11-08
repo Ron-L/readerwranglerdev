@@ -256,9 +256,9 @@ class App:
         self.page.get_by_role("button", name=re.compile(r"^\s*" + re.escape(top))).first.click()
         return self.page.get_by_role("button", name=re.compile(re.escape(item))).first
 
-    def restore(self, path):
+    def restore(self, path, expect="Backup Restored"):
         """File → Restore Backup… with this file, through the real menu and file box. Refuses a file carrying a key.
-        Returns the confirmation's text and closes it."""
+        Waits for the box titled `expect` (a refused file: "Restore Error"); returns its text and closes it."""
         raw = gzip.open(path).read() if path.endswith(".gz") else open(path, "rb").read()
         relay = json.loads(raw).get("relay") or {}
         if relay.get("channelId") or relay.get("passphrase"):
@@ -268,7 +268,7 @@ class App:
             item.click()
         name = os.path.basename(path)[:-3] if path.endswith(".gz") else os.path.basename(path)
         fc.value.set_files(files=[{"name": name, "mimeType": "application/json", "buffer": raw}])
-        dialog = self.page.get_by_text("Backup Restored", exact=True)
+        dialog = self.page.get_by_text(expect, exact=True)
         dialog.wait_for(timeout=120_000)
         box = dialog.locator("xpath=ancestor::*[.//button][1]")
         text = box.inner_text()

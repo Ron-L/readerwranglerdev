@@ -157,10 +157,10 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 72 | readerwrangler.js:6465 | log | `` `📚 Collections data merged:`); `` | info | IMPORT |  | one line instead of three (72–74) |
 | 73 | readerwrangler.js:6466 | log | `` `   - ${booksWithCollections} books have collections`); `` | merge→72 | IMPORT |  |  |
 | 74 | readerwrangler.js:6467 | log | `` `   - ${readBooks} READ, ${unreadBooks} UNREAD, ${mergedBooks.length - readBooks - unreadBooks}… `` | merge→72 | IMPORT |  |  |
-| 75 | readerwrangler.js:6478 | error | `'❌ Wrong file type selected');` | warning | BACKUP | BACKUP-07 | the wrong kind of file — one entry (75–77) |
+| 75 | readerwrangler.js:6478 | error | `'❌ Wrong file type selected');` | warning | BACKUP | BACKUP-07 | the wrong kind of file — one entry (75–77). **Built (alpha.12):** the load throws a marked error and the CALLER logs it once — Restore as BACKUP-07, "That file can't be restored: …" (the load is shared with Import, which logs it as IMPORT-04) |
 | 76 | readerwrangler.js:6479 | error | `'   You selected an old Collections file');` | merge→75 | BACKUP |  |  |
 | 77 | readerwrangler.js:6480 | error | `'   Please select amazon-library.json instead');` | merge→75 | BACKUP |  |  |
-| 78 | readerwrangler.js:6491 | error | `'❌ Invalid v2.x library format');` | warning | BACKUP | BACKUP-08 | a damaged file — one entry (78–80) |
+| 78 | readerwrangler.js:6491 | error | `'❌ Invalid v2.x library format');` | warning | BACKUP | (BACKUP-07) | a damaged file — one entry (78–80); built as BACKUP-07, like 75 |
 | 79 | readerwrangler.js:6492 | error | `'   Expected: {schemaVersion: "2.x", books: {items: [...]}}');` | merge→78 | BACKUP |  |  |
 | 80 | readerwrangler.js:6493 | error | `'   Received:', Object.keys(parsedData));` | merge→78 | BACKUP |  |  |
 | 81 | readerwrangler.js:6510 | log | `` `📋 Loaded schema ${parsedData.schemaVersion} unified file`); `` | debug | BACKUP |  | one line instead of four (81–84) |
@@ -170,7 +170,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 85 | readerwrangler.js:6524 | log | `` `📚 Loaded embedded collections for ${collections.size} books`); `` | debug | BACKUP |  | one line (85–86) |
 | 86 | readerwrangler.js:6525 | log | `` `   Collections fetched: ${new Date(parsedData.collections.fetchDate).toLocaleString()}`); `` | merge→85 | BACKUP |  |  |
 | 87 | readerwrangler.js:6535 | log | `'📚 No collections data in file (run Collections Fetcher to add)');` | debug | BACKUP |  |  |
-| 88 | readerwrangler.js:6549 | error | `'❌ Unsupported library file (pre-2.0 format):', Object.keys(parsedData));` | warning | BACKUP | BACKUP-09 | a pre-2.0 file — no longer supported |
+| 88 | readerwrangler.js:6549 | error | `'❌ Unsupported library file (pre-2.0 format):', Object.keys(parsedData));` | warning | BACKUP | (BACKUP-07) | a pre-2.0 file — no longer supported; built as BACKUP-07, like 75 |
 | 89 | readerwrangler.js:6596 | log | `'✅ Books sorted by acquisition date (newest first)');` | remove | IMPORT |  | noise |
 | 90 | readerwrangler.js:6598 | error | `'❌ Sort failed:', error);` | **error** | IMPORT | IMPORT-03 | sorting crashed — a bug; one entry (90–91) |
 | 91 | readerwrangler.js:6599 | error | `'Error details:', error.message, error.stack);` | merge→90 | IMPORT |  |  |
@@ -185,13 +185,13 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 100 | readerwrangler.js:6653 | log | `` `🧹 Purged undo history referencing ${removedIds.length} import-removed book(s)`); `` | info | UNDO |  |  |
 | 101 | readerwrangler.js:6716 | log | `'Note: Could not read localStorage organization');` | warning | STORE | STORE-04 |  |
 | 102 | readerwrangler.js:6778 | log | `` `🔧 Integrity auto-fixed during restore:`, integrityResult.autoFixed.map(f => f.description)); `` | **error** | INTEG | INTEG-06 | FINDING F5: fired on EVERY Import with new books — ✅ fixed 7.26.0-alpha.3 (test IMPORT-004); now fires only for a real repair |
-| 103 | readerwrangler.js:6783 | log | `` `✅ Restored ${restoredFolders.length} folders from ${orgSource}`); `` | info | BACKUP |  |  |
+| 103 | readerwrangler.js:6783 | log | `` `✅ Restored ${restoredFolders.length} folders from ${orgSource}`); `` | info | BACKUP |  | built (alpha.12) as one line at the end of a restore: "Backup restored: N books, M folders" (on an Import it named this browser's saved copy — noise) |
 | 104 | readerwrangler.js:6786 | log | `'📁 No folders in backup - keeping existing folder structure');` | info | BACKUP |  | an old backup |
 | 105 | readerwrangler.js:6817 | log | `'📁 No explorer settings in backup - keeping existing preferences');` | debug | BACKUP |  |  |
 | 106 | readerwrangler.js:6824 | log | `` `🎨 Restored theme preference: ${orgToRestore.theme}`); `` | debug | BACKUP |  |  |
-| 107 | readerwrangler.js:6845 | log | `` `✅ Backup restored and synced to relay (${mergedBooks.length} books)`); `` | info | BACKUP |  |  |
+| 107 | readerwrangler.js:6845 | log | `` `✅ Backup restored and synced to relay (${mergedBooks.length} books)`); `` | info | SYNC |  | built as SYNC (it reports the relay push; the restore itself is 103) |
 | 108 | readerwrangler.js:6859 | warn | `'⚠️ Backup restored locally but relay sync failed:', err.message);` | warning | SYNC | SYNC-08 | the network can fail |
-| 109 | readerwrangler.js:6866 | log | `` `✅ Restored organization from ${orgSource}`); `` | debug | BACKUP |  | repeats 103 |
+| 109 | readerwrangler.js:6866 | log | `` `✅ Restored organization from ${orgSource}`); `` | remove | BACKUP |  | repeats 103 |
 | 110 | readerwrangler.js:6908 | error | `'Cache read error:', e);` | warning | COVER | COVER-01 |  |
 | 111 | readerwrangler.js:7496 | warn | `'recordAction: no undo/redo label for action type', action.type);` | **error** | UNDO | UNDO-01 | an action with no undo label — a coding slip |
 | 112 | readerwrangler.js:8084 | warn | `'Unknown action type for undo:', action.type);` | **error** | UNDO | UNDO-02 | Undo of an unknown action does NOTHING — a bug |
@@ -319,12 +319,13 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    | **the user (a toast)** | only messages whose call says `toast: true` (or `toast: { x, y }` — near the click); red for error and up; into the 🕐 history unless `hint: true` (a passing hint such as "Nothing to undo") |
    | the banner / the critical box | error and up in diagnostics mode / critical for every user (step 3) |
 
-   One message, one call: a failed restore is `rwLog.log('error', 'BACKUP-03', 'Restore failed: …', data, { toast: true })`
+   One message, one call: a failed restore is `rwLog.log('error', 'BACKUP-04', 'Restore failed: …', data, { toast: true })`
    — the user sees it, support sees its code, diagnostics raises the banner. The app hands its toast routine to the logger
    at startup (`rwLog.setToaster(fn)`), so the logger never depends on the app: before the app is up (or after it has
    crashed) a `toast` message still reaches the log and the console, and a critical one still gets the logger's own box
-   (a critical message shows that box, not a toast). `showToast`'s 122 callers move to `rwLog.log(…, { toast })` area by
-   area in step 4; then a commit check refuses a direct `showToast(` call. **Dialogs are not messages** (Ron: "different
+   (a critical message shows that box, not a toast). `showToast`'s 122 callers move to `rwLog.log(…, { toast })` in one
+   pass after the console lines are switched (re-sequenced 2026-11-08: one pass, each call given its area, instead of
+   area by area); then a commit check refuses a direct `showToast(` call. **Dialogs are not messages** (Ron: "different
    animals") — info boxes, confirmations and the progress box's finish keep their own routines, each logging what it
    showed (one line inside each), so everything the user saw is in the log.
    - **level** — `'debug' | 'info' | 'warning' | 'error' | 'critical'`, written at the call site, where the message is

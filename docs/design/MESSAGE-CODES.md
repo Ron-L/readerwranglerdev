@@ -2,10 +2,17 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-42 numbered codes. (35 general lines — info and debug, coded by their area alone — not listed.)
+49 numbered codes. (45 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
+| BACKUP-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
+| BACKUP-02 | warning | This backup holds no folders or settings — restoring only its books; the folders already here are kept | readerwrangler.js |
+| BACKUP-03 | warning | The restore took longer than 60 seconds to finish — asked the person to reload the page | readerwrangler.js |
+| BACKUP-04 | error | Restore failed: … | readerwrangler.js |
+| BACKUP-05 | error | Save Backup failed: … | readerwrangler.js |
+| BACKUP-06 | error | Save as Spreadsheet failed: … | readerwrangler.js |
+| BACKUP-07 | warning | That file can't be restored: … | readerwrangler.js |
 | IMPORT-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
 | IMPORT-02 | warning | Import from Relay failed — the relay couldn't be reached: … | readerwrangler.js |
 | IMPORT-03 | error | Sorting the books by date added crashed: … | readerwrangler.js |

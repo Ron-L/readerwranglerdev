@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.11";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.12";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -5884,7 +5884,9 @@
             // keep/merge option was considered and rejected.
             const performRestore = async (text, parsedData, restoreOpts) => {
                 if (dataOpInProgressRef.current) {
-                    console.warn('⚠️ Data operation already in progress, skipping restore');
+                    // F2 (LOGGING.md §4): no one can reach this today — a guard against a double start; if it's ever
+                    // reached, say what's running and log where from
+                    rwLog.log('warning', 'BACKUP-01', `${dataOpInProgressRef.current === 'restore' ? 'A restore' : 'An Import'} is already running — it will finish in a moment.`, null, { toast: true });
                     return;
                 }
                 dataOpInProgressRef.current = 'restore';
@@ -5929,12 +5931,13 @@
                                 theme: undefined, // v7.4.0 - theme rides the presentation cluster too
                                 explorerSettings: es ? { folderSortSettings: es.folderSortSettings } : undefined
                             };
-                            console.log('📋 Restoring organization from backup file (keeping current view settings)');
+                            rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders and lists, keeping the view settings here');
                         } else {
-                            console.log('📋 Restoring organization from backup file (full, incl. view settings)');
+                            rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders, lists and view settings');
                         }
                     } else {
-                        console.log('⚠️ Backup file has no organization section - will start fresh');
+                        // (it then loads like an Import: the folders already here are kept)
+                        rwLog.log('warning', 'BACKUP-02', 'This backup holds no folders or settings — restoring only its books; the folders already here are kept');
                     }
                     // v7.14.3 - Apply the credential decision made above; never silently overwrites
                     // existing creds (RELAY-CRED-MISMATCH). adoptBackupCreds is true only for a fresh
@@ -5955,10 +5958,10 @@
                     // Setup timeout (60 seconds for large libraries)
                     timeoutId = setTimeout(() => {
                         if (!callbackFired) {
-                            console.error('⚠️ Status check timed out after 60 seconds');
+                            rwLog.log('warning', 'BACKUP-03', 'The restore took longer than 60 seconds to finish — asked the person to reload the page');
                             setSyncStatus('unknown');
                             progress.close();
-                            showInfoDialog('Import Warning', 'Library loaded but status check timed out. Please refresh the page.');
+                            showInfoDialog('Restore Warning', 'Library loaded but status check timed out. Please refresh the page.');
                         }
                     }, 60000);
 
@@ -5977,15 +5980,16 @@
                     trackEvent('file-imported'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                 } catch (error) {
                     progress.close();
-                    console.error('Failed to sync:', error);
                     setSyncStatus('none'); // Clear loading spinner (v3.9.0.l)
-                    if (error && error.message) {
-                        console.error('Error details:', error.message, error.stack);
-                        showInfoDialog('Import Error', `Failed to load backup file: ${error.message}`);
+                    // one entry: a file we refuse on purpose is the person's file, not our bug (warning);
+                    // anything else is unexpected (error, with the stack)
+                    const msg = (error && error.message) || 'Unknown error';
+                    if (error && error.notRestorable) {
+                        rwLog.log('warning', 'BACKUP-07', `That file can't be restored: ${msg}`);
                     } else {
-                        console.error('Error details: Unknown error (null or no message)');
-                        showInfoDialog('Import Error', 'Failed to load backup file: Unknown error');
+                        rwLog.log('error', 'BACKUP-04', `Restore failed: ${msg}`, { stack: error && error.stack });
                     }
+                    showInfoDialog('Restore Error', `Failed to load backup file: ${msg}`);
                 } finally {
                     dataOpInProgressRef.current = null;
                     // (7.26.0-alpha.10 - armed on success above, not here)
@@ -6032,7 +6036,7 @@
                             backupDate: backupOrg.exportDate || (parsedData.books && parsedData.books.fetchDate) || null
                         });
                     } catch (error) {
-                        showInfoDialog('Import Error', `Could not read backup file: ${error.message || 'Unknown error'}`);
+                        showInfoDialog('Restore Error', `Could not read backup file: ${error.message || 'Unknown error'}`);
                     }
                 };
                 input.click();
@@ -6346,14 +6350,14 @@
                         URL.revokeObjectURL(url);
                         savedName = suggestedName;
                     }
-                    console.log('✅ Backup exported (v2.0 format with organization)');
+                    rwLog.log('info', 'BACKUP', `Backup saved: ${allBooks.length} books, ${(blob.size / 1048576).toFixed(1)} MB`);
                     trackEvent('file-exported'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                     progress.close();
                     // v7.6.2-alpha.2 - The receipt: filename + count + size = the confidence that was missing
                     showToast(`Backup saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`);
                 } catch (error) {
                     progress.close();
-                    console.error('Failed to export library:', error);
+                    rwLog.log('error', 'BACKUP-05', `Save Backup failed: ${(error && error.message) || error}`, { stack: error && error.stack });
                     showInfoDialog('Export Error', 'Failed to export library.');
                 }
             };
@@ -6429,7 +6433,7 @@
                     showToast(`Spreadsheet saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`);
                 } catch (error) {
                     progress.close();
-                    console.error('Failed to save spreadsheet:', error);
+                    rwLog.log('error', 'BACKUP-06', `Save as Spreadsheet failed: ${(error && error.message) || error}`, { stack: error && error.stack });
                     showInfoDialog('Spreadsheet Error', 'Failed to save the spreadsheet.');
                 }
             };
@@ -6549,13 +6553,16 @@
             const loadLibrary = async (content, onComplete = null, organizationFromFile = null, onPhase = null) => {
                 const phase = (msg) => { if (onPhase) onPhase(msg); };
                 const parsedData = JSON.parse(content);
+                // v6.3.0 - a backup restore replaces; everything else (an Import) merges
+                const isBackupRestore = organizationFromFile !== null;
+                // 7.26.0 - the load is shared by Restore and Import: its notes go to the area of the one running
+                const loadNote = (text) => isBackupRestore ? rwLog.log('debug', 'BACKUP', text) : rwLog.log('debug', 'IMPORT', text);
+                // a file refused on purpose — the caller logs it once, as the person's file rather than our bug
+                const notRestorable = (text) => Object.assign(new Error(text), { notRestorable: true });
 
                 // Check if user selected legacy collections file (v3.9.0.k)
                 if (parsedData.type === 'collections') {
-                    console.error('❌ Wrong file type selected');
-                    console.error('   You selected an old Collections file');
-                    console.error('   Please select amazon-library.json instead');
-                    throw new Error('You selected an old Collections file. Please select amazon-library.json instead.');
+                    throw notRestorable('You selected an old Collections file. Please select amazon-library.json instead.');
                 }
 
                 let data;           // Array of book items
@@ -6565,17 +6572,14 @@
                 // Schema v2.x - unified format with books.items and collections.items
                 if (parsedData.schemaVersion?.startsWith('2.')) {
                     if (!parsedData.books || !parsedData.books.items) {
-                        console.error('❌ Invalid v2.x library format');
-                        console.error('   Expected: {schemaVersion: "2.x", books: {items: [...]}}');
-                        console.error('   Received:', Object.keys(parsedData));
-                        throw new Error('Invalid v2.x library format - please re-fetch your library using the latest fetcher');
+                        throw notRestorable(`Invalid v2.x library format - please re-fetch your library using the latest fetcher (the file holds: ${Object.keys(parsedData).join(', ')})`);
                     }
 
                     data = parsedData.books.items;
                     // v7.16.0 - refuse ancient v1.x records (raw amazonData blobs) even inside a 2.x wrapper;
                     // unpackBook handles the current flat shape only. See SERIALIZATION.md §10.
                     if (data.some(it => it && it.amazonData)) {
-                        throw new Error("This file was saved by a very old, unsupported version of ReaderWrangler and can't be restored.");
+                        throw notRestorable("This file was saved by a very old, unsupported version of ReaderWrangler and can't be restored.");
                     }
                     metadata = {
                         schemaVersion: parsedData.schemaVersion,
@@ -6584,10 +6588,7 @@
                         totalBooks: parsedData.books.totalBooks || data.length
                     };
 
-                    console.log(`📋 Loaded schema ${parsedData.schemaVersion} unified file`);
-                    console.log(`   Total books: ${metadata.totalBooks}`);
-                    console.log(`   Fetched: ${new Date(metadata.fetchDate).toLocaleString()}`);
-                    console.log(`   Fetcher version: ${metadata.fetcherVersion}`);
+                    loadNote(`Loading a schema ${parsedData.schemaVersion} library: ${metadata.totalBooks} books, fetched ${new Date(metadata.fetchDate).toLocaleString()} by fetcher ${metadata.fetcherVersion}`);
 
                     // Extract embedded collections from v2.0 file
                     if (parsedData.collections && parsedData.collections.items) {
@@ -6598,8 +6599,7 @@
                                 collections: book.collections || []
                             });
                         });
-                        console.log(`📚 Loaded embedded collections for ${collections.size} books`);
-                        console.log(`   Collections fetched: ${new Date(parsedData.collections.fetchDate).toLocaleString()}`);
+                        loadNote(`The library carries collections for ${collections.size} books, fetched ${new Date(parsedData.collections.fetchDate).toLocaleString()}`);
 
                         // Update collections status
                         const collectionsLoadStatus = parsedData.collections.fetchDate ? calculateFreshness(parsedData.collections.fetchDate) : 'unknown';
@@ -6609,7 +6609,7 @@
                         });
                         setCollectionsData(collections);
                     } else {
-                        console.log('📚 No collections data in file (run Collections Fetcher to add)');
+                        loadNote('The library carries no collections (the Collections Fetcher adds them)');
                         collections = null;
                         // Reset collections status when no collections in file (v4.15.1 - bug fix 0-A)
                         setCollectionsStatus({
@@ -6623,8 +6623,7 @@
                 // architecture (before schema 2.0 / the V4 "Column App" / Book Explorer) and are no longer
                 // supported — importing one produced mostly-blank books. See docs/design/SERIALIZATION.md §10.
                 else {
-                    console.error('❌ Unsupported library file (pre-2.0 format):', Object.keys(parsedData));
-                    throw new Error("This file was saved by a very old, unsupported version of ReaderWrangler and can't be restored.");
+                    throw notRestorable(`This file was saved by a very old, unsupported version of ReaderWrangler and can't be restored. (It holds: ${Object.keys(parsedData).join(', ')})`);
                 }
 
                 // Update library status from loaded JSON metadata
@@ -6695,7 +6694,7 @@
                 // v5.0.0-alpha.173.1 - preserveUserData=true for imports to merge with existing
                 // v6.10.0-alpha.19 - Backup restore uses false (clean replacement, no orphan merge)
                 // v6.3.0 - Capture existing IDs before merge so we can report new books to caller
-                const isBackupRestore = organizationFromFile !== null;
+                // (isBackupRestore: defined at the top)
                 phase(`Restoring ${processedBooks.length.toLocaleString()} books…`);
                 const existingIds = new Set((await loadBooksFromIndexedDB()).map(b => b.id));
                 const mergedBooks = await saveBooksToIndexedDB(processedBooks, !isBackupRestore);
@@ -6780,6 +6779,7 @@
                         rwLog.log('warning', 'STORE-04', 'Could not read the saved organization while loading a library — the folders were left as they are', { error: String(e) });
                     }
                 }
+                loadNote(orgSource ? `Organization taken from ${orgSource === 'backup file' ? 'the backup' : "this browser's saved copy"}` : 'No saved organization — the books load without one');
 
                 if (orgToRestore) {
                     // v7.6.0-alpha.19 - The APPLIED org values, captured for the relay push below: mid-restore
@@ -6851,10 +6851,10 @@
                         setFolders(finalFolders); // guarded blob save persists this (F1)
                         rwLog.log('debug', 'INTEG', `The load set ${finalFolders.length} folders holding ${new Set(finalFolders.flatMap(f => f.bookIds || [])).size} books (${mergedBooks.length} books loaded)`);
                         pushOrgOverride.folders = finalFolders; // v7.6.0-alpha.19 - the integrity-checked applied set
-                        console.log(`✅ Restored ${restoredFolders.length} folders from ${orgSource}`);
                     } else {
                         // No folders in backup - preserve existing folders from localStorage (backward compatibility)
-                        console.log('📁 No folders in backup - keeping existing folder structure');
+                        if (isBackupRestore) rwLog.log('info', 'BACKUP', 'The backup has no folders — the folders already here were kept');
+                        else loadNote("This browser's saved organization has no folders — the folders here were kept");
                         if (!isBackupRestore && newBookIds.length > 0) setFolders(prev => fileNewBooksInInbox(prev, newBookIds)); // 7.26.0-alpha.3
                     }
 
@@ -6886,14 +6886,14 @@
                         }
                     } else {
                         // No explorer settings in backup - preserve existing from localStorage (backward compatibility)
-                        console.log('📁 No explorer settings in backup - keeping existing preferences');
+                        loadNote('No view settings in the organization — kept the ones here');
                     }
 
                     // v7.4.0 - Theme (presentation cluster): present only on empty-system restores
                     // (performRestore strips it for rollbacks); old backups simply lack it
                     if (orgToRestore.theme) {
                         applyTheme(orgToRestore.theme);
-                        console.log(`🎨 Restored theme preference: ${orgToRestore.theme}`);
+                        loadNote(`Theme restored: ${orgToRestore.theme}`);
                     }
 
                     // v7.6.0-alpha.22 - New world, blank history (Ron-ratified): the pre-restore undo stack
@@ -6908,13 +6908,16 @@
                     // org + a FRESH stamp — phones accept it immediately instead of guard-skipping a
                     // stale-stamped pre-restore payload. Presentation fields stay the CURRENT ones from
                     // buildDeviceStatePayload (rollbacks keep your eyes — the 7.4.0 cluster rule).
+                    if (isBackupRestore) {
+                        rwLog.log('info', 'BACKUP', `Backup restored: ${mergedBooks.length} books${pushOrgOverride.folders ? `, ${pushOrgOverride.folders.length} folders` : ''}`);
+                    }
                     if (organizationFromFile !== null && window.RWRelay && window.RWRelay.isConfigured()) {
                         try {
                             phase('Preparing cloud sync…');
                             const payload = await buildDeviceStatePayload();
                             payload.organization = { ...payload.organization, ...pushOrgOverride, savedAt: Date.now() };
                             await window.RWRelay.putDeviceState(JSON.stringify(payload), (p, detail) => phase(detail));
-                            console.log(`✅ Backup restored and synced to relay (${mergedBooks.length} books)`);
+                            rwLog.log('info', 'SYNC', `Sent the restored organization to the relay (${mergedBooks.length} books)`);
                             // v7.6.2-alpha.3 - Echo suppression: without this, the post-restore setState wave
                             // arms the debounced push ~60s later with IDENTICAL content — a redundant ~17MB
                             // generation, and the phone banners "6:01 newer than 6:01" against its own sync.
@@ -6935,7 +6938,6 @@
                         showInfoDialog('Backup Restored', `${mergedBooks.length} books restored.\n\nSet up cloud sync (File → Relay Setup) to keep your library in sync.`);
                     }
 
-                    console.log(`✅ Restored organization from ${orgSource}`);
                     setDataSource('enriched');
                     setLastSyncTime(Date.now());
                     setSyncStatus('fresh');
@@ -12348,7 +12350,7 @@
                         };
                         const losses = lostLists.length + lostSearches.length;
                         return (
-                        <Dialog onClose={() => { console.log('📋 Backup restore cancelled by user'); setRestoreConfirm(null); }}
+                        <Dialog onClose={() => { rwLog.log('debug', 'BACKUP', 'Restore cancelled'); setRestoreConfirm(null); }}
                             showClose={false} closeButton zIndexClass="z-[100]" panelClassName="bg-white rounded-lg shadow-2xl w-full" panelStyle={{ maxWidth: '560px' }}>
                                 <div className="p-4 bg-amber-100 rounded-t-lg border-b border-amber-300">
                                     <h2 data-select-text className="text-lg font-bold text-gray-900">Restore backup?</h2>
@@ -12381,7 +12383,7 @@
                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors">
                                         Back up current first…
                                     </button>
-                                    <button onClick={() => { console.log('📋 Backup restore cancelled by user'); setRestoreConfirm(null); }}
+                                    <button onClick={() => { rwLog.log('debug', 'BACKUP', 'Restore cancelled'); setRestoreConfirm(null); }}
                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors">
                                         Cancel
                                     </button>

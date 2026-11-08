@@ -153,11 +153,11 @@ with App(relay=True) as app:
     test("IMPORT-009", "an Import with a saved organization that has no folders still files its new book in the Inbox",
          lambda: import_without_saved_folders(1, """() => { const s = JSON.parse(localStorage.getItem('readerwrangler-state'));
              delete s.organization.folders; localStorage.setItem('readerwrangler-state', JSON.stringify(s)); }""",
-             lambda lines: check(any("No folders in backup" in x for x in lines), "the Import didn't take the no-folders path")))
+             lambda lines: check(any("saved organization has no folders" in x for x in lines), "the Import didn't take the no-folders path")))
     test("IMPORT-010", "an Import with no saved organization at all still files its new book in the Inbox",
          lambda: import_without_saved_folders(2, """() => { const s = JSON.parse(localStorage.getItem('readerwrangler-state'));
              delete s.organization; localStorage.setItem('readerwrangler-state', JSON.stringify(s)); }""",
-             lambda lines: check(not any("Restored organization from" in x for x in lines),
+             lambda lines: check(any("No saved organization" in x for x in lines),
                                  "the Import found a saved organization — it didn't take the no-organization path")))
 
 done()
