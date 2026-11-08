@@ -33,8 +33,9 @@ const last = (w) => w.log.entries()[w.log.entries().length - 1];
 
 console.log('logger tests:');
 
-test('LOG-001', 'each level goes to its own console method, as "level · CODE · text"', () => {
+test('LOG-001', 'each level goes to its own console method, as "level · CODE · text" (at ?log=debug)', () => {
     const w = world();
+    w.log.setLevel('debug');   // (debug reaches the console only at debug — LOG-016)
     w.log.log('debug', 'STORE', 'saved 3 books');
     w.log.log('info', 'IMPORT', 'Library updated: 26 books');
     w.log.log('warning', 'IMPORT-01', 'An Import is already running');
@@ -191,6 +192,84 @@ test('LOG-015', 'the vocabulary: five levels in order, and the 13 areas as a fro
     assert.deepStrictEqual(Object.keys(L.LOG_AREAS).sort(), ['BACKUP', 'BOOT', 'COVER', 'FIELD', 'IMPORT', 'INTEG', 'MOVE',
         'PHONE', 'PREF', 'STORE', 'SYNC', 'UI', 'UNDO']);
     assert.ok(Object.isFrozen(L.LOG_AREAS));
+});
+
+// ---- Step 3 (LOGGING.md §1, TODO decisions 3-4): the one tunable gate, diagnostics mode, the alerts ----
+// The setting: none (an ordinary user) or a level chosen with ?log=… (diagnostics mode). The console shows the chosen
+// level and up (info and up when none is chosen); debug is kept only at debug. In diagnostics mode, error and above
+// raise the banner; critical is shown to EVERY user. The logger decides; a thin renderer draws (onAlert).
+function alertWorld(opts = {}) {
+    const alerts = [];
+    const w = world({ ...opts, extra: { onAlert: (kind, e) => alerts.push([kind, e.code]), ...(opts.extra || {}) } });
+    return { ...w, alerts };
+}
+
+test('LOG-016', 'no setting (an ordinary user): the console shows info and up; no diagnostics', () => {
+    const w = alertWorld();
+    w.log.log('debug', 'STORE', 'detail');
+    w.log.log('info', 'BOOT', 'started');
+    assert.deepStrictEqual(w.out.map(o => o[0]), ['info'], 'debug stays out of the console');
+    assert.strictEqual(w.log.diagnostics(), false);
+    assert.strictEqual(w.log.level(), 'info');
+});
+
+test('LOG-017', 'setLevel("debug"): debug shows and is kept, diagnostics on, and the choice is remembered', () => {
+    const w = alertWorld();
+    w.log.setLevel('debug');
+    w.log.log('debug', 'STORE', 'detail');
+    assert.ok(w.out.some(o => o[0] === 'debug'), 'debug printed');
+    assert.ok(w.log.entries().some(e => e.level === 'debug'), 'debug kept at debug');
+    assert.strictEqual(w.log.diagnostics(), true);
+    assert.strictEqual(w.store.get('readerwrangler-log-level'), 'debug', 'remembered');
+    const again = alertWorld({ storage: { getItem: k => w.store.get(k) ?? null, setItem: () => {} } });
+    assert.strictEqual(again.log.level(), 'debug', 'a new page keeps it');
+});
+
+test('LOG-018', 'a higher setting hides lower lines from the console — but info and up are still KEPT', () => {
+    const w = alertWorld();
+    w.log.setLevel('warning');
+    w.log.log('info', 'BOOT', 'started');
+    assert.strictEqual(w.out.length, 0, 'info not printed at warning');
+    assert.ok(w.log.entries().some(e => e.text === 'started'), 'but kept');
+});
+
+test('LOG-019', 'an error raises the banner only in diagnostics mode', () => {
+    const w = alertWorld();
+    w.log.log('error', 'INTEG-06', 'repaired 3 books');
+    assert.deepStrictEqual(w.alerts, [], 'no banner for an ordinary user');
+    w.log.setLevel('error');
+    w.log.log('error', 'INTEG-06', 'repaired 3 books again');
+    assert.deepStrictEqual(w.alerts, [['banner', 'INTEG-06']]);
+});
+
+test('LOG-020', 'a critical message is shown to EVERY user — diagnostics or not', () => {
+    const w = alertWorld();
+    w.log.log('critical', 'STORE-02', 'the library could not be saved');
+    assert.deepStrictEqual(w.alerts, [['critical', 'STORE-02']]);
+    w.log.setLevel('debug');
+    w.log.log('critical', 'STORE-02', 'again');
+    assert.deepStrictEqual(w.alerts[1], ['critical', 'STORE-02'], 'one alert kind for critical, also in diagnostics');
+});
+
+test('LOG-021', '?log=… on the address: applied, remembered, and taken OUT of the address; ?log=off clears it', () => {
+    const w = alertWorld();
+    assert.strictEqual(w.log.applyAddress('?log=debug&x=1'), '?x=1');
+    assert.strictEqual(w.log.level(), 'debug');
+    assert.strictEqual(w.log.applyAddress('?log=debug'), '', 'the only parameter: nothing left');
+    assert.strictEqual(w.log.applyAddress('?x=1'), null, 'no ?log= — leave the address alone');
+    assert.strictEqual(w.log.applyAddress('?log=off'), '');
+    assert.strictEqual(w.log.diagnostics(), false);
+    assert.strictEqual(w.log.level(), 'info');
+    assert.strictEqual(w.log.applyAddress('?log=loud'), '', 'an unknown value is still removed…');
+    assert.strictEqual(w.log.diagnostics(), false, '…and changes nothing');
+});
+
+test('LOG-022', 'a planted test error raises the banner too (so the banner can be tested), marked as a test', () => {
+    const w = alertWorld();
+    w.log.setLevel('debug');
+    w.log.log('error', 'UI-03', 'planted', null, { test: true });
+    assert.deepStrictEqual(w.alerts, [['banner', 'UI-03']]);
+    assert.strictEqual(last(w).test, true);
 });
 
 done();

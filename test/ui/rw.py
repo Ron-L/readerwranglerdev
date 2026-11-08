@@ -376,9 +376,15 @@ class App:
         return int(m.group(1)) if m else None
 
     def unexpected_console(self):
-        """Console errors and warnings not on KNOWN_NOISE, plus page crashes."""
+        """Console errors and warnings not on KNOWN_NOISE, plus page crashes. Lines a test planted on purpose — marked
+        with the logging module's test marker, read from the page (defined once, in logger.js) — don't count."""
+        try:
+            mark = self.page.evaluate("() => (window.rwLog && window.rwLog.TEST_MARK) || null")
+        except Exception:
+            mark = None
         out = [f"{t}: {x[:200]}" for t, x in self.console
-               if t in ("error", "warning") and not any(re.search(p, x) for p, _ in KNOWN_NOISE)]
+               if t in ("error", "warning") and not any(re.search(p, x) for p, _ in KNOWN_NOISE)
+               and not (mark and mark in x)]
         return out + [f"crash: {c[:200]}" for c in self.crashes]
 
     def open_tab(self, path="readerwrangler.html", wait_for_app=True):

@@ -297,7 +297,11 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 2. ✅ The module: levels, areas, codes, the kept log (repeats counted, page loads), the scrubber — function tests first
    (7.26.0-alpha.5: `logger.js` + LOG-001–015; `tools/message_codes.py` + MSG-001–013 + the commit check + the generated
    `docs/design/MESSAGE-CODES.md`).
-3. The gate (`?log=`), the banner, critical shown to users — screen tests first.
+3. ✅ The gate (`?log=`), the banner, critical shown to users — tests first (7.26.0-alpha.6: LOG-016–022, LOGUI-001–006).
+   The `?log=` answer lives in `logger.js`, not beside the environment answers in readerwrangler.html as TODO decision 4
+   said: the logger loads first and needs it before that script runs — still ONE place. The banner and the critical box
+   are plain page elements drawn by the logger (they must work when the app has crashed); neither blocks (the critical
+   box says "save a backup now", so File must stay reachable). Wording: Ron, 2026-11-07.
 4. Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides.
 5. The Diagnostics view in Data Status (filter, Copy).
 6. The browser driver at `?log=debug`, failing a test on any error or critical.

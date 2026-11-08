@@ -26,6 +26,7 @@ const LOG_AREAS = Object.freeze({
 });
 const TEST_MARK = '-!TEST!';                          // written after the code of a planted test message — defined ONCE
 const LOG_STORAGE_KEY = 'readerwrangler-log';
+const LOG_LEVEL_KEY = 'readerwrangler-log-level';     // the remembered ?log= choice (none = an ordinary user)
 const CODE_RE = /^([A-Z]+)(?:-(\d{2}))?$/;            // 'IMPORT' or 'IMPORT-12'
 const CHANNEL_ID_RE = /\b([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const EXTENSION_SCRIPT_RE = /^(chrome|moz|safari-web|ms-browser)-extension:\/\//;
@@ -58,6 +59,14 @@ function createLogger(opts = {}) {
     const cap = opts.cap || 500;
     const keepRank = rank(opts.keepLevel || 'info');
     const saveDelayMs = opts.saveDelayMs != null ? opts.saveDelayMs : 3000;
+    const levelKey = opts.levelKey || LOG_LEVEL_KEY;
+    const onAlert = opts.onAlert || null;      // (kind 'banner' | 'critical', entry) — the page draws it
+    // The one tunable gate (LOGGING.md §1; TODO decision 4): null = an ordinary user; a level = diagnostics mode, chosen
+    // with ?log=… (or rwLog.setLevel in the console) and remembered in this browser. One value — "diagnostics mode" is
+    // derived from it, never a second flag.
+    let setting = (() => {
+        try { const v = storage && storage.getItem(levelKey); return LOG_LEVELS.includes(v) ? v : null; } catch (e) { return null; }
+    })();
 
     let entries = (() => {
         try {
@@ -86,11 +95,17 @@ function createLogger(opts = {}) {
         const entry = { time: now(), level, code, area: code.split('-')[0], text: scrub(asText(text), secrets), count: 1 };
         if (data != null) entry.data = scrubData(data, secrets);
         if (isTest) entry.test = true;
-        try {
-            const write = con[CONSOLE_METHOD[level]] || con.log;
-            if (entry.data !== undefined) write.call(con, format(entry), entry.data); else write.call(con, format(entry));
-        } catch (e) { /* no console */ }
-        if (rank(level) < keepRank) return;
+        if (rank(level) >= rank(setting || 'info')) {   // the console shows the chosen level and up (info and up for everyone)
+            try {
+                const write = con[CONSOLE_METHOD[level]] || con.log;
+                if (entry.data !== undefined) write.call(con, format(entry), entry.data); else write.call(con, format(entry));
+            } catch (e) { /* no console */ }
+        }
+        // the alerts: critical for EVERY user; an error raises the banner in diagnostics mode
+        if (onAlert && (level === 'critical' || (level === 'error' && setting !== null))) {
+            try { onAlert(level === 'critical' ? 'critical' : 'banner', entry); } catch (e) { /* drawing must not break logging */ }
+        }
+        if (rank(level) < (setting === 'debug' ? rank('debug') : keepRank)) return;   // debug is kept only at debug
         const prev = entries[entries.length - 1];
         if (prev && prev.level === level && prev.code === code && prev.text === entry.text && !!prev.test === !!isTest) {
             prev.count = (prev.count || 1) + 1;   // repeats counted, not stored again
@@ -119,11 +134,37 @@ function createLogger(opts = {}) {
         } catch (e) { /* logging must never break the app */ }
     };
 
+    const setLevel = (lv) => {
+        setting = LOG_LEVELS.includes(lv) ? lv : null;
+        try {
+            if (!storage) return;
+            if (setting) storage.setItem(levelKey, setting);
+            else if (storage.removeItem) storage.removeItem(levelKey);
+            else storage.setItem(levelKey, '');
+        } catch (e) { /* not remembered: still applies to this page */ }
+    };
+
     return {
         log,
         format,
+        TEST_MARK,
         entries: () => entries.map(e => ({ ...e })),
         flush: save,
+        level: () => setting || 'info',
+        diagnostics: () => setting !== null,
+        setLevel,
+        // ?log=debug|info|warning|error|off on the page's address: applied, remembered, and taken out of the address (so
+        // it isn't bookmarked or shared). Returns the address's remaining query ('' if none), or null if there was no
+        // ?log= (leave the address alone). An unknown value changes nothing but is still removed.
+        applyAddress: (search) => {
+            const params = new URLSearchParams(search || '');
+            if (!params.has('log')) return null;
+            const v = params.get('log');
+            if (v === 'off') setLevel(null); else if (LOG_LEVELS.includes(v)) setLevel(v);
+            params.delete('log');
+            const rest = params.toString();
+            return rest ? '?' + rest : '';
+        },
         // A page-load entry: the build, and whether the browser had discarded the tab (LOGGING.md §1).
         pageLoad: ({ build, discarded } = {}) => log('info', 'BOOT',
             `Page loaded — build ${build || 'unknown'}${discarded ? '; the browser had discarded this tab and reloaded it' : ''}`),
@@ -151,7 +192,81 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     };
     let pageStorage = null;
     try { pageStorage = window.localStorage; } catch (e) { /* storage blocked: the log lives in memory */ }
-    const rwLog = createLogger({ console: window.console, storage: pageStorage, secrets: relaySecrets });
+
+    // The two alerts (wording: Ron, 2026-11-07), drawn in plain page elements — not React — so they still work if the app
+    // has crashed. Neither blocks: the critical box says "save a backup now: File → Save Backup", so the menu must stay
+    // reachable. Tests: test/ui/test_logging.py (LOGUI-001…).
+    const BANNER_CSS = 'position:fixed;top:34px;left:0;right:0;z-index:2147483000;display:flex;align-items:center;gap:10px;'
+        + 'padding:6px 12px;background:#b91c1c;color:#fff;font:13px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif;'
+        + 'box-shadow:0 2px 6px rgba(0,0,0,.3)';
+    const BANNER_BTN = 'background:#fff;color:#b91c1c;border:0;border-radius:4px;padding:3px 10px;font:inherit;font-weight:600;'
+        + 'cursor:pointer;flex-shrink:0';
+    const BANNER_LINK = 'background:none;border:0;color:#fff;text-decoration:underline;font:inherit;cursor:pointer;flex-shrink:0';
+    const CRITICAL_CSS = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:2147483001;'
+        + 'width:min(560px,calc(100vw - 32px));box-sizing:border-box;background:var(--bg-surface,#fff);'
+        + 'color:var(--text-primary,#1e293b);border:2px solid #b91c1c;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);'
+        + 'padding:16px 18px;font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif';
+    const CRITICAL_BTN = 'background:var(--bg-elevated,#f1f5f9);color:inherit;border:1px solid var(--border-strong,#cbd5e1);'
+        + 'border-radius:6px;padding:6px 14px;margin-right:8px;font:inherit;cursor:pointer';
+    const CRITICAL_OK = 'background:#b91c1c;color:#fff;border:0;border-radius:6px;padding:6px 18px;font:inherit;font-weight:600;cursor:pointer';
+    const shown = { banner: [], critical: [] };     // the entries each alert has shown since it appeared
+    const whenBody = (fn) => { if (document.body) fn(); else document.addEventListener('DOMContentLoaded', fn, { once: true }); };
+    const el = (tag, css, text) => { const n = document.createElement(tag); if (css) n.style.cssText = css; if (text != null) n.textContent = text; return n; };
+    const button = (label, css, onClick) => { const b = el('button', css, label); b.type = 'button'; b.addEventListener('click', onClick); return b; };
+    const codeOf = (e) => `${e.code}${e.test ? TEST_MARK : ''}`;
+    const report = (list) => [
+        `ReaderWrangler diagnostics — build ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown'} — ${new Date().toISOString()}`,
+        ...list.map(e => `${new Date(e.time).toISOString()}  ${rwLog.format(e)}`),
+        '', 'Recent log:', ...rwLog.entries().slice(-50).map(e => `${new Date(e.time).toISOString()}  ${rwLog.format(e)}`)
+    ].join('\n');
+    const copyInto = (btn, list, label) => {
+        try {
+            navigator.clipboard.writeText(report(list)).then(() => {
+                btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = label; }, 1500);
+            }, () => {});
+        } catch (e) { /* no clipboard */ }
+    };
+    const showBanner = (entry) => whenBody(() => {
+        shown.banner.push(entry);
+        let bar = document.getElementById('rw-log-banner');
+        if (!bar) { bar = el('div', BANNER_CSS); bar.id = 'rw-log-banner'; bar.setAttribute('role', 'alert'); document.body.appendChild(bar); }
+        bar.textContent = '';
+        const msg = el('span', 'flex:1;min-width:0;overflow-wrap:anywhere', '🐞 ');
+        msg.appendChild(el('strong', '', `${entry.level} · ${codeOf(entry)}`));
+        msg.appendChild(document.createTextNode(` · ${entry.text}`));
+        if (shown.banner.length > 1) msg.appendChild(el('em', 'margin-left:8px;opacity:.85', `(+${shown.banner.length - 1} more)`));
+        const close = () => { shown.banner = []; bar.remove(); };
+        const copyBtn = button('Copy', BANNER_BTN, () => copyInto(copyBtn, shown.banner, 'Copy'));
+        bar.append(msg, copyBtn, button('Dismiss', BANNER_BTN, close),
+            button('Turn off diagnostics', BANNER_LINK, () => { rwLog.setLevel(null); close(); }));
+        debugger; // eslint-disable-line no-debugger -- stops here only when DevTools is open (TODO decision 3)
+    });
+    const showCritical = (entry) => whenBody(() => {
+        shown.critical.push(entry);
+        let box = document.getElementById('rw-log-critical');
+        if (!box) { box = el('div', CRITICAL_CSS); box.id = 'rw-log-critical'; box.setAttribute('role', 'alert'); document.body.appendChild(box); }
+        box.textContent = '';
+        box.append(
+            el('div', 'font-weight:700;font-size:15px;margin-bottom:6px', 'ReaderWrangler hit a problem that may affect your library.'),
+            el('div', 'margin-bottom:8px', `${entry.text} (code ${codeOf(entry)})`),
+            el('div', 'margin-bottom:12px;color:var(--text-secondary,#475569)', 'To be safe, save a backup now: File → Save Backup. '
+                + 'If ReaderWrangler stops responding, reload the page. If this keeps happening, press Copy details and send it '
+                + 'to us through Feedback at the bottom of the window.'));
+        if (shown.critical.length > 1) box.append(el('div', 'margin-bottom:8px;font-style:italic', `and ${shown.critical.length - 1} more`));
+        const row = el('div', 'text-align:right');
+        const copyBtn = button('Copy details', CRITICAL_BTN, () => copyInto(copyBtn, shown.critical, 'Copy details'));
+        row.append(copyBtn, button('OK', CRITICAL_OK, () => { shown.critical = []; box.remove(); }));
+        box.append(row);
+    });
+
+    const rwLog = createLogger({ console: window.console, storage: pageStorage, secrets: relaySecrets,
+        onAlert: (kind, entry) => (kind === 'critical' ? showCritical(entry) : showBanner(entry)) });
+    // ?log=… on the address: applied, remembered, and removed from the address bar (TODO decision 4)
+    const remaining = rwLog.applyAddress(window.location.search);
+    if (remaining !== null) {
+        try { window.history.replaceState(window.history.state, '', window.location.pathname + remaining + window.location.hash); }
+        catch (e) { /* the address stays; the choice still applies */ }
+    }
     rwLog.installGlobalHandlers(window);
     window.addEventListener('pagehide', () => rwLog.flush());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') rwLog.flush(); });
@@ -165,6 +280,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { createLogger, scrub, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY };
+    module.exports = { createLogger, scrub, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY, LOG_LEVEL_KEY };
 }
 })();
