@@ -2,10 +2,15 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-21 numbered codes. (13 general lines — info and debug, coded by their area alone — not listed.)
+42 numbered codes. (35 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
+| IMPORT-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
+| IMPORT-02 | warning | Import from Relay failed — the relay couldn't be reached: … | readerwrangler.js |
+| IMPORT-03 | error | Sorting the books by date added crashed: … | readerwrangler.js |
+| IMPORT-04 | error | Import from Relay failed unexpectedly: … | readerwrangler.js |
+| IMPORT-05 | error | The relay's copy failed its integrity check — the recovery steps were shown (this device's library is safe): … | readerwrangler.js |
 | INTEG-01 | error | The integrity check itself crashed: … | readerwrangler.js |
 | INTEG-02 | error | Library repair on load: … issue… fixed — see Data Status | readerwrangler.js |
 | INTEG-03 | error | The integrity check found … problem(s) it couldn't fix (on load) | readerwrangler.js |
@@ -24,6 +29,22 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | STORE-09 | warning | The book store is held open by another tab — the reset waits for it to close | storage.js |
 | STORE-10 | error | Your library organization still can't be saved | readerwrangler.js |
 | STORE-11 | error | A "reset in another tab" listener failed: … | storage.js |
+| SYNC-01 | warning | A permanent delete worked here, but telling the relay failed — if the book comes back after a fetch, delete it again | readerwrangler.js |
+| SYNC-02 | warning | Couldn't check the relay for news: … | readerwrangler.js |
+| SYNC-03 | warning | The background relay poll failed: … | readerwrangler.js |
+| SYNC-04 | warning | Couldn't send your organization to the relay (it retries at the next change): … | readerwrangler.js |
+| SYNC-05 | warning | Combining the relay's copy was put off (it retries at the next Import): … | readerwrangler.js |
+| SYNC-06 | warning | Clearing already-imported batches off the relay was skipped (they expire on their own): … | readerwrangler.js |
+| SYNC-07 | warning | Restore worked here, but the relay push failed — the next Import finishes it: … | readerwrangler.js |
+| SYNC-08 | warning | A backup restored here, but sending your organization to the relay failed: … | readerwrangler.js |
+| SYNC-09 | warning | Relay cleanup failed | relay-client.js |
+| SYNC-10 | warning | Clearing an imported batch off the relay was skipped (it expires on its own): … | relay-client.js |
+| SYNC-11 | critical | The relay's saved copy of your library could not be read — it was skipped. | relay-client.js |
+| SYNC-12 | error | A batch of books on the relay could not be read — it was skipped: … | relay-client.js |
+| SYNC-13 | warning | Combining the relay's copy (for an old batch) was skipped: … | relay-client.js |
+| SYNC-14 | error | The relay's library could not be read: … | relay-client.js |
+| SYNC-15 | warning | Sending to the relay failed (it can be retried): … | relay-client.js |
+| SYNC-16 | warning | Checking for old batches on the relay was skipped: … | relay-client.js |
 | UI-02 | error | A logging call was malformed: … | logger.js |
 | UI-03 | error | Uncaught error: … | logger.js |
 | UI-04 | error | A failed promise nobody handled: … | logger.js |

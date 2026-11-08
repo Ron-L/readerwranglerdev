@@ -10,6 +10,18 @@
 (function() {
   'use strict';
 
+  // 7.26.0 - Logging (docs/design/LOGGING.md §6): the page's logger when there is one (the app). On Amazon's pages (the
+  // fetchers) and in the relay's Node tests there isn't — the fetchers' own log is LOGGING.md item 10 — so the same call
+  // prints to the console in the logger's format instead. Calls stay rwLog.log(level, code, text, data), so the commit's
+  // code scan still checks every one.
+  const rwLog = (typeof window !== 'undefined' && window.rwLog) || {
+    log: (level, code, text, data) => {
+      const method = { debug: 'debug', info: 'info', warning: 'warn', error: 'error', critical: 'error' }[level] || 'log';
+      const line = `${level} · ${code} · ${text}`;
+      if (data !== undefined) console[method](line, data); else console[method](line);
+    }
+  };
+
   const WORKER_URL = 'https://readerwrangler-relay.readerwrangler.workers.dev';
   const CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB per chunk (under 25 MB KV limit)
   const RELAY_STORAGE_KEY = 'readerwrangler-relay';
@@ -397,7 +409,7 @@
     });
 
     if (!response.ok) {
-      console.warn('Relay cleanup failed:', await response.text());
+      rwLog.log('warning', 'SYNC-09', 'Relay cleanup failed', { response: await response.text() });
     }
   }
 
@@ -994,9 +1006,9 @@
     for (const r of absorbedRuns || []) {
       if ((r.parts || 1) <= 1) continue;
       try { await deleteRun(r.runId); deleted++; }
-      catch (e) { console.warn(`Bulk-run GC skipped for ${r.runId} (TTL will handle it):`, e.message); }
+      catch (e) { rwLog.log('warning', 'SYNC-10', `Clearing an imported batch off the relay was skipped (it expires on its own): ${e.message}`, { runId: r.runId }); }
     }
-    if (deleted > 0) console.log(`🧹 Reclaimed ${deleted} absorbed bulk run(s)`);
+    if (deleted > 0) rwLog.log('info', 'SYNC', `Cleared ${deleted} imported batch(es) off the relay`);
     return deleted;
   }
 
@@ -1065,13 +1077,13 @@
 
     if (canonicalJsonString) {
       try { applyContent(JSON.parse(canonicalJsonString), null); }
-      catch (e) { console.warn('composeCanonical: unparseable canonical ignored:', e.message); }
+      catch (e) { rwLog.log('critical', 'SYNC-11', 'The relay\'s saved copy of your library could not be read — it was skipped.', { error: e.message }); }
     }
 
     for (const run of runs || []) {
       let data;
       try { data = JSON.parse(run.jsonString); }
-      catch (e) { console.warn(`composeCanonical: unparseable run ${run.runId} ignored:`, e.message); continue; }
+      catch (e) { rwLog.log('error', 'SYNC-12', `A batch of books on the relay could not be read — it was skipped: ${e.message}`, { runId: run.runId }); continue; }
       if (run.kind === 'reset') {
         // New baseline: everything accumulated so far is superseded by the restore
         booksByAsin.clear(); srcDate.clear(); collByAsin.clear(); tombstones.clear();
@@ -1147,7 +1159,7 @@
       const oldest = Math.min(...pending.map(r => r.timestamp));
       if (Date.now() - oldest < AGE_CAP_MS) return { merged: false, reason: 'young' };
 
-      console.log(`⏰ Age cap: oldest pending run is ${((Date.now() - oldest) / 86400000).toFixed(1)}d old — consolidating`);
+      rwLog.log('info', 'SYNC', `The oldest waiting batch is ${((Date.now() - oldest) / 86400000).toFixed(1)} days old — combining the relay's copy`);
       const composed = composeCanonical(canonical ? canonical.jsonString : null, pending);
       const absorbed = pruneAbsorbedRuns([
         ...((canonical && canonical.manifest && canonical.manifest.absorbedRuns) || []),
@@ -1156,7 +1168,7 @@
       const manifest = await commitGeneration(composed.jsonString, absorbed, onProgress); // v7.21.1 - reclaims absorbed bulk runs itself
       return { merged: true, reason: 'age-cap', gen: manifest.gen, bookCount: manifest.bookCount };
     } catch (e) {
-      console.warn('Age-cap merge skipped:', e.message);
+      rwLog.log('warning', 'SYNC-13', `Combining the relay's copy (for an old batch) was skipped: ${e.message}`);
       return { merged: false, reason: e.message };
     }
   }
@@ -1230,7 +1242,7 @@
     const phase = onPhase || (() => {});
 
     phase('Checking Library', 'Downloading your library...');
-    console.log('[Relay] Reading library + pending additions (read-only)...');
+    rwLog.log('debug', 'SYNC', 'Reading the library and waiting additions from the relay (read-only)');
 
     const byAsin = new Map();
     const canonical = await readCanonical((p, detail) => phase('Checking Library', detail));
@@ -1239,13 +1251,13 @@
         const data = JSON.parse(canonical.jsonString);
         if (data.isBackup !== true && data.books && data.books.items) {
           for (const b of data.books.items) byAsin.set(b.asin, b);
-          console.log(`   ✅ Library: ${data.books.items.length} books (via ${canonical.source})`);
+          rwLog.log('debug', 'SYNC', `Library: ${data.books.items.length} books (from ${canonical.source})`);
         }
       } catch (e) {
-        console.warn('   ⚠️ Could not parse library data:', e.message);
+        rwLog.log('error', 'SYNC-14', `The relay's library could not be read: ${e.message}`);
       }
     } else {
-      console.log('   ℹ️ No library on relay yet — checking pending additions only');
+      rwLog.log('info', 'SYNC', 'No library on the relay yet — checking waiting additions only');
     }
 
     // Books sent by any fetcher but not yet merged into the library count as known too
@@ -1270,9 +1282,9 @@
         }
       } catch { /* unparseable letter — not dedup material */ }
     }
-    if (pendingBooks > 0) console.log(`   ✅ Plus ${pendingBooks} pending book(s) not yet merged`);
-    if (pendingDeletes > 0) console.log(`   🗑️ Minus ${pendingDeletes} pending deletion(s)`);
-    console.log('');
+    if (pendingBooks > 0 || pendingDeletes > 0) {
+      rwLog.log('debug', 'SYNC', `Waiting on the relay: ${pendingBooks} book(s) not yet merged, ${pendingDeletes} deletion(s)`);
+    }
     return { byAsin, canonical, pending };
   }
 
@@ -1288,7 +1300,7 @@
   async function sendWishlistRun(newBooks, meta, onPhase, onRetry) {
     const phase = onPhase || (() => {});
     phase('Saving', 'Sending to your library...');
-    console.log('[Relay] Sending wishlist addition (atomic run)...');
+    rwLog.log('debug', 'SYNC', 'Sending a wishlist addition to the relay');
 
     const payload = JSON.stringify({
       schemaVersion: meta.schemaVersion,
@@ -1304,10 +1316,10 @@
     while (true) {
       try {
         const res = await writeRun(payload, 'wishlist-add', (p, detail) => phase('Saving', detail));
-        console.log(`   ✅ Sent ${newBooks.length} book(s)${res.inline ? ' in a single write' : ` (${res.seqCount} parts)`}`);
+        rwLog.log('info', 'SYNC', `Sent ${newBooks.length} book(s) to the relay${res.inline ? ' in a single write' : ` (${res.seqCount} parts)`}`);
         return res;
       } catch (relayError) {
-        console.error('❌ Send failed:', relayError.message);
+        rwLog.log('warning', 'SYNC-15', `Sending to the relay failed (it can be retried): ${relayError.message}`);
         const choice = onRetry ? await onRetry(relayError.message) : 'cancel';
         if (choice === 'cancel') {
           throw new Error(meta.cancelMessage || 'Cancelled — nothing was saved.');
@@ -1324,8 +1336,8 @@
   function ageCapCheck(known) {
     if (!known) return;
     maybeAgeCapMerge({ canonical: known.canonical, pendingRuns: known.pending })
-      .then(acm => { if (acm.merged) console.log(`📦 Age-cap consolidation done (${acm.bookCount} books)`); })
-      .catch(e => console.warn('Age-cap check skipped:', e.message));
+      .then(acm => { if (acm.merged) rwLog.log('info', 'SYNC', `Combined the relay's copy for an old batch (${acm.bookCount} books)`); })
+      .catch(e => rwLog.log('warning', 'SYNC-16', `Checking for old batches on the relay was skipped: ${e.message}`));
   }
 
   // Auto-detect context and initialize

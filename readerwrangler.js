@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.10";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.11";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -1792,7 +1792,9 @@
                     return hasKeys ? 'unverified' : null;
                 } catch { return null; }
             });
-            const dataOpInProgressRef = useRef(false); // v6.3.0 - Guards against overlapping import/restore/delete operations
+            // v6.3.0 - Guards against overlapping import/restore operations. 7.26.0 - holds WHICH one runs (null | 'import' |
+            // 'restore', one value — Law 17), so a skipped start can say what's running (LOGGING.md F2); readers ask only "any?"
+            const dataOpInProgressRef = useRef(null);
             const orgLoadedRef = useRef(false); // v7.7.0-alpha.1 (F1) - Gate for ALL organization persistence: opens only when the load path completed
             const deviceStateBootBaselineRef = useRef(false); // v7.7.0-alpha.3 - Set at load end, consumed by the device-state effect's first unguarded run: the boot render is a baseline, not a change (each boot was pushing a full identical gen on first blur)
             const blobSaveFailWarnedRef = useRef(false); // v7.7.0-alpha.1 - One loud toast per session on organization save failure
@@ -3186,10 +3188,11 @@
                                 tombstones: { items: deletedAsins.map(asin => ({ asin, deletedAt })) }
                             });
                             await window.RWRelay.writeRun(payload, 'tombstone', () => {});
-                            console.log(`🗑️ Tombstone sent for ${deletedAsins.length} book(s) (merges will honor the delete)`);
+                            rwLog.log('info', 'SYNC', `Told the relay about ${deletedAsins.length} permanently deleted book(s), so a merge won't bring them back`);
                         }
                     } catch (err) {
-                        console.warn('⚠️ Permanent delete succeeded locally but relay tombstone failed (will not resurrect while local copy lacks it; delete again if it reappears after a fetch):', err.message);
+                        rwLog.log('warning', 'SYNC-01', 'A permanent delete worked here, but telling the relay failed — if the book comes back after a fetch, delete it again',
+                            { error: err && err.message });
                     }
                 }
             };
@@ -4271,7 +4274,7 @@
                                 }
                             })
                             .catch(err => {
-                                console.warn('Relay status check failed:', err.message);
+                                rwLog.log('warning', 'SYNC-02', `Couldn't check the relay for news: ${err && err.message}`);
                                 if (err.status === 403) relayOp('pushFail', { status: 403 });
                             });
                     }
@@ -4300,8 +4303,8 @@
                         // (legacy manifest only for pre-migration channels)
                         const manifest = await window.RWRelay.checkForUpdates();
                         relayLastCheckedRef.current = new Date().toISOString();
-                        console.log(`[Relay] Poll result: ${manifest && manifest.timestamp
-                            ? (manifest.source === 'mailbox' ? 'pending letters waiting' : 'canonical manifest found')
+                        rwLog.log('debug', 'SYNC', `Relay poll: ${manifest && manifest.timestamp
+                            ? (manifest.source === 'mailbox' ? 'pending letters waiting' : 'a newer saved copy')
                             : 'nothing new'}`);
                         if (manifest && manifest.timestamp) {
                             // Pending letters are by definition not yet imported — show the banner
@@ -4316,8 +4319,8 @@
                             }
                         }
                     } catch (err) {
-                        // Silent — polling is background, never interrupts the user
-                        console.warn('Relay poll failed:', err.message);
+                        // Silent — polling is background, never interrupts the user (offline repeats are counted, not stored again)
+                        rwLog.log('warning', 'SYNC-03', `The background relay poll failed: ${err && err.message}`);
                     }
                 };
 
@@ -4327,7 +4330,7 @@
                     if (document.visibilityState !== 'visible') return;
                     if (Date.now() - lastPollAt.current < minGapMs) return;
                     lastPollAt.current = Date.now();
-                    console.log(`[Relay] Polling for updates (${reason})...`);
+                    rwLog.log('debug', 'SYNC', `Polling the relay for news (${reason})`);
                     pollRelay();
                 };
 
@@ -4851,7 +4854,8 @@
                         await window.RWRelay.putDeviceState(JSON.stringify(payload));
                         await relayOp('pushOk');
                     } catch (err) {
-                        console.error('❌ Device-state push failed:', err);
+                        rwLog.log('warning', 'SYNC-04', `Couldn't send your organization to the relay (it retries at the next change): ${err && err.message}`,
+                            { status: err && err.status });
                         deviceStatePendingRef.current = true;   // keep pending so the next change/flush retries
                         await relayOp('pushFail', { status: err.status });
                     } finally {
@@ -5632,10 +5636,13 @@
             const importFromRelay = async () => {
                 if (!window.RWRelay || !window.RWRelay.isConfigured()) return;
                 if (dataOpInProgressRef.current) {
-                    console.warn('⚠️ Data operation already in progress, skipping import');
+                    // F2 (Ron + Claude, 2026-11-07): no person can reach this today — it guards a double start — so if it's
+                    // ever reached, say what's running instead of doing nothing, and log it so we learn where from
+                    rwLog.log('warning', 'IMPORT-01', `${dataOpInProgressRef.current === 'restore' ? 'A restore' : 'An Import'} is already running — it will finish in a moment.`,
+                        null, { toast: true });
                     return;
                 }
-                dataOpInProgressRef.current = true;
+                dataOpInProgressRef.current = 'import';
                 const booksBefore = books.length;
                 setRelayImporting(true);
                 const progress = showProgressDialog('Relay Import', 'Importing from relay…');
@@ -5656,7 +5663,7 @@
                         if (!canonical && pending.length === 0) {
                             return { empty: true };
                         }
-                        if (pending.length > 0) console.log(`📬 ${pending.length} pending run(s) in the mailbox`);
+                        if (pending.length > 0) rwLog.log('debug', 'IMPORT', `${pending.length} batch(es) waiting in the relay's mailbox`);
                         const composed = window.RWRelay.composeCanonical(
                             canonical ? canonical.jsonString : null, pending);
                         const result = await loadLibrary(composed.jsonString);
@@ -5699,7 +5706,7 @@
                     // fileNewBooksInInbox, the one placement path. Its set check keeps v6.12.0-alpha.55's rule: a book is
                     // never added to the Inbox twice.)
                     setRelayManifest(null); // Clear banner after successful import
-                    console.log('✅ Relay import complete');
+                    rwLog.log('info', 'IMPORT', 'Import from Relay complete');
 
                     // v6.19.0 - Background consolidation (never blocks or fails the import: the local
                     // import already succeeded, and letters stay in the mailbox until a COMMITTED
@@ -5710,11 +5717,11 @@
                         (async () => {
                             try {
                                 const manifest = await window.RWRelay.commitGeneration(c.jsonString, c.absorbedRuns);
-                                console.log(`📦 Canonical consolidated: generation ${manifest.gen} (${manifest.bookCount} books, ${c.absorbedRuns.length} runs absorbed)`);
+                                rwLog.log('info', 'SYNC', `Saved a new combined copy on the relay: generation ${manifest.gen} (${manifest.bookCount} books, ${c.absorbedRuns.length} batches folded in)`);
                                 // (v7.21.1 - reclaiming the big absorbed runs now happens INSIDE commitGeneration, for every
                                 // writer — this call is gone; the clearing invariant is unchanged.)
                             } catch (err) {
-                                console.warn('⚠️ Consolidation deferred (will retry on next import):', err.message);
+                                rwLog.log('warning', 'SYNC-05', `Combining the relay's copy was put off (it retries at the next Import): ${err && err.message}`);
                             }
                         })();
                     }
@@ -5723,7 +5730,7 @@
                     // multi-part filter lives inside deleteAbsorbedBulkRuns (tiny singles ride the TTL).
                     if (result.__reclaimAbsorbed && result.__reclaimAbsorbed.length > 0) {
                         window.RWRelay.deleteAbsorbedBulkRuns(result.__reclaimAbsorbed)
-                            .catch(err => console.warn('⚠️ Absorbed-run reclamation skipped (TTL will handle it):', err.message));
+                            .catch(err => rwLog.log('warning', 'SYNC-06', `Clearing already-imported batches off the relay was skipped (they expire on their own): ${err && err.message}`));
                     }
 
                     const totalBooks = result.totalBooks;
@@ -5763,7 +5770,16 @@
                     if (choice === 'review') openRemovedBooks();
                     if (choice === 'clear-goals') { applyPriceGoal(goalIds, null); showToast(`Cleared ${goalIds.length === 1 ? 'the price goal' : `${goalIds.length} price goals`} on books you now own`); }
                 } catch (err) {
-                    console.error('❌ Relay import failed:', err);
+                    // split by cause (LOGGING.md §3 #55): the network can fail; a damaged cloud copy has its own recovery
+                    // window; anything else is unexpected — a bug
+                    const msg = (err && err.message) || String(err);
+                    if (err && err.isCorruption) {
+                        rwLog.log('error', 'IMPORT-05', `The relay's copy failed its integrity check — the recovery steps were shown (this device's library is safe): ${msg}`);
+                    } else if (/timed out|failed to fetch|networkerror|load failed/i.test(msg) || (err && err.status >= 500)) {
+                        rwLog.log('warning', 'IMPORT-02', `Import from Relay failed — the relay couldn't be reached: ${msg}`, { status: err && err.status });
+                    } else {
+                        rwLog.log('error', 'IMPORT-04', `Import from Relay failed unexpectedly: ${msg}`, { stack: err && err.stack });
+                    }
                     if (err && err.isCorruption) {
                         // v6.17.1 - Synced copy failed its integrity check — dismiss the progress SILENTLY and show ONE
                         // recovery dialog (no raw error, no intermediate "see the steps" modal to click through).
@@ -5774,7 +5790,7 @@
                     }
                 } finally {
                     setRelayImporting(false);
-                    dataOpInProgressRef.current = false;
+                    dataOpInProgressRef.current = null;
                     // (7.26.0-alpha.10 - the after-check is armed on success above, not here: an Import that found nothing or
                     // failed left it armed for the next operation)
                 }
@@ -5856,9 +5872,9 @@
                     ];
                     const absorbed = window.RWRelay.pruneAbsorbedRuns([...superseded, reset.runId]);
                     const manifest = await window.RWRelay.commitGeneration(resetPayload, absorbed);
-                    console.log(`📦 Restore pushed to relay: generation ${manifest.gen} (${manifest.bookCount} books, ${absorbed.length} runs superseded)`);
+                    rwLog.log('info', 'SYNC', `Restore pushed to relay: generation ${manifest.gen} (${manifest.bookCount} books, ${absorbed.length} older batches replaced)`);
                 } catch (err) {
-                    console.warn('⚠️ Restore succeeded locally but relay push failed (the reset letter/next import will finish it):', err.message);
+                    rwLog.log('warning', 'SYNC-07', `Restore worked here, but the relay push failed — the next Import finishes it: ${err && err.message}`);
                 }
             };
 
@@ -5871,7 +5887,7 @@
                     console.warn('⚠️ Data operation already in progress, skipping restore');
                     return;
                 }
-                dataOpInProgressRef.current = true;
+                dataOpInProgressRef.current = 'restore';
                 // v7.14.3 - Decide credential handling BEFORE the progress dialog (RELAY-CRED-MISMATCH):
                 // never silently overwrite existing creds; on a DIFFERENT channel, ask once (mismatch
                 // only), keeping current by default. Decided here so the confirm isn't stacked on progress.
@@ -5971,7 +5987,7 @@
                         showInfoDialog('Import Error', 'Failed to load backup file: Unknown error');
                     }
                 } finally {
-                    dataOpInProgressRef.current = false;
+                    dataOpInProgressRef.current = null;
                     // (7.26.0-alpha.10 - armed on success above, not here)
                 }
             };
@@ -6484,7 +6500,7 @@
                 // Only use collections data if user has loaded it via File Picker (v3.9.0)
                 const collections = collectionsData;
                 if (!collections) {
-                    console.log('No collections data available to merge');
+                    rwLog.log('debug', 'IMPORT', 'No collections data to merge');
                     return booksToMerge;
                 }
 
@@ -6502,9 +6518,7 @@
                 const booksWithCollections = mergedBooks.filter(b => b.collections.length > 0).length;
                 const readBooks = mergedBooks.filter(b => b.readStatus === 'READ').length;
                 const unreadBooks = mergedBooks.filter(b => b.readStatus === 'UNREAD').length;
-                console.log(`📚 Collections data merged:`);
-                console.log(`   - ${booksWithCollections} books have collections`);
-                console.log(`   - ${readBooks} READ, ${unreadBooks} UNREAD, ${mergedBooks.length - readBooks - unreadBooks} UNKNOWN`);
+                rwLog.log('info', 'IMPORT', `Collections merged: ${booksWithCollections} books in collections; ${readBooks} read, ${unreadBooks} unread, ${mergedBooks.length - readBooks - unreadBooks} unknown`);
 
                 return mergedBooks;
             };
@@ -6522,10 +6536,10 @@
                 const toFile = newIds.filter(id => !filed.has(id));
                 const alreadyFiled = newIds.length - toFile.length;
                 if (alreadyFiled > 0) {
-                    console.log(`📥 Inbox backstop: ${alreadyFiled.toLocaleString()} book${alreadyFiled !== 1 ? 's' : ''} new to the book store ${alreadyFiled !== 1 ? 'are' : 'is'} already in folders — not added to the Inbox`);
+                    rwLog.log('info', 'IMPORT', `Inbox backstop: ${alreadyFiled.toLocaleString()} book${alreadyFiled !== 1 ? 's' : ''} new to the book store ${alreadyFiled !== 1 ? 'are' : 'is'} already in folders — not added to the Inbox`);
                 }
                 if (toFile.length === 0) return folderList;
-                console.log(`📥 Adding ${toFile.length} new book${toFile.length !== 1 ? 's' : ''} to Inbox`);
+                rwLog.log('info', 'IMPORT', `Adding ${toFile.length} new book${toFile.length !== 1 ? 's' : ''} to the Inbox`);
                 const withInbox = folderList.some(f => f.id === '__inbox__')
                     ? folderList
                     : [...folderList, { id: '__inbox__', name: 'Inbox', bookIds: [], parentId: null }];
@@ -6656,11 +6670,9 @@
                         // Compare dates (descending - newest first)
                         return dateB - dateA;
                     });
-                    console.log('✅ Books sorted by acquisition date (newest first)');
                 } catch (error) {
-                    console.error('❌ Sort failed:', error);
-                    console.error('Error details:', error.message, error.stack);
-                    // Continue without sorting if sort fails
+                    // (continues unsorted)
+                    rwLog.log('error', 'IMPORT-03', `Sorting the books by date added crashed: ${error && error.message}`, { stack: error && error.stack });
                 }
 
                 // Log collections merge results
@@ -6668,26 +6680,15 @@
                     const booksWithCollections = processedBooks.filter(b => b.collections.length > 0).length;
                     const readBooks = processedBooks.filter(b => b.readStatus === 'READ').length;
                     const unreadBooks = processedBooks.filter(b => b.readStatus === 'UNREAD').length;
-                    console.log(`📚 Collections data merged:`);
-                    console.log(`   - ${booksWithCollections} books have collections`);
-                    console.log(`   - ${readBooks} READ, ${unreadBooks} UNREAD, ${processedBooks.length - readBooks - unreadBooks} UNKNOWN`);
+                    rwLog.log('info', 'IMPORT', `Collections merged: ${booksWithCollections} books in collections; ${readBooks} read, ${unreadBooks} unread, ${processedBooks.length - readBooks - unreadBooks} unknown`);
                 }
 
-                // v5.0.0-alpha.175.28 - Debug: Log tags and notes data
+                // v5.0.0-alpha.175.28 - Debug: tags and notes, as COUNTS only. 7.26.0 (LOGGING.md F4): the lines that printed
+                // a sample book's tags and the full text of a note are gone — a copied diagnostics log must never carry a note.
                 const booksWithTags = processedBooks.filter(b => b.tags && b.tags.length > 0).length;
                 const booksWithNotes = processedBooks.filter(b => b.userNote).length;
                 if (booksWithTags > 0 || booksWithNotes > 0) {
-                    console.log(`🏷️ User metadata imported:`);
-                    console.log(`   - ${booksWithTags} books have tags`);
-                    console.log(`   - ${booksWithNotes} books have notes`);
-                    const sampleTagged = processedBooks.find(b => b.tags && b.tags.length > 0);
-                    if (sampleTagged) {
-                        console.log(`   - Sample tagged: "${sampleTagged.title}" has tags:`, sampleTagged.tags);
-                    }
-                    const sampleNoted = processedBooks.find(b => b.userNote);
-                    if (sampleNoted) {
-                        console.log(`   - Sample noted: "${sampleNoted.title}" has note:`, sampleNoted.userNote);
-                    }
+                    rwLog.log('debug', 'IMPORT', `Your own data came along: ${booksWithTags} books with tags, ${booksWithNotes} with notes`);
                 }
 
                 // Save to IndexedDB
@@ -6927,7 +6928,7 @@
                             deviceStatePendingRef.current = false;
                             await relayOp('pushOk');
                         } catch (err) {
-                            console.warn('⚠️ Backup restored locally but relay sync failed:', err.message);
+                            rwLog.log('warning', 'SYNC-08', `A backup restored here, but sending your organization to the relay failed: ${err && err.message}`);
                         }
                         showInfoDialog('Backup Restored', `${mergedBooks.length} books restored and synced to the cloud.`);
                     } else if (organizationFromFile !== null) {
