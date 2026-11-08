@@ -46,7 +46,12 @@ with App(relay=True) as app:
         check("23 books restored" in app.restore(FIXTURE), "the fixture didn't restore")
         line = app.wait_console(r"Restore pushed to relay|relay push failed")
         check("Restore pushed to relay" in line, line)
-    test("IMPORT-001", "with Cloud Sync on (a local relay), Restore sends its copy to the relay", restore_reaches_relay)
+        # 2026-11-08: IMPORT-006's empty Import left the after-check armed; it went off mid-Restore against the folders
+        # from before it and reported a false "Library repair: 22 issues fixed" (proved with the INTEG debug lines)
+        app.page.wait_for_timeout(2500)
+        check(not app.console_matching(REPAIR), "a repair was reported after a Restore: " + str(app.console_matching(REPAIR)))
+    test("IMPORT-001", "with Cloud Sync on, Restore sends its copy to the relay — and reports no false repair after an "
+         "empty Import", restore_reaches_relay)
 
     before = {k: app.left_count(k) for k in ("All Books", "Inbox")}
     repairs_before = len(app.console_matching(REPAIR))
@@ -65,9 +70,14 @@ with App(relay=True) as app:
               f"left pane before {before}, after {after} — expected 3 more in each")
     test("IMPORT-003", "the 3 new books are in All Books and in the Inbox", new_books_in_inbox)
 
-    test("IMPORT-004", "a normal Import reports no library repair (TODO \"Import files new books once…\", F5)",
-         lambda: check(len(app.console_matching(REPAIR)) == repairs_before,
-                       "a repair was reported for the normal path: " + str(app.console_matching(REPAIR)[repairs_before:])))
+    def no_repair_after_settling():
+        # 2026-11-08: wait for the check that runs AFTER an Import (once the screen has settled) — checking right away let
+        # a false "Library repair: 22 issues fixed" through on 11-05 (the alpha.3 fix covered only the check inside the load)
+        app.page.wait_for_timeout(2500)
+        check(len(app.console_matching(REPAIR)) == repairs_before,
+              "a repair was reported for the normal path: " + str(app.console_matching(REPAIR)[repairs_before:]))
+    test("IMPORT-004", "a normal Import reports no library repair — after the screen has settled too (F5, and 2026-11-08)",
+         no_repair_after_settling)
 
     # Part 2 of the same task — a backstop: the books store emptied while the folders survived (Sep 3: all 3,076 books
     # were copied into the Inbox). Every book looks new to Import; only books in no folder may go to the Inbox.
@@ -79,7 +89,14 @@ with App(relay=True) as app:
         # the left pane, which shows "All Books (0)" only for a moment while the app is still loading (a race).
         app.page.get_by_text("Your folders and lists are intact", exact=False).wait_for(timeout=60_000)
         backstop_before = len(app.console_matching(r"Inbox backstop"))
+        repairs_before_007 = len(app.console_matching(REPAIR))
         app.import_from_relay()
+        app.page.wait_for_timeout(1500)   # the check after an Import runs once the screen has settled
+        # 2026-11-08: the hole that let a false "Library repair: 22 issues fixed" through — this row never asserted "no
+        # repair", as IMPORT-004 / 008 / 009 / 010 do (the second, after-the-Import check read stale folders here)
+        check(len(app.console_matching(REPAIR)) == repairs_before_007,
+              "a repair was reported for an Import into an emptied store: "
+              + str(app.console_matching(REPAIR)[repairs_before_007:]))
         check(app.left_count("All Books") == before["All Books"] + 3, f"All Books = {app.left_count('All Books')}")
         check(app.left_count("Inbox") == inbox, f"Inbox went from {inbox} to {app.left_count('Inbox')} — books already in "
                                                 "folders were added to it")

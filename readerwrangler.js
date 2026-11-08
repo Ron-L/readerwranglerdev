@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.8";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.9";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -4884,6 +4884,10 @@
                 if (!integrityCheckPending) return;
                 if (books.length === 0) return;
                 setIntegrityCheckPending(false);
+                {   // 2026-11-08 diagnostics: what this check sees (it once read folders that hadn't landed yet)
+                    const filed = new Set(folders.flatMap(f => f.bookIds || []));
+                    rwLog.log('debug', 'INTEG', `After-Import check sees ${books.length} books, ${books.filter(b => !b.isDeleted && filed.has(b.id)).length} of them in its ${folders.length} folders`);
+                }
                 const result = runIntegrityCheck(books, folders);
                 if (!result) return;
                 if (result.autoFixed.length > 0) {
@@ -6836,6 +6840,7 @@
                         }
 
                         setFolders(finalFolders); // guarded blob save persists this (F1)
+                        rwLog.log('debug', 'INTEG', `The load set ${finalFolders.length} folders holding ${new Set(finalFolders.flatMap(f => f.bookIds || [])).size} books (${mergedBooks.length} books loaded)`);
                         pushOrgOverride.folders = finalFolders; // v7.6.0-alpha.19 - the integrity-checked applied set
                         console.log(`✅ Restored ${restoredFolders.length} folders from ${orgSource}`);
                     } else {
