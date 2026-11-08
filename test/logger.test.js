@@ -264,7 +264,56 @@ test('LOG-021', '?log=… on the address: applied, remembered, and taken OUT of 
     assert.strictEqual(w.log.diagnostics(), false, '…and changes nothing');
 });
 
-test('LOG-022', 'a planted test error raises the banner too (so the banner can be tested), marked as a test', () => {
+// ---- Where a message goes: the user, with { toast } (LOGGING.md §6, 2026-11-08) ----
+function toastWorld() {
+    const toasts = [];
+    const w = alertWorld();
+    w.log.setToaster((text, o) => toasts.push([text, o]));
+    return { ...w, toasts };
+}
+
+test('LOG-023', '{ toast: true } shows the message to the user through the app\'s toaster — and logs it too', () => {
+    const w = toastWorld();
+    w.log.log('info', 'MOVE', 'Moved 3 books to Fantasy', null, { toast: true });
+    assert.strictEqual(w.toasts.length, 1);
+    assert.strictEqual(w.toasts[0][0], 'Moved 3 books to Fantasy');
+    assert.strictEqual(w.toasts[0][1].level, 'info');
+    assert.ok(w.log.entries().some(e => e.text === 'Moved 3 books to Fantasy'), 'logged');
+    assert.ok(w.out.some(o => o[1].includes('Moved 3 books')), 'and in the console');
+});
+
+test('LOG-024', '{ toast: { x, y } } carries where to show it; { hint: true } marks a passing hint', () => {
+    const w = toastWorld();
+    w.log.log('info', 'UNDO', 'Nothing to undo', null, { toast: { x: 10, y: 20 }, hint: true });
+    assert.deepStrictEqual(w.toasts[0][1], { level: 'info', x: 10, y: 20, hint: true });
+});
+
+test('LOG-025', 'a message without { toast } never reaches the user — not even an error', () => {
+    const w = toastWorld();
+    w.log.log('error', 'INTEG-06', 'repaired 3 books');
+    w.log.log('info', 'BOOT', 'started');
+    assert.strictEqual(w.toasts.length, 0);
+    // (and both were logged — "no toast" alone is also what a crash looks like)
+    assert.deepStrictEqual(w.log.entries().map(e => e.code), ['INTEG-06', 'BOOT']);
+});
+
+test('LOG-026', 'no toaster yet (the app not up, or crashed): a { toast } message is still logged, nothing throws', () => {
+    const w = alertWorld();
+    w.log.log('warning', 'SYNC-02', 'relay unreachable', null, { toast: true });
+    assert.ok(w.log.entries().some(e => e.code === 'SYNC-02'));
+});
+
+test('LOG-027', 'a critical message shows the critical box, not a toast; the toast text is scrubbed like the log', () => {
+    const w = toastWorld();
+    w.log.log('critical', 'STORE-02', 'the library could not be saved', null, { toast: true });
+    assert.strictEqual(w.toasts.length, 0, 'no toast for critical');
+    assert.deepStrictEqual(w.alerts, [['critical', 'STORE-02']]);
+    w.log.log('error', 'SYNC-04', 'channel 58c1bfd7-1234-4abc-9def-0123456789ab refused', null, { toast: true });
+    assert.ok(!w.toasts[0][0].includes('1234-4abc') && w.toasts[0][0].includes('58c1bfd7…'), w.toasts[0][0]);
+    assert.strictEqual(w.toasts[0][1].level, 'error');
+});
+
+test('LOG-022','a planted test error raises the banner too (so the banner can be tested), marked as a test', () => {
     const w = alertWorld();
     w.log.setLevel('debug');
     w.log.log('error', 'UI-03', 'planted', null, { test: true });

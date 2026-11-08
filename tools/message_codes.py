@@ -88,11 +88,22 @@ def _skip(src, i):
     return i
 
 
+def _in_comment(src, pos):
+    """Is src[pos] inside a // line comment or a /* … */ block? (Good enough for our code: a '//' inside a string on the
+    same line before the call would hide it — the commit check would then miss a call, never invent one.)"""
+    line_start = src.rfind("\n", 0, pos) + 1
+    if "//" in src[line_start:pos]:
+        return True
+    return src.rfind("/*", 0, pos) > src.rfind("*/", 0, pos)
+
+
 def find_calls(path, src):
     """[(path, line, level or None, code or None, text)] for every logging call in one file."""
     pattern = CALL_IN_LOGGER if os.path.basename(path) == LOGGER else CALL_ANYWHERE
     calls = []
     for m in pattern.finditer(src):
+        if _in_comment(src, m.start()):      # a comment that mentions rwLog.log(…) isn't a call
+            continue
         i = _skip(src, m.end())
         level, i = _read_literal(src, i)
         i = _skip(src, i)
@@ -163,6 +174,7 @@ def table(calls):
     numbered = sorted({(c[3], c[2], c[4], c[0]) for c in calls if c[3] and CODE_RE.match(c[3]) and CODE_RE.match(c[3]).group(2)},
                       key=lambda r: (r[0].split("-")[0], r[0]))
     general = sum(1 for c in calls if c[3] and CODE_RE.match(c[3]) and not CODE_RE.match(c[3]).group(2))
+
     def cell(s):
         return _placeholders(str(s)).replace("|", "\\|").replace("\n", " ")
     lines = [

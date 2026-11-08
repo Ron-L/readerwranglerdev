@@ -26,6 +26,8 @@ ROWS = [
     ("MSG-007", "the level not written as a quoted word", "rwLog.log(lvl, 'IMPORT', 'x');", "plain quoted words"),
     ("MSG-008", "one numbered code at two calls",
      "rwLog.log('warning', 'SYNC-03', 'a');\nrwLog.log('error', 'SYNC-03', 'b');", "already used at"),
+    ("MSG-014", "a comment that mentions rwLog.log(…) is not a call",
+     "// the toaster: rwLog.log(…, { toast }) shows it\n/* also rwLog.log(level, code) here */\nrwLog.log('info', 'UI', 'real');", None),
     ("MSG-009", "a call split over lines, double quotes",
      "rwLog.log(\n    \"error\",\n    \"STORE-04\",\n    \"the book store could not be read\"\n);", None),
 ]

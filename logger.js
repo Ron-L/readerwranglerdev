@@ -76,6 +76,7 @@ function createLogger(opts = {}) {
         } catch (e) { return []; }
     })();
     let saveScheduled = false;
+    let toaster = null;    // the app's toast routine, handed over at startup (setToaster) — the logger never depends on the app
 
     const save = () => {
         saveScheduled = false;
@@ -89,7 +90,7 @@ function createLogger(opts = {}) {
 
     const format = (e) => `${e.level} · ${e.code}${e.test ? TEST_MARK : ''} · ${e.text}${e.count > 1 ? ` (×${e.count})` : ''}`;
 
-    const record = (level, code, text, data, isTest) => {
+    const record = (level, code, text, data, isTest, toastOptions) => {
         let secrets = [];
         try { secrets = getSecrets() || []; } catch (e) { /* none */ }
         const entry = { time: now(), level, code, area: code.split('-')[0], text: scrub(asText(text), secrets), count: 1 };
@@ -104,6 +105,11 @@ function createLogger(opts = {}) {
         // the alerts: critical for EVERY user; an error raises the banner in diagnostics mode
         if (onAlert && (level === 'critical' || (level === 'error' && setting !== null))) {
             try { onAlert(level === 'critical' ? 'critical' : 'banner', entry); } catch (e) { /* drawing must not break logging */ }
+        }
+        // the user: only when the call says { toast } — a critical message shows its box instead (LOGGING.md §6)
+        if (toastOptions && toastOptions.toast && level !== 'critical' && toaster) {
+            const where = typeof toastOptions.toast === 'object' ? toastOptions.toast : {};
+            try { toaster(entry.text, { level, x: where.x, y: where.y, hint: !!toastOptions.hint }); } catch (e) { /* the app's problem */ }
         }
         if (rank(level) < (setting === 'debug' ? rank('debug') : keepRank)) return;   // debug is kept only at debug
         const prev = entries[entries.length - 1];
@@ -128,7 +134,7 @@ function createLogger(opts = {}) {
             if (!m) problems.push(`badly shaped code "${code}" — use AREA or AREA-NN`);
             else if (!LOG_AREAS[m[1]]) problems.push(`unknown area "${m[1]}"`);
             else if (rank(lv) >= rank('warning') && !m[2]) problems.push(`a ${lv} needs a numbered code (${m[1]}-NN)`);
-            record(lv, cd || '?', text, data, !!(options && options.test === true));
+            record(lv, cd || '?', text, data, !!(options && options.test === true), options);
             // (through log() itself, like every message — so the code scan sees UI-02; a well-formed call, so no loop)
             if (problems.length) log('error', 'UI-02', `A logging call was malformed: ${problems.join('; ')}`);
         } catch (e) { /* logging must never break the app */ }
@@ -153,6 +159,9 @@ function createLogger(opts = {}) {
         level: () => setting || 'info',
         diagnostics: () => setting !== null,
         setLevel,
+        // The app hands over its toast routine: fn(text, { level, x, y, hint }). Until then (or if the app has crashed) a
+        // { toast } message still reaches the log and the console.
+        setToaster: (fn) => { toaster = typeof fn === 'function' ? fn : null; },
         // ?log=debug|info|warning|error|off on the page's address: applied, remembered, and taken out of the address (so
         // it isn't bookmarked or shared). Returns the address's remaining query ('' if none), or null if there was no
         // ?log= (leave the address alone). An unknown value changes nothing but is still removed.

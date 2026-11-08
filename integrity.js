@@ -104,7 +104,7 @@ const saveIntegrityResults = ({ autoFixed, needsReview, checkedAt }) => {
     try {
         localStorage.setItem(INTEGRITY_KEY, JSON.stringify({ autoFixed, needsReview, checkedAt }));
     } catch (e) {
-        console.error('Failed to save integrity results:', e);
+        rwLog.log('warning', 'INTEG-07', 'Could not save the integrity check\'s results (storage full?)', { error: String(e) });
     }
 };
 

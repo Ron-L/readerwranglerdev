@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.6";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.7";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -2877,6 +2877,13 @@
                     }, 1000); // Animation duration
                 }, 1500); // Wait before animating
             };
+            // 7.26.0 - The logger's toasts: rwLog.log(…, { toast }) shows its message through showToast — one call, every
+            // destination (LOGGING.md §6). showToast uses only state setters and a ref, so handing it over once is enough.
+            // Red for error and up; a { hint } stays out of the 🕐 history.
+            useEffect(() => {
+                if (window.rwLog) window.rwLog.setToaster((text, o) => showToast(text, o.x, o.y,
+                    { level: o.level === 'error' ? 'error' : 'info', log: !o.hint }));
+            }, []);
 
             // v6.3.0 - Run integrity check, save results, fire goatcounter, return result.
             // Returns null if check throws (previous results preserved per design).
@@ -2900,7 +2907,7 @@
                     }
                     return result;
                 } catch (e) {
-                    console.error('Integrity check failed:', e);
+                    rwLog.log('error', 'INTEG-01', `The integrity check itself crashed: ${e && e.message}`, { stack: e && e.stack });
                     return null; // Previous localStorage results preserved
                 }
             };
@@ -4694,11 +4701,16 @@
                                     loadedFolders = integrityResult.correctedFolders;
                                     if (integrityResult.autoFixed.length > 0) {
                                         const totalFixed = integrityResult.autoFixed.reduce((s, f) => s + (f.books.length || 1), 0);
-                                        console.log(`🔧 Integrity auto-fixed on load:`, integrityResult.autoFixed.map(f => f.description));
-                                        setTimeout(() => showToast(`Library repair: ${totalFixed} issue${totalFixed !== 1 ? 's' : ''} fixed — see Data Status`), 500);
+                                        const fixed = integrityResult.autoFixed.map(f => f.description);
+                                        // a repair on load means something wrote bad data — a bug (LOGGING.md §3 #25); one call: the
+                                        // user's toast, the log, the console, the banner in diagnostics
+                                        setTimeout(() => rwLog.log('error', 'INTEG-02',
+                                            `Library repair on load: ${totalFixed} issue${totalFixed !== 1 ? 's' : ''} fixed — see Data Status`,
+                                            { fixed }, { toast: true }), 500);
                                     }
                                     if (integrityResult.needsReview.length > 0) {
-                                        console.warn(`⚠️ Integrity issues need review:`, integrityResult.needsReview.map(i => i.description));
+                                        rwLog.log('error', 'INTEG-03', `The integrity check found ${integrityResult.needsReview.length} problem(s) it couldn't fix (on load)`,
+                                            { review: integrityResult.needsReview.map(i => i.description) });
                                     }
                                 }
                             }
@@ -4874,11 +4886,12 @@
                 if (result.autoFixed.length > 0) {
                     setFolders(result.correctedFolders); // guarded blob save persists this (F1)
                     const totalFixed = result.autoFixed.reduce((s, f) => s + (f.books.length || 1), 0);
-                    showToast(`Library repair: ${totalFixed} issue${totalFixed !== 1 ? 's' : ''} fixed — see Data Status`);
-                    console.log(`🔧 Integrity auto-fixed:`, result.autoFixed.map(f => f.description));
+                    rwLog.log('error', 'INTEG-04', `Library repair: ${totalFixed} issue${totalFixed !== 1 ? 's' : ''} fixed — see Data Status`,
+                        { fixed: result.autoFixed.map(f => f.description) }, { toast: true });
                 }
                 if (result.needsReview.length > 0) {
-                    console.warn(`⚠️ Integrity issues need review:`, result.needsReview.map(i => i.description));
+                    rwLog.log('error', 'INTEG-05', `The integrity check found ${result.needsReview.length} problem(s) it couldn't fix (after an Import or Restore)`,
+                        { review: result.needsReview.map(i => i.description) });
                 }
             }, [integrityCheckPending, books, folders]);
 
@@ -6814,7 +6827,9 @@
                         const integrityResult = runIntegrityCheck(mergedBooks, placedFolders);
                         const finalFolders = integrityResult ? integrityResult.correctedFolders : placedFolders;
                         if (integrityResult?.autoFixed?.length > 0) {
-                            console.log(`🔧 Integrity auto-fixed during restore:`, integrityResult.autoFixed.map(f => f.description));
+                            // a genuine repair since the Import-order fix (7.26.0-alpha.3) — no longer the normal path (F5)
+                            rwLog.log('error', 'INTEG-06', `Library repair while loading an Import or Restore: ${integrityResult.autoFixed.length} kind(s) of problem fixed`,
+                                { fixed: integrityResult.autoFixed.map(f => f.description) });
                         }
 
                         setFolders(finalFolders); // guarded blob save persists this (F1)
