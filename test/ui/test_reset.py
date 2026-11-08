@@ -93,7 +93,9 @@ with App() as app:
     test("RESET-004", "a tab that won't let go makes Reset wait and say so; closing it lets the reset finish",
          blocked_reset_waits)
 
-    test("RESET-005", "no unexpected console messages in the reset tab",
-         lambda: check(not app.unexpected_console(), app.unexpected_console()))
+    # RESET-004 holds the store open ON PURPOSE, so its STORE-09 warning ("held open by another tab") is expected here.
+    test("RESET-005", "no unexpected console messages in the reset tab (RESET-004's deliberate STORE-09 excepted)",
+         lambda: check(not [x for x in app.unexpected_console() if "STORE-09" not in x],
+                       [x for x in app.unexpected_console() if "STORE-09" not in x]))
 
 done()
