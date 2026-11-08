@@ -123,6 +123,9 @@ with App(relay=True) as app:
 FIRST_BOOKS = [dict(b, asin=b["asin"].replace("TST000090", "TST000080"), title=b["title"].replace("Arrival", "Reader"))
                for b in NEW_BOOKS[:2]]
 with App(relay=True) as app:
+    # at ?log=debug: IMPORT-009/010 prove their path by the load's own debug lines
+    app.page.evaluate("() => window.rwLog.setLevel('debug')")
+
     def first_import_fills_inbox():
         app.upload_fetch(FIRST_BOOKS)
         text = app.import_from_relay()
