@@ -30,10 +30,23 @@ import subprocess
 import sys
 import re
 
-# Local module scripts loaded from readerwrangler.html with a ?v= cache-buster.
-MODULES = ["uiHelpers", "bookFields", "bookMerge", "storage", "overlayRegistry",
-           "integrity", "organizeEngine", "relay-crypto", "relay-compress", "relay-client"]
 HTML = "readerwrangler.html"
+
+
+def html_modules():
+    """The local module scripts readerwrangler.html loads with a ?v= cache-buster — DERIVED from the page (2026-11-08), so
+    a new module is covered without anyone editing this file. The hand-kept list it replaces had missed logger.js, whose
+    buster then never moved. (readerwrangler.js and mobile.js load another way and keep their own version rules.)"""
+    staged = subprocess.run(["git", "show", ":" + HTML], capture_output=True)
+    if staged.returncode == 0:
+        text = staged.stdout.decode("utf-8", "replace")
+    else:
+        try:
+            with open(HTML, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            return []
+    return sorted(set(re.findall(r'<script src="([A-Za-z0-9_.-]+)\.js\?v=', text)))
 
 
 def staged_files():
@@ -119,7 +132,7 @@ def main():
     if "relay-worker.js" in names and not const_bumped("relay/relay-worker.js", "WORKER_VERSION"):
         errors.append("relay/relay-worker.js is staged but WORKER_VERSION was not bumped.")
 
-    for m in MODULES:
+    for m in html_modules():
         fn = m + ".js"
         if fn in names and not (html_staged and html_buster_bumped(fn)):
             errors.append(f"{fn} is staged but its `{fn}?v=` cache-buster in {HTML} was not bumped.")
