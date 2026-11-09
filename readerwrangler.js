@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.22";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.23";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -2195,7 +2195,7 @@
                 recordAction({ type: 'BOOKLIST_DELETE', bookList: bl, index, label: `Delete Book List '${bl.name}'` });
                 setBookLists(prev => prev.filter(x => x.id !== bl.id));
                 if (selectedFolderId === `__booklist_${bl.id}__`) navigateToFolder('__all__');
-                showToast(`Deleted Book List '${bl.name}'`);
+                rwLog.log('info', 'ORG', `Deleted Book List '${bl.name}'`, null, { toast: true });
                 return true;
             };
             // v6.13.1-alpha.13 - The '+' button creates a list THEN lets you name it inline. Finalize the "Created"
@@ -2215,7 +2215,7 @@
                         ? [...prev.slice(0, -1), { ...l, label: `Create Book List '${finalName}'`, bookList: { ...l.bookList, name: finalName } }]
                         : prev;
                 });
-                showToast(`Created Book List '${finalName}'`);
+                rwLog.log('info', 'ORG', `Created Book List '${finalName}'`, null, { toast: true });
             };
 
             // ===== v7.10.1-alpha.6 (audit sweep A) - rename / Search / reorder operations =====
@@ -2247,11 +2247,11 @@
                             ? [...prev.slice(0, -1), { ...l, label: `Create folder '${nm}'`, folder: { ...l.folder, name: nm } }]
                             : prev;
                     });
-                    showToast(`Created folder '${nm.slice(0, 40)}'`);
+                    rwLog.log('info', 'ORG', `Created folder '${nm.slice(0, 40)}'`, null, { toast: true });
                     return true;
                 }
                 recordAction({ type: 'RENAME_FOLDER', folderId, prevName: f.name, newName: nm, label: `Rename folder '${f.name.slice(0, 40)}' to '${nm.slice(0, 40)}'` });
-                showToast(`Renamed folder '${f.name.slice(0, 40)}' to '${nm.slice(0, 40)}'`);
+                rwLog.log('info', 'ORG', `Renamed folder '${f.name.slice(0, 40)}' to '${nm.slice(0, 40)}'`, null, { toast: true });
                 return true;
             };
             const editFolderProps = (folderId, { name, description }) => {
@@ -2262,7 +2262,7 @@
                 if (nm === f.name && desc === f.description) return false;
                 recordAction({ type: 'EDIT_FOLDER_PROPS', folderId, prev: { name: f.name, description: f.description }, next: { name: nm, description: desc }, label: `Edit folder '${f.name.slice(0, 40)}'` });
                 setFolders(prev => prev.map(x => x.id === folderId ? { ...x, name: nm, description: desc } : x));
-                showToast(`Updated folder '${nm.slice(0, 40)}'`);
+                rwLog.log('info', 'ORG', `Updated folder '${nm.slice(0, 40)}'`, null, { toast: true });
                 return true;
             };
             const renameTag = (tagId, newLabel) => {
@@ -2272,11 +2272,11 @@
                 // v7.24.0 - identity is EXACT text: two tags may never share an exact name (it would make "the tag with exactly
                 // this name" — e.g. Tag from Collections' matching rule — ambiguous). A capitals-only difference is allowed.
                 const clash = tagKeyByExactName(nm);
-                if (clash && clash !== tagId) { showToast(`A tag named "${nm}" already exists`); return true; }
+                if (clash && clash !== tagId) { rwLog.log('info', 'ORG', `A tag named "${nm}" already exists`, null, { toast: true }); return true; }
                 if (!renameGuardPasses(`tag:${tagId}:${nm}`)) return true;
                 recordAction({ type: 'RENAME_TAG', tagId, prevLabel: entry.label, newLabel: nm, label: `Rename tag '${entry.label.slice(0, 40)}' to '${nm.slice(0, 40)}'` });
                 setTagRegistry(prev => prev[tagId] ? { ...prev, [tagId]: { ...prev[tagId], label: nm } } : prev);
-                showToast(`Renamed tag '${entry.label.slice(0, 40)}' to '${nm.slice(0, 40)}'`);
+                rwLog.log('info', 'ORG', `Renamed tag '${entry.label.slice(0, 40)}' to '${nm.slice(0, 40)}'`, null, { toast: true });
                 return true;
             };
             const renameSearch = (viewId, newName) => {
@@ -2287,7 +2287,7 @@
                 const prevName = sv.name || '';
                 recordAction({ type: 'RENAME_SEARCH', viewId, prevName, newName: nm, label: prevName ? `Rename Search '${prevName.slice(0, 40)}' to '${nm.slice(0, 40)}'` : `Name Search '${nm.slice(0, 40)}'` });
                 setSavedSearches(prev => prev.map(v => v.id === viewId ? { ...v, name: nm } : v));
-                showToast(prevName ? `Renamed Search '${prevName.slice(0, 40)}' to '${nm.slice(0, 40)}'` : `Named Search '${nm.slice(0, 40)}'`);
+                rwLog.log('info', 'ORG', prevName ? `Renamed Search '${prevName.slice(0, 40)}' to '${nm.slice(0, 40)}'` : `Named Search '${nm.slice(0, 40)}'`, null, { toast: true });
                 return true;
             };
             const renameBookList = (blId, newName) => {
@@ -2301,7 +2301,7 @@
                 const last = (undoStackRef.current || [])[(undoStackRef.current || []).length - 1];
                 if (last && last.type === 'BOOKLIST_CREATE' && last.bookList?.id === blId) return true;
                 recordAction({ type: 'RENAME_BOOKLIST', bookListId: blId, prevName: bl.name, newName: nm, label: `Rename Book List '${bl.name.slice(0, 40)}' to '${nm.slice(0, 40)}'` });
-                showToast(`Renamed Book List '${bl.name.slice(0, 40)}' to '${nm.slice(0, 40)}'`);
+                rwLog.log('info', 'ORG', `Renamed Book List '${bl.name.slice(0, 40)}' to '${nm.slice(0, 40)}'`, null, { toast: true });
                 return true;
             };
             const deleteSearch = (viewId) => {
@@ -2309,7 +2309,7 @@
                 if (!sv) return false;
                 recordAction({ type: 'SEARCH_DELETE', search: { ...sv }, label: sv.name ? `Delete Search '${sv.name.slice(0, 40)}'` : 'Delete Search' });
                 setSavedSearches(prev => prev.filter(v => v.id !== viewId));
-                showToast(sv.name ? `Deleted Search '${sv.name.slice(0, 40)}'` : 'Deleted Search');
+                rwLog.log('info', 'ORG', sv.name ? `Deleted Search '${sv.name.slice(0, 40)}'` : 'Deleted Search', null, { toast: true });
                 return true;
             };
             // Reorders record silently (REORDER_FOLDER convention: a drag you just watched needs no receipt)
@@ -2421,10 +2421,10 @@
             // v6.12.0 - Save a filter set as a Search (optional name; blank → chips). Shared by the "Save as a
             // Search" control and the Recents "save" action. Returns true if saved.
             const saveFiltersAsSearch = async (filters) => {
-                if (!filters || Object.keys(filters).length === 0) { showToast('No filters to save'); return false; }
+                if (!filters || Object.keys(filters).length === 0) { rwLog.log('info', 'ORG', 'No filters to save', null, { toast: true }); return false; }
                 const key = filterKey(filters);
                 const dup = savedSearches.find(v => filterKey(v.filters) === key);
-                if (dup) { showToast(dup.name && dup.name.trim() ? `Already saved as a Search: "${dup.name}"` : 'These filters are already a saved Search'); return false; }
+                if (dup) { rwLog.log('info', 'ORG', dup.name && dup.name.trim() ? `Already saved as a Search: "${dup.name}"` : 'These filters are already a saved Search', null, { toast: true }); return false; }
                 const suggested = autoNameView(filters);
                 const name = await showInputDialog('Save as a Search', 'Name (optional — leave blank to show the filter chips):', '', suggested === 'New View' ? 'e.g. Unread sci-fi' : suggested);
                 if (name === null) return false;
@@ -2433,7 +2433,7 @@
                 const newSearch = { id: `view_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: trimmed, filters, position: maxPos + 1 };
                 recordAction({ type: 'SEARCH_CREATE', search: { ...newSearch }, label: trimmed ? `Save Search '${trimmed.slice(0, 40)}'` : 'Save Search' }); // v7.10.1-alpha.6 (audit sweep A) - undoable, like BOOKLIST_CREATE
                 setSavedSearches(prev => [...prev, newSearch]);
-                showToast(trimmed ? `Saved as a Search: "${trimmed}"` : 'Saved as a Search');
+                rwLog.log('info', 'ORG', trimmed ? `Saved as a Search: "${trimmed}"` : 'Saved as a Search', null, { toast: true });
                 return true;
             };
             // v6.10.0-alpha.17 - Suggested name for the "Save as a Search" prompt (placeholder only — naming is optional)
@@ -3593,9 +3593,9 @@
                     return updated;
                 });
                 recordAction({ type: 'SEQUENCE_SERIES', prev, seriesName: name, positions, label: name ? `Number series '${name}'` : 'Number books in current order' }); // v7.8.0-alpha.4 named target
-                showToast(values
+                rwLog.log('info', 'EDIT', values
                     ? `Set numbers on ${orderedIds.length} book${orderedIds.length !== 1 ? 's' : ''}${name ? ` (series "${name}")` : ''}`
-                    : `Numbered ${orderedIds.length} book${orderedIds.length !== 1 ? 's' : ''} in current order${name ? ` (series "${name}")` : ''}`);
+                    : `Numbered ${orderedIds.length} book${orderedIds.length !== 1 ? 's' : ''} in current order${name ? ` (series "${name}")` : ''}`, null, { toast: true });
             };
             const applySequentialNumbering = (orderedIds, seriesName) => applyNumbering(orderedIds, seriesName, null);
 
@@ -3728,7 +3728,7 @@
                     label: `${pinned ? 'Pin' : 'Unpin'} ${label}`,
                     description: `${pinned ? 'Pin' : 'Unpin'} ${label}`
                 });
-                showToast(pinned ? `📌 Pinned ${label} to the top` : `Unpinned ${label}`);
+                rwLog.log('info', 'ORG', pinned ? `📌 Pinned ${label} to the top` : `Unpinned ${label}`, null, { toast: true });
             };
             const toggleFolderPin = (folderId) => {
                 const f = folders.find(x => x.id === folderId);
@@ -3767,7 +3767,7 @@
                 // v7.6.0-alpha.15 (#6, Ron) - NO auto-switch to Manual: the baked manual order IS the
                 // displayed order, so staying put changes nothing on screen — zero surprise, no hidden
                 // second effect. Switching to Manual later shows the identical order.
-                showToast(`Manual order now matches the ${modeLabel} order — switch to Manual to tweak it`);
+                rwLog.log('info', 'ORG', `Manual order now matches the ${modeLabel} order — switch to Manual to tweak it`, null, { toast: true });
             };
 
             // v5.0.0-alpha.78 - Phase D: Reparent folder (move into another folder) with undo
@@ -3950,9 +3950,9 @@
                     navigateToFolder(destinationId);
                 }
 
-                showToast(bookCount > 0
+                rwLog.log('info', 'ORG', bookCount > 0
                     ? `Deleted "${folder.name}" — ${bookCount} book${bookCount !== 1 ? 's' : ''} moved to ${destinationId === '__inbox__' ? 'Inbox' : `"${destinationName}"`}`
-                    : `Deleted "${folder.name}"`);
+                    : `Deleted "${folder.name}"`, null, { toast: true });
                 rwLog.log('debug', 'MOVE', `Deleted a folder${subCount > 0 ? ` and ${subCount} subfolder(s)` : ''}${bookCount > 0 ? `; ${bookCount} book(s) moved to ${destinationId === '__inbox__' ? 'the Inbox' : 'its parent folder'}` : ''}`);
                 return true;
             };
@@ -7074,10 +7074,10 @@
                             <div className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3" role="menuitem"
                                 onClick={() => {
                                     if (!modalBook.asin) {
-                                        showToast('No Amazon link available for this book');
+                                        rwLog.log('info', 'SHARE', 'No Amazon link available for this book', null, { toast: true });
                                     } else {
                                         navigator.clipboard.writeText(getAmazonUrl(modalBook.asin));
-                                        showToast('Link copied!');
+                                        rwLog.log('info', 'SHARE', 'Link copied!', null, { toast: true });
                                     }
                                     setShareDropdownOpen(false);
                                 }}>
@@ -7252,7 +7252,7 @@
                     newValues,
                     label: `Edit '${(modalBook.title || 'book').slice(0, 40)}'` // v7.8.0-alpha.4 (UNDO-MODEL.md) named target
                 });
-                showToast(`Updated '${((newValues.title ?? modalBook.title) || 'book').slice(0, 40)}'`); // v7.10.1-alpha.4 (Ron #7) - the save receipt the dialog never had
+                rwLog.log('info', 'EDIT', `Updated '${((newValues.title ?? modalBook.title) || 'book').slice(0, 40)}'`, null, { toast: true }); // v7.10.1-alpha.4 (Ron #7) - the save receipt the dialog never had
 
                 cancelEditMode();
             };
@@ -7324,7 +7324,7 @@
                     newValue,
                     description: `Edit ${fieldLabel} for ${bookCountLabel(bulkEditBookIds)}` // v7.10.1 - named (feeds undo toast too)
                 });
-                showToast(`Updated ${fieldLabel} for ${bookCountLabel(bulkEditBookIds)}`); // v7.10.1 - named receipt
+                rwLog.log('info', 'EDIT', `Updated ${fieldLabel} for ${bookCountLabel(bulkEditBookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                 setShowBulkEditModal(false);
                 setBulkEditSeriesDropdownOpen(false);
             };
@@ -7522,7 +7522,7 @@
                     saveBooksToIndexedDB(updated);
                     return updated;
                 });
-                showToast(kept ? `Kept ${bookCountLabel(bookIds)} — won't ask again` : `Will ask again about ${bookCountLabel(bookIds)}`);
+                rwLog.log('info', 'EDIT', kept ? `Kept ${bookCountLabel(bookIds)} — won't ask again` : `Will ask again about ${bookCountLabel(bookIds)}`, null, { toast: true });
             };
             // v7.19.0-alpha.10 (Ron + UX) - THE way to open the removed-books window: always FRESH — the Kept group collapsed,
             // only the books you came for checked. (alpha.9 left Kept expanded from the last visit: "unexpected and
@@ -9152,18 +9152,18 @@
             // pre-built authorGroups + a source folder id + opts + mode, compute the dry plan + already-filed set,
             // default everything selected, and show the preview. Returns false (with a toast) if there's nothing to do.
             const openAutoOrgPreviewCore = (authorGroupsSeed, srcId, opts, mode, label) => {
-                if (authorGroupsSeed.length === 0) { showToast('Nothing to organize — no books by those authors here'); return false; }
+                if (authorGroupsSeed.length === 0) { rwLog.log('info', 'AUTO', 'Nothing to organize — no books by those authors here', null, { toast: true }); return false; }
                 // v7.9.0-alpha.1 (AUTO-ORGANIZE-UNIFIED.md §2) - ONE view: groups are ALWAYS built at the
                 // '__all__' pool, so everything by these authors is visible (the old This-folder/Everywhere
                 // toggle is gone). The entry scope (narrowSourceId) survives only as the DEFAULTS:
                 // initial selection (§2) and removal defaults (§4).
                 const authorNames = authorGroupsSeed.map(ag => ag.displayName);
                 const authorGroups = authorGroupsForScope(authorNames, '__all__');
-                if (authorGroups.length === 0) { showToast('Nothing to organize — no books by those authors'); return false; }
+                if (authorGroups.length === 0) { rwLog.log('info', 'AUTO', 'Nothing to organize — no books by those authors', null, { toast: true }); return false; }
                 const scopedOpts = { ...opts, sourceFolderId: '__all__' };
                 const dryPlan = computeOrganizePlan(authorGroups, folders, scopedOpts);
                 const alreadyFiled = computeAlreadyFiled(authorGroups, dryPlan, srcId);
-                if (dryPlan.totalBooksOrganized === 0 && alreadyFiled.length === 0) { showToast('Nothing to organize — those books are already in their author homes'); return false; }
+                if (dryPlan.totalBooksOrganized === 0 && alreadyFiled.length === 0) { rwLog.log('info', 'AUTO', 'Nothing to organize — those books are already in their author homes', null, { toast: true }); return false; }
                 const sourceName = (srcId === '__inbox__' || srcId === '__all__') ? null : (folders.find(f => f.id === srcId)?.name || null);
                 // §2 initial check-state = the ENTRY folder's books PLUS the Inbox strays (Ron 2026-09-08:
                 // the Inbox books are why the dialog was opened — symmetric with the §4 removal defaults),
@@ -9277,7 +9277,7 @@
                 });
                 setAutoOrgSel(prev => { const n = new Set(prev); bookIds.forEach(id => n.add(id)); return n; });
                 setAutoOrgMenu(null);
-                showToast(`Will file ${bookCountLabel(bookIds)} under “${name}”`); // v7.10.1 - named receipt
+                rwLog.log('info', 'AUTO', `Will file ${bookCountLabel(bookIds)} under “${name}”`, null, { toast: true }); // v7.10.1 - named receipt
             };
             // v7.9.0-alpha.8 - Ron: a bare name input was a typo trap (Pournelle vs Pournell silently
             // creates a folder). Replaced with the combobox picker (autoOrgFileUnder render below).
@@ -9373,17 +9373,17 @@
                     const createdIds = new Set(subActions.filter(a => a.type === 'CREATE_FOLDER').map(a => a.folderId));
                     setFolders(placeNewFoldersAtTop(newFolders, newFolders.filter(f => createdIds.has(f.id))));
                     recordAction({ type: 'WIZARD_ORGANIZE', description: `${label} + removed ${selectedFiledIds.length} already-filed from ${where}`, subActions: stampRemovalIndices(subActions, folders) }); // v7.7.0-alpha.4 - positional undo
-                    showToast(`Organized ${bookCountLabel(plan.allBookIdsToOrganize)} and removed ${bookCountLabel(selectedFiledIds)} from ${where}`); // v7.10.1 - named receipt
+                    rwLog.log('info', 'AUTO', `Organized ${bookCountLabel(plan.allBookIdsToOrganize)} and removed ${bookCountLabel(selectedFiledIds)} from ${where}`, null, { toast: true }); // v7.10.1 - named receipt
                 } else if (willOrganize) {
                     const plan = applyOrganizePlan(moverGroupsToApply, applyOpts, label);
-                    showToast(mode === 'author'
+                    rwLog.log('info', 'AUTO', mode === 'author'
                         ? `Organized ${bookCountLabel(plan.allBookIdsToOrganize)} into author folders` // v7.10.1 - named receipt
-                        : `Organized ${bookCountLabel(plan.allBookIdsToOrganize)} with series subfolders`);
+                        : `Organized ${bookCountLabel(plan.allBookIdsToOrganize)} with series subfolders`, null, { toast: true });
                 } else {
                     const n = removeBooksFromFolder(narrowSourceId, selectedFiledIds, `Remove ${bookCountLabel(selectedFiledIds)} from ${where}`);
-                    showToast(n > 0
+                    rwLog.log('info', 'AUTO', n > 0
                         ? `Removed ${n === selectedFiledIds.length ? bookCountLabel(selectedFiledIds) : `${n} book${n !== 1 ? 's' : ''}`} from ${where} — still filed where ${n === 1 ? 'it was' : 'they were'}` // v7.10.1
-                        : `Nothing to remove from ${where}`);
+                        : `Nothing to remove from ${where}`, null, { toast: true });
                 }
                 closeAutoOrgPreview();
             };
@@ -9452,9 +9452,9 @@
                 if (!ids || ids.length === 0) return;
                 const added = addBooksToBookList(bookListId, ids);
                 const bl = bookLists.find(b => b.id === bookListId);
-                showToast(added > 0
+                rwLog.log('info', 'AUTO', added > 0
                     ? `Added ${added === ids.length ? bookCountLabel(ids) : `${added} book${added !== 1 ? 's' : ''}`} to '${bl?.name || 'Book List'}'${added < ids.length ? ` (${ids.length - added} already there)` : ''}` // v7.10.1 - named receipt
-                    : `${ids.length === 1 ? bookCountLabel(ids) + ' is' : `All ${ids.length} books`} already in '${bl?.name || 'Book List'}'`);
+                    : `${ids.length === 1 ? bookCountLabel(ids) + ' is' : `All ${ids.length} books`} already in '${bl?.name || 'Book List'}'`, null, { toast: true });
             };
             // v6.18.0 - Smart Book-List name from a selection (Ron's queue convention): all one series → "<Series> - To
             // Read"; else all one author → "<Author> - To Read"; else '' (mixed → the generic New To Read list). Shared by
@@ -9485,7 +9485,7 @@
                 const existing = bookLists.find(b => (b.name || '').trim().toLowerCase() === trimmed.toLowerCase());
                 if (existing) { addPreviewSelToBookList(existing.id, ids); return; }
                 createBookList(trimmed, ids);
-                showToast(`Created '${trimmed}' with ${bookCountLabel(ids)}`); // v7.10.1 - named receipt
+                rwLog.log('info', 'AUTO', `Created '${trimmed}' with ${bookCountLabel(ids)}`, null, { toast: true }); // v7.10.1 - named receipt
             };
 
             // v6.13.0-alpha.10 (D3) - When a double-click-opened book detail modal closes over the preview, refresh it.
@@ -10973,12 +10973,12 @@
                                                                     if (choice === 'rename') { proposed = trimmed; continue; }
                                                                     if (choice === 'add') {
                                                                         const added = addBooksToBookList(existing.id, displayedIds);
-                                                                        showToast(added > 0 ? `Added ${added === displayedIds.length ? bookCountLabel(displayedIds) : added} to "${existing.name}"` : `All ${count} already in "${existing.name}"`); // v7.10.1
+                                                                        rwLog.log('info', 'MOVE', added > 0 ? `Added ${added === displayedIds.length ? bookCountLabel(displayedIds) : added} to "${existing.name}"` : `All ${count} already in "${existing.name}"`, null, { toast: true }); // v7.10.1
                                                                     }
                                                                     return; // cancel / backdrop / add → done
                                                                 }
                                                                 createBookList(trimmed, displayedIds);
-                                                                showToast(`Saved ${bookCountLabel(displayedIds)} to "${trimmed}"`); // v7.10.1 - named receipt
+                                                                rwLog.log('info', 'MOVE', `Saved ${bookCountLabel(displayedIds)} to "${trimmed}"`, null, { toast: true }); // v7.10.1 - named receipt
                                                                 return;
                                                             }
                                                         }}>
@@ -10991,7 +10991,7 @@
                                                             className={`block w-full text-left px-3 py-1.5 truncate ${count === 0 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}`}
                                                             onClick={() => {
                                                                 const added = addBooksToBookList(bl.id, displayedIds);
-                                                                showToast(added > 0 ? `Added ${added === displayedIds.length ? bookCountLabel(displayedIds) : added} to "${bl.name}"` : `All ${count} already in "${bl.name}"`); // v7.10.1
+                                                                rwLog.log('info', 'MOVE', added > 0 ? `Added ${added === displayedIds.length ? bookCountLabel(displayedIds) : added} to "${bl.name}"` : `All ${count} already in "${bl.name}"`, null, { toast: true }); // v7.10.1
                                                                 setSaveResultsMenuOpen(false);
                                                             }}>
                                                             {bl.name}
@@ -11413,7 +11413,7 @@
                             const updatedBooks = books.filter(b => !removedIds.has(b.id));
                             setBooks(updatedBooks);
                             saveBooksToIndexedDB(updatedBooks);
-                            showToast(`Removed ${bookCountLabel(removedBooks.map(b => b.id))} — duplicate copies merged into the kept books`); // v7.10.1-alpha.4 - receipt
+                            rwLog.log('info', 'EDIT', `Removed ${bookCountLabel(removedBooks.map(b => b.id))} — duplicate copies merged into the kept books`, null, { toast: true }); // v7.10.1-alpha.4 - receipt
 
                             setDupReviewOpen(false);
                         };
@@ -13470,7 +13470,7 @@
                                                     if (tagsCreated > 0) parts.push(`created ${tagsCreated} tag${tagsCreated !== 1 ? 's' : ''}`);
                                                     if (booksTagged > 0) parts.push(`tagged ${booksTagged} book${booksTagged !== 1 ? 's' : ''}`);
                                                     if (booksUntagged > 0) parts.push(`removed tags from ${booksUntagged} book${booksUntagged !== 1 ? 's' : ''}`);
-                                                    showToast(parts.length > 0 ? parts.join(', ') : 'No changes made');
+                                                    rwLog.log('info', 'EDIT', parts.length > 0 ? parts.join(', ') : 'No changes made', null, { toast: true });
                                                 }}
                                                 disabled={!hasChanges}
                                                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${!hasChanges ? 'bg-blue-300 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
@@ -13499,7 +13499,7 @@
                                         const price = parseFloat(bulkPriceInput);
                                         if (!isNaN(price) && price > 0) {
                                             applyPriceGoal(bulkPriceBookIds, price); // v7.12.0 - chokepoint (undo + snapshot)
-                                            showToast(`Price goal set to $${price.toFixed(2)} for ${bookCountLabel(bulkPriceBookIds)}`); // v7.10.1 - named receipt
+                                            rwLog.log('info', 'EDIT', `Price goal set to $${price.toFixed(2)} for ${bookCountLabel(bulkPriceBookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                                         }
                                         setShowBulkPriceModal(false);
                                         setBulkPriceInput('');
@@ -13793,7 +13793,7 @@
                                                         className="text-3xl font-bold text-gray-900 hover:text-blue-700 transition-colors"
                                                         title="View on Amazon">{modalBook.title}</a>
                                                     <button
-                                                        onClick={() => { navigator.clipboard.writeText(modalBook.title); showToast('Title copied!'); }}
+                                                        onClick={() => { navigator.clipboard.writeText(modalBook.title); rwLog.log('info', 'SHARE', 'Title copied!', null, { toast: true }); }}
                                                         className="ml-2 align-middle text-base opacity-40 hover:opacity-90 transition-opacity"
                                                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
                                                         title="Copy title" aria-label="Copy title">📋</button>
@@ -13856,7 +13856,7 @@
                                                    random passwords; one chip would make this line look like it forgot its own */
                                                 <p className="text-xl text-gray-700 mb-4">by {modalBook.author}
                                                     <button
-                                                        onClick={() => { navigator.clipboard.writeText(modalBook.author || ''); showToast('Author copied!'); }}
+                                                        onClick={() => { navigator.clipboard.writeText(modalBook.author || ''); rwLog.log('info', 'SHARE', 'Author copied!', null, { toast: true }); }}
                                                         className="ml-2 align-middle text-sm opacity-40 hover:opacity-90 transition-opacity"
                                                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
                                                         title="Copy author" aria-label="Copy author">📋</button>
@@ -18042,7 +18042,7 @@
                                                     saveBooksToIndexedDB(updated);
                                                     return updated;
                                                 });
-                                                showToast(`Deleted ${toDelete.size} tag${toDelete.size !== 1 ? 's' : ''}${delInfo.affectedCount > 0 ? ` — removed from ${delInfo.affectedCount} book${delInfo.affectedCount !== 1 ? 's' : ''}` : ''}${delInfo.removedSearchCount > 0 ? `, ${delInfo.removedSearchCount} Search${delInfo.removedSearchCount !== 1 ? 'es' : ''} deleted` : ''}`); // v7.10.1-alpha.4 - receipt
+                                                rwLog.log('info', 'ORG', `Deleted ${toDelete.size} tag${toDelete.size !== 1 ? 's' : ''}${delInfo.affectedCount > 0 ? ` — removed from ${delInfo.affectedCount} book${delInfo.affectedCount !== 1 ? 's' : ''}` : ''}${delInfo.removedSearchCount > 0 ? `, ${delInfo.removedSearchCount} Search${delInfo.removedSearchCount !== 1 ? 'es' : ''} deleted` : ''}`, null, { toast: true }); // v7.10.1-alpha.4 - receipt
                                                 setTagRegistry(prev => {
                                                     const updated = { ...prev };
                                                     toDelete.forEach(tagId => delete updated[tagId]);
@@ -18175,7 +18175,7 @@
                                                                                     saveBooksToIndexedDB(updated);
                                                                                     return updated;
                                                                                 });
-                                                                                showToast(`Deleted tag "${label}"${delInfo.affectedCount > 0 ? ` — removed from ${delInfo.affectedCount} book${delInfo.affectedCount !== 1 ? 's' : ''}` : ''}`); // v7.10.1-alpha.4 - receipt
+                                                                                rwLog.log('info', 'ORG', `Deleted tag "${label}"${delInfo.affectedCount > 0 ? ` — removed from ${delInfo.affectedCount} book${delInfo.affectedCount !== 1 ? 's' : ''}` : ''}`, null, { toast: true }); // v7.10.1-alpha.4 - receipt
                                                                                 setTagRegistry(prev => {
                                                                                     const updated = { ...prev };
                                                                                     delete updated[tagId];
@@ -18216,11 +18216,11 @@
                                                 setTagInputValue('');
                                                 // v7.24.0 - identity is EXACT text: an identical name already exists → say so; a name that
                                                 // differs only in capitals → findOrCreateTag asks once (it used to refuse those outright)
-                                                if (tagKeyByExactName(inputValue)) { showToast(`Tag "${inputValue}" already exists`); return; }
+                                                if (tagKeyByExactName(inputValue)) { rwLog.log('info', 'ORG', `Tag "${inputValue}" already exists`, null, { toast: true }); return; }
                                                 (async () => {
                                                     const made = await findOrCreateTag(inputValue);
-                                                    if (made && made.created) showToast(`Created tag "${made.label}"`);
-                                                    else if (made) showToast(`Kept the existing tag "${made.label}"`);
+                                                    if (made && made.created) rwLog.log('info', 'ORG', `Created tag "${made.label}"`, null, { toast: true });
+                                                    else if (made) rwLog.log('info', 'ORG', `Kept the existing tag "${made.label}"`, null, { toast: true });
                                                 })();
                                             } else if (e.key === 'Escape') {
                                                 setTagInputValue('');
@@ -19571,16 +19571,16 @@
                                                             onClick={() => {
                                                                 const booksWithAsin = selectedBooksArray.filter(b => b.asin);
                                                                 if (booksWithAsin.length === 0) {
-                                                                    showToast(count === 1 ? 'No Amazon link available for this book' : 'No Amazon links available for selected books');
+                                                                    rwLog.log('info', 'SHARE', count === 1 ? 'No Amazon link available for this book' : 'No Amazon links available for selected books', null, { toast: true });
                                                                 } else if (count === 1) {
                                                                     navigator.clipboard.writeText(getAmazonUrl(booksWithAsin[0].asin));
-                                                                    showToast('Link copied!');
+                                                                    rwLog.log('info', 'SHARE', 'Link copied!', null, { toast: true });
                                                                 } else if (booksWithAsin.length === count) {
                                                                     navigator.clipboard.writeText(booksWithAsin.map(b => getAmazonUrl(b.asin)).join('\n'));
-                                                                    showToast(`${count} Amazon links copied!`);
+                                                                    rwLog.log('info', 'SHARE', `${count} Amazon links copied!`, null, { toast: true });
                                                                 } else {
                                                                     navigator.clipboard.writeText(booksWithAsin.map(b => getAmazonUrl(b.asin)).join('\n'));
-                                                                    showToast(`${booksWithAsin.length} of ${count} links copied (${count - booksWithAsin.length} books have no Amazon link)`);
+                                                                    rwLog.log('info', 'SHARE', `${booksWithAsin.length} of ${count} links copied (${count - booksWithAsin.length} books have no Amazon link)`, null, { toast: true });
                                                                 }
                                                                 setExplorerBookContextMenu(null);
                                                                 setContextSubmenu(null);
@@ -19592,7 +19592,7 @@
                                                         <div className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3" role="menuitem"
                                                             onClick={() => {
                                                                 if (count > 20) {
-                                                                    showToast('Select up to 20 books to share by email');
+                                                                    rwLog.log('info', 'SHARE', 'Select up to 20 books to share by email', null, { toast: true });
                                                                 } else {
                                                                     const shareData = getShareData(selectedBooksArray);
                                                                     openShareEmail(shareData);
@@ -19630,7 +19630,7 @@
                                                 onClick={() => {
                                                     const titles = selectedBooksArray.map(book => book.title).join('\n');
                                                     navigator.clipboard.writeText(titles);
-                                                    showToast(count !== 1 ? `${count} titles copied!` : 'Title copied!'); // v7.13.0-alpha.1 - receipt (clipboard family, non-undoable by doctrine)
+                                                    rwLog.log('info', 'SHARE', count !== 1 ? `${count} titles copied!` : 'Title copied!', null, { toast: true }); // v7.13.0-alpha.1 - receipt (clipboard family, non-undoable by doctrine)
                                                     setExplorerBookContextMenu(null);
                                                     setContextSubmenu(null);
                                                 }}>
@@ -19649,7 +19649,7 @@
                                                         role="menuitem"
                                                         onClick={() => {
                                                             navigator.clipboard.writeText(uniqueAuthors.join('\n'));
-                                                            showToast(uniqueAuthors.length !== 1 ? `${uniqueAuthors.length} authors copied!` : 'Author copied!');
+                                                            rwLog.log('info', 'SHARE', uniqueAuthors.length !== 1 ? `${uniqueAuthors.length} authors copied!` : 'Author copied!', null, { toast: true });
                                                             setExplorerBookContextMenu(null);
                                                             setContextSubmenu(null);
                                                         }}>
@@ -19857,7 +19857,7 @@
                                                                                                  saveBooksToIndexedDB(updated);
                                                                                                 return updated;
                                                                                             });
-                                                                                            showToast(`Removed "${tagRegistry[tagId]?.label || tagId}" from ${bookCount === 1 && selectedBookIds.length === 1 ? bookCountLabel(selectedBookIds) : `${bookCount} book${bookCount !== 1 ? 's' : ''}`}`); // v7.10.1
+                                                                                            rwLog.log('info', 'EDIT', `Removed "${tagRegistry[tagId]?.label || tagId}" from ${bookCount === 1 && selectedBookIds.length === 1 ? bookCountLabel(selectedBookIds) : `${bookCount} book${bookCount !== 1 ? 's' : ''}`}`, null, { toast: true }); // v7.10.1
                                                                                         }}>
                                                                                         ×
                                                                                     </button>
@@ -20000,7 +20000,7 @@
                                                                                      return updated;
                                                                                 });
                                                                                 if (addedCount > 0) {
-                                                                                    showToast(`Added "${tagData.label}" to ${addedCount === selectedBookIds.length ? bookCountLabel(selectedBookIds) : `${addedCount} book${addedCount !== 1 ? 's' : ''}`}`); // v7.10.1
+                                                                                    rwLog.log('info', 'EDIT', `Added "${tagData.label}" to ${addedCount === selectedBookIds.length ? bookCountLabel(selectedBookIds) : `${addedCount} book${addedCount !== 1 ? 's' : ''}`}`, null, { toast: true }); // v7.10.1
                                                                                 }
                                                                                 setTagInputValue('');
                                                                                 setExplorerBookContextMenu(null);
@@ -20070,7 +20070,7 @@
                                                                     onClick={async () => {
                                                                     const selectedBookIds = getSelectedBookIds();
                                                                     applyPriceGoal(selectedBookIds, price); // v7.12.0 - chokepoint (undo + snapshot)
-                                                                    showToast(`Price goal set to $${price.toFixed(2)} for ${bookCountLabel(selectedBookIds)}`); // v7.10.1 - named receipt
+                                                                    rwLog.log('info', 'EDIT', `Price goal set to $${price.toFixed(2)} for ${bookCountLabel(selectedBookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                                                                     setExplorerBookContextMenu(null);
                                                                     setContextSubmenu(null);
                                                                 }}>
@@ -20095,7 +20095,7 @@
                                                             onClick={async () => {
                                                                 const selectedBookIds = getSelectedBookIds();
                                                                 applyPriceGoal(selectedBookIds, null); // v7.12.0 - chokepoint (undo + snapshot cleared)
-                                                                showToast(`Price goal cleared for ${bookCountLabel(selectedBookIds)}`); // v7.10.1 - named receipt
+                                                                rwLog.log('info', 'EDIT', `Price goal cleared for ${bookCountLabel(selectedBookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                                                                 setExplorerBookContextMenu(null);
                                                                 setContextSubmenu(null);
                                                             }}>
@@ -20136,7 +20136,7 @@
                                                                 newState: newHiddenState,
                                                                 label: `${newHiddenState ? 'Hide' : 'Unhide'} ${bookCountLabel(bookIdsToToggle)}` // v7.8.0-alpha.5 named target (missed site)
                                                             });
-                                                            showToast(`${newHiddenState ? 'Hid' : 'Unhid'} ${bookCountLabel(bookIdsToToggle)}`); // v7.10.1-alpha.5 (Ron #9) - action receipt
+                                                            rwLog.log('info', 'EDIT', `${newHiddenState ? 'Hid' : 'Unhid'} ${bookCountLabel(bookIdsToToggle)}`, null, { toast: true }); // v7.10.1-alpha.5 (Ron #9) - action receipt
 
                                                             setExplorerBookContextMenu(null);
                                                             setContextSubmenu(null);
@@ -20417,7 +20417,7 @@
                                         className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-sm font-medium"
                                         onClick={() => {
                                             navigator.clipboard.writeText(`Subject: ${shareEmailChoice.subject}\n\n${shareEmailChoice.body}`);
-                                            showToast('Email content copied — paste into your email app');
+                                            rwLog.log('info', 'SHARE', 'Email content copied — paste into your email app', null, { toast: true });
                                             setShareEmailChoice(null);
                                         }}>
                                         📋 Copy to clipboard

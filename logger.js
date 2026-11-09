@@ -22,7 +22,10 @@ const LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical'];
 // The areas (LOGGING.md §2). JavaScript has no enums; a frozen object is the standard stand-in.
 const LOG_AREAS = Object.freeze({
     BOOT: 'BOOT', SYNC: 'SYNC', IMPORT: 'IMPORT', BACKUP: 'BACKUP', STORE: 'STORE', INTEG: 'INTEG', FIELD: 'FIELD',
-    MOVE: 'MOVE', UNDO: 'UNDO', COVER: 'COVER', PREF: 'PREF', PHONE: 'PHONE', UI: 'UI'
+    MOVE: 'MOVE', UNDO: 'UNDO', COVER: 'COVER', PREF: 'PREF', PHONE: 'PHONE', UI: 'UI',
+    // 2026-11-09 (Ron) - for the toasts none of the 13 fit: folders, Book Lists, Searches and tags as things (ORG); a
+    // book's details (EDIT); Auto-Organize (AUTO); copying titles, authors, links, the email text (SHARE)
+    ORG: 'ORG', EDIT: 'EDIT', AUTO: 'AUTO', SHARE: 'SHARE'
 });
 const TEST_MARK = '-!TEST!';                          // written after the code of a planted test message — defined ONCE
 const LOG_STORAGE_KEY = 'readerwrangler-log';

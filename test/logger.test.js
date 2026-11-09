@@ -187,10 +187,11 @@ test('LOG-014', 'ours only: an uncaught error from our page is UI-03, a failed p
     assert.ok(/x is not defined/.test(w.log.entries()[0].text));
 });
 
-test('LOG-015', 'the vocabulary: five levels in order, and the 13 areas as a frozen list', () => {
+test('LOG-015', 'the vocabulary: five levels in order, and the 17 areas as a frozen list', () => {
     assert.deepStrictEqual(L.LOG_LEVELS, ['debug', 'info', 'warning', 'error', 'critical']);
-    assert.deepStrictEqual(Object.keys(L.LOG_AREAS).sort(), ['BACKUP', 'BOOT', 'COVER', 'FIELD', 'IMPORT', 'INTEG', 'MOVE',
-        'PHONE', 'PREF', 'STORE', 'SYNC', 'UI', 'UNDO']);
+    // 13 from the sort (2026-11-07) + ORG, EDIT, AUTO, SHARE for the toasts none of them fit (Ron, 2026-11-09)
+    assert.deepStrictEqual(Object.keys(L.LOG_AREAS).sort(), ['AUTO', 'BACKUP', 'BOOT', 'COVER', 'EDIT', 'FIELD', 'IMPORT',
+        'INTEG', 'MOVE', 'ORG', 'PHONE', 'PREF', 'SHARE', 'STORE', 'SYNC', 'UI', 'UNDO']);
     assert.ok(Object.isFrozen(L.LOG_AREAS));
 });
 

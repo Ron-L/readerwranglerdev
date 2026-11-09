@@ -145,6 +145,18 @@ def check(files, areas):
                 problems.append(f"{where}: {code} is already used at {seen[code]} — each numbered code at ONE call")
             else:
                 seen[code] = where
+    # 2026-11-09 (the toast pass): every toast goes through rwLog.log(…, { toast }) so it reaches the log with its area.
+    # Allowed: the one line that hands showToast to the logger (rwLog.setToaster), and comments.
+    for path, src in files:
+        for m in re.finditer(r"\bshowToast\(", src):
+            if _in_comment(src, m.start()):
+                continue
+            ls = src.rfind("\n", 0, m.start()) + 1
+            le = src.find("\n", m.start())
+            if "setToaster" in src[ls:le if le >= 0 else len(src)]:
+                continue
+            problems.append(f"{path}:{src.count(chr(10), 0, m.start()) + 1}: a direct showToast( call — use "
+                            "rwLog.log(level, code, text, null, { toast: true }) so the toast reaches the log with its area")
     return calls, problems
 
 

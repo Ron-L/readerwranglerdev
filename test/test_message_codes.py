@@ -30,6 +30,13 @@ ROWS = [
      "// the toaster: rwLog.log(…, { toast }) shows it\n/* also rwLog.log(level, code) here */\nrwLog.log('info', 'UI', 'real');", None),
     ("MSG-009", "a call split over lines, double quotes",
      "rwLog.log(\n    \"error\",\n    \"STORE-04\",\n    \"the book store could not be read\"\n);", None),
+    # 2026-11-09 (the toast pass): every toast goes through rwLog.log(…, { toast }) so it reaches the log with its area;
+    # the one line that hands showToast to the logger, and comments, are allowed
+    ("MSG-015", "a direct showToast( call is refused — toasts go through rwLog.log(…, { toast })",
+     "showToast('Saved');", "showToast"),
+    ("MSG-016", "the logger's hand-over line and a comment mentioning showToast( are allowed",
+     "window.rwLog.setToaster((text, o) => showToast(text, o.x, o.y));\n// (was: showToast('x'))\nconst showToast = (message) => {};",
+     None),
 ]
 
 failures = 0
@@ -62,7 +69,8 @@ rows = [ln for ln in t.splitlines() if ln.startswith("| ") and not ln.startswith
 check("MSG-010", "the table lists numbered codes sorted by area, escapes |, counts general lines",
       rows == ["| BACKUP-03 | error | a \\| pipe | a.js |", "| SYNC-02 | warning | relay unreachable | b.js |"]
       and "1 general line" in t, t)
-check("MSG-011", "the areas come from logger.js's own list (13)", len(AREAS) == 13 and "IMPORT" in AREAS, sorted(AREAS))
+check("MSG-011", "the areas come from logger.js's own list (17)",
+      len(AREAS) == 17 and "IMPORT" in AREAS and "SHARE" in AREAS, sorted(AREAS))
 logger_calls = mc.find_calls("logger.js", open(os.path.join(ROOT, "logger.js"), encoding="utf-8").read())
 check("MSG-012", "the logging module's own calls are found (UI-02, UI-03, UI-04, the page-load line)",
       {"UI-02", "UI-03", "UI-04", "BOOT"} <= {c[3] for c in logger_calls}, [c[3] for c in logger_calls])

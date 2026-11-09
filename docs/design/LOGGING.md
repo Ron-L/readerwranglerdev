@@ -59,6 +59,10 @@ may plant `IMPORT-12` to test how `IMPORT-12` is handled). What marks them is ex
 | **PREF** | saved settings (filters, the Auto-Organize wizard) |
 | **PHONE** | the phone app: pairing, loading |
 | **UI** | screen-level coding checks |
+| **ORG** | folders, Book Lists, Searches and tags as things: create, rename, delete, pin, order (Ron, 2026-11-09 — the toast pass) |
+| **EDIT** | a book's details: the book window, Bulk Edit, series numbers, price goals, tags on books, hide, duplicates |
+| **AUTO** | Auto-Organize |
+| **SHARE** | copying titles, authors, Amazon links, the email text |
 
 ## 2b. Where the logs live (Ron + Claude, 2026-11-05)
 
@@ -314,7 +318,11 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    routines logging what they showed.
    - **The toast pass, part 1 ✅ (7.26.0-alpha.21):** the 61 toasts whose subject fits an existing area (MOVE, UNDO,
      BACKUP, SYNC, IMPORT); the red refusals keep their red as numbered errors (MOVE-06…09, UNDO-04).
-   - **Part 2 waits for Ron — 56 toasts fit none of the 13 areas.** Claude's proposal (2026-11-09), four new areas:
+   - **Part 2 ✅ (7.26.0-alpha.23)** — Ron took the four areas (2026-11-09): the last 56 toasts are ORG, EDIT, AUTO,
+     SHARE (and three "save results to a Book List" ones MOVE, like the other list adds). The commit check now refuses a
+     direct `showToast(` (tools/message_codes.py; MSG-015/016) — the logger's hand-over line excepted. The red refusals
+     became warnings (alpha.22, Ron: "None red is fine"). What was proposed:
+   - **Part 2 waited for Ron — 56 toasts fit none of the 13 areas.** Claude's proposal (2026-11-09), four new areas:
      **ORG** — folders, Book Lists, Searches and tags as things: create, rename, delete, pin, order (~25: renames,
      creates and deletes of all four, "Saved as a Search", pins, "Manual order now matches…", the folder delete, the tag
      manager); **EDIT** — a book's details: the book window, Bulk Edit, series numbers, price goals, tags added to or
