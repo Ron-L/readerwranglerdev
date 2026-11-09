@@ -325,7 +325,10 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    crashed) a `toast` message still reaches the log and the console, and a critical one still gets the logger's own box
    (a critical message shows that box, not a toast). `showToast`'s 122 callers move to `rwLog.log(…, { toast })` in one
    pass after the console lines are switched (re-sequenced 2026-11-08: one pass, each call given its area, instead of
-   area by area); then a commit check refuses a direct `showToast(` call. **Dialogs are not messages** (Ron: "different
+   area by area); then a commit check refuses a direct `showToast(` call. **Folder names may enter the log** (Ron,
+   2026-11-09) — the toasts carry them (*"Pasted 3 books into 'Sci-Fi'"*) and support can't follow "moved to a folder";
+   a book's note text and its tags stay out (F4). **A crashed drag-and-drop toasts** *"That move didn't work."* (Ron,
+   2026-11-09; MOVE-01…05 — before, it did nothing, silently). **Dialogs are not messages** (Ron: "different
    animals") — info boxes, confirmations and the progress box's finish keep their own routines, each logging what it
    showed (one line inside each), so everything the user saw is in the log.
    - **level** — `'debug' | 'info' | 'warning' | 'error' | 'critical'`, written at the call site, where the message is

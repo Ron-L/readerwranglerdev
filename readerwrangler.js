@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.17";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.18";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -6735,7 +6735,7 @@
                         const mentionsRemoved = (a) => { const s = JSON.stringify(a); return removedIds.some(id => s.includes(id)); };
                         setUndoStack(prev => prev.filter(a => !mentionsRemoved(a)));
                         setRedoStack(prev => prev.filter(a => !mentionsRemoved(a)));
-                        console.log(`🧹 Purged undo history referencing ${removedIds.length} import-removed book(s)`);
+                        rwLog.log('info', 'UNDO', `The Import removed ${removedIds.length} book(s); the undo / redo steps that mention them were dropped`);
                     }
                 }
 
@@ -7597,7 +7597,7 @@
                 if (action.label) return action.label;
                 if (action.description) return action.description;
                 if (FRIENDLY_ACTION[action.type]) return FRIENDLY_ACTION[action.type];
-                console.warn('recordAction: no undo/redo label for action type', action.type);
+                rwLog.log('error', 'UNDO-01', `An action has no undo / redo label (a coding slip): ${action.type}`);
                 return action.type;
             };
 
@@ -8207,7 +8207,7 @@
                         break;
                     }
                     default:
-                        console.warn('Unknown action type for undo:', action.type);
+                        rwLog.log('error', 'UNDO-02', `Undo did nothing — this code doesn't know the action (a coding slip): ${action.type}`);
                 }
             };
 
@@ -8754,7 +8754,7 @@
                         break;
                     }
                     default:
-                        console.warn('Unknown action type for redo:', action.type);
+                        rwLog.log('error', 'UNDO-03', `Redo did nothing — this code doesn't know the action (a coding slip): ${action.type}`);
                 }
             };
 
@@ -15168,7 +15168,7 @@
                                                 try {
                                                     const folderDragData = JSON.parse(folderDataStr);
                                                     reparentFolder(folderDragData.folderIds, '__inbox__');
-                                                } catch (err) { rwLog.log('error', 'MOVE-01', `Dropping folders on the Inbox failed: ${err && err.message}`, { stack: err && err.stack }); }
+                                                } catch (err) { rwLog.log('error', 'MOVE-01', "That move didn't work.", { where: 'folders dropped on the Inbox', error: err && err.message, stack: err && err.stack }, { toast: true }); }
                                             }
                                             if (!bookDataStr) { setFolderDropHighlight(null); return; }
                                             const dragData = JSON.parse(bookDataStr);
@@ -15416,7 +15416,7 @@
                                                                     }
                                                                     repositionSearch(draggedViewId, newPos); // v7.10.1-alpha.6 - undoable via chokepoint
                                                                 } catch (err) {
-                                                                    rwLog.log('error', 'MOVE-02', `Dropping a Search into a new place in the left pane failed: ${err && err.message}`, { stack: err && err.stack });
+                                                                    rwLog.log('error', 'MOVE-02', "That move didn't work.", { where: 'a Search dropped into a new place in the left pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                                                                 }
                                                                 return;
                                                             }
@@ -15469,7 +15469,7 @@
                                                                         }
                                                                     }
                                                                 } catch (err) {
-                                                                    rwLog.log('error', 'MOVE-03', `A drop on a folder in the left pane failed: ${err && err.message}`, { stack: err && err.stack });
+                                                                    rwLog.log('error', 'MOVE-03', "That move didn't work.", { where: 'a drop on a folder in the left pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                                                                 }
                                                                 // v6.11.2 - Don't return early; fall through to also process books
                                                             }
@@ -15874,7 +15874,7 @@
                                                                     const newParentId = folder.id === '__library__' ? null : folder.id;
                                                                     reparentFolder(folderIds, newParentId);
                                                                 } catch (err) {
-                                                                    rwLog.log('error', 'MOVE-04', `Dropping folders on the folder path above the right pane failed: ${err && err.message}`, { stack: err && err.stack });
+                                                                    rwLog.log('error', 'MOVE-04', "That move didn't work.", { where: 'folders dropped on the folder path above the right pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                                                                 }
                                                                 return;
                                                             }
@@ -15894,7 +15894,7 @@
                                                                     setExplorerDragBookId(null);
                                                                     setExplorerDragData(null);
                                                                 } catch (err) {
-                                                                    rwLog.log('error', 'MOVE-05', `Dropping books on the folder path above the right pane failed: ${err && err.message}`, { stack: err && err.stack });
+                                                                    rwLog.log('error', 'MOVE-05', "That move didn't work.", { where: 'books dropped on the folder path above the right pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                                                                 }
                                                             }
                                                         }}
