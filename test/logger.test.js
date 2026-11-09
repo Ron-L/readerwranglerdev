@@ -335,4 +335,15 @@ test('LOG-028', 'a critical message can carry its own advice for the box (BOOT-0
     assert.strictEqual(seen[2].advice, undefined, 'only words count as advice');
 });
 
+test('LOG-029', 'rwLog.dialog(area, text): a dialog logs what it showed, at info, in its area; an unknown area is UI-05', () => {
+    const w = world();
+    w.log.dialog('BACKUP', 'Shown: "Restore Error" — that file can\'t be restored');
+    assert.deepStrictEqual([last(w).level, last(w).code], ['info', 'BACKUP']);
+    assert.ok(last(w).text.includes('Restore Error'));
+    w.log.dialog('BAKUP', 'Shown: "x"');
+    const codes = w.log.entries().map(e => e.code);
+    assert.ok(codes.includes('UI-05'), 'a mistyped area is reported (UI-05)');
+    assert.ok(w.log.entries().some(e => e.text === 'Shown: "x"'), 'and the dialog is still logged');
+});
+
 done();

@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.23";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.24";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -282,7 +282,53 @@
             messageEl.setAttribute('data-dialog-body', '');
         }
 
-        function showInfoDialog(title, message) {
+        // 7.26.0 (Ron, 2026-11-09 — option 1) - Every dialog names its AREA first and logs what it showed there, and the
+        // answer for those that ask (rwLog.dialog — the one logging call whose code isn't written literally; the commit
+        // check verifies each call's area instead, tools/message_codes.py). The boxes themselves are unchanged, below.
+        const dialogShown = (area, title, message) => rwLog.dialog(area, `Box shown: "${title}" — ${message}`);
+        const dialogAnswered = (area, title, answer) => rwLog.dialog(area, `Box "${title}" answered: ${answer}`);
+        function showInfoDialog(area, title, message) {
+            dialogShown(area, title, message);
+            return infoBox(title, message);
+        }
+        function showProgressDialog(area, title, message) {
+            dialogShown(area, title, message);
+            const box = progressBox(title, message);
+            return {
+                ...box,
+                finish(newTitle, msg, extras) {
+                    dialogShown(area, newTitle, msg);
+                    return box.finish(newTitle, msg, extras).then((key) => {
+                        if (key) dialogAnswered(area, newTitle, ((extras || []).find(x => x.key === key) || {}).label || key);
+                        return key;
+                    });
+                }
+            };
+        }
+        function showConfirmDialog(area, title, message, confirmText = 'OK', cancelText = 'Cancel') {
+            dialogShown(area, title, message);
+            return confirmBox(title, message, confirmText, cancelText).then((ok) => { dialogAnswered(area, title, ok ? confirmText : cancelText); return ok; });
+        }
+        function showChoiceDialog(area, title, message, choices) {
+            dialogShown(area, title, message);
+            return choiceBox(title, message, choices).then((v) => {
+                dialogAnswered(area, title, v == null ? 'closed' : ((choices || []).find(c => c.value === v) || {}).label || String(v));
+                return v;
+            });
+        }
+        function showInputDialog(area, title, message, defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'Cancel') {
+            dialogShown(area, title, message);
+            return inputBox(title, message, defaultValue, placeholder, confirmText, cancelText).then((v) => {
+                dialogAnswered(area, title, v == null ? cancelText : `${confirmText} ("${v}")`);
+                return v;
+            });
+        }
+        function showDeleteWarningDialog(purchasedCount) {
+            dialogShown('MOVE', 'Owned books', `deleting ${purchasedCount} purchased book(s)`);
+            return deleteWarningBox(purchasedCount).then((v) => { dialogAnswered('MOVE', 'Owned books', v === 'delete' ? 'Delete Anyway' : 'Cancel'); return v; });
+        }
+
+        function infoBox(title, message) {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
@@ -332,7 +378,7 @@
 
         // v6.0.0-alpha.45: Progress dialog for relay import (mutable content, no button initially)
         // Returns controller: { update(msg), finish(title, msg), close() }
-        function showProgressDialog(title, message) {
+        function progressBox(title, message) {
             const overlay = document.createElement('div');
             overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
             overlay.style.cssText = `
@@ -433,7 +479,7 @@
         }
 
         // v5.5.7-alpha.13: Themed confirm dialog (replaces window.confirm to avoid "localhost says")
-        function showConfirmDialog(title, message, confirmText = 'OK', cancelText = 'Cancel') {
+        function confirmBox(title, message, confirmText = 'OK', cancelText = 'Cancel') {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
@@ -499,7 +545,7 @@
         // v6.12.0 - Promise-based multi-button choice dialog. choices: [{ label, value, primary? }] shown
         // left→right (put the primary/default last so it sits at the right). Resolves to the chosen value,
         // or null if dismissed via the backdrop. Buttons name their own action (no ambiguous OK).
-        function showChoiceDialog(title, message, choices) {
+        function choiceBox(title, message, choices) {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
@@ -541,7 +587,7 @@
         }
 
         // v6.12.0 - Promise-based single-line input dialog. Resolves to the entered string, or null on cancel.
-        function showInputDialog(title, message, defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'Cancel') {
+        function inputBox(title, message, defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'Cancel') {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
@@ -582,7 +628,7 @@
         }
 
         // v6.2.0 - Warning dialog for deleting purchased books (3 buttons: Hide Instead / Delete Anyway / Cancel)
-        function showDeleteWarningDialog(purchasedCount) {
+        function deleteWarningBox(purchasedCount) {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'rw-imperative-overlay'; // v7.10.1-alpha.6 - counts as an open dialog (see imperativeDialogsUp)
@@ -1469,7 +1515,7 @@
                 if (exact) return { key: exact, label: name, created: false };
                 const twin = Object.entries(tagRegistry).find(([, t]) => t && t.label.toLowerCase() === name.toLowerCase());
                 if (twin) {
-                    const choice = await showChoiceDialog('A similar tag exists',
+                    const choice = await showChoiceDialog('ORG', 'A similar tag exists',
                         `A tag "${twin[1].label}" already exists. Create "${name}" as a separate tag?`,
                         [opts.forBooks ? { label: `Add "${twin[1].label}" instead`, value: 'use' } : { label: 'Cancel', value: null },
                          { label: `Create "${name}"`, value: 'create', primary: true }]);
@@ -2190,7 +2236,7 @@
             const deleteBookList = async (bl) => {
                 if (!bl) return false;
                 // v6.13.2-alpha.1 - Empty Book List deletes without a confirm — nothing to lose.
-                if ((bl.bookIds || []).length > 0 && !(await showConfirmDialog('Delete Book List', `Delete the book list "${bl.name}"? The books themselves are not deleted.`))) return false;
+                if ((bl.bookIds || []).length > 0 && !(await showConfirmDialog('ORG', 'Delete Book List', `Delete the book list "${bl.name}"? The books themselves are not deleted.`))) return false;
                 const index = bookLists.findIndex(x => x.id === bl.id);
                 recordAction({ type: 'BOOKLIST_DELETE', bookList: bl, index, label: `Delete Book List '${bl.name}'` });
                 setBookLists(prev => prev.filter(x => x.id !== bl.id));
@@ -2426,7 +2472,7 @@
                 const dup = savedSearches.find(v => filterKey(v.filters) === key);
                 if (dup) { rwLog.log('info', 'ORG', dup.name && dup.name.trim() ? `Already saved as a Search: "${dup.name}"` : 'These filters are already a saved Search', null, { toast: true }); return false; }
                 const suggested = autoNameView(filters);
-                const name = await showInputDialog('Save as a Search', 'Name (optional — leave blank to show the filter chips):', '', suggested === 'New View' ? 'e.g. Unread sci-fi' : suggested);
+                const name = await showInputDialog('ORG', 'Save as a Search', 'Name (optional — leave blank to show the filter chips):', '', suggested === 'New View' ? 'e.g. Unread sci-fi' : suggested);
                 if (name === null) return false;
                 const trimmed = (name || '').trim();
                 const maxPos = savedSearches.length > 0 ? Math.max(...savedSearches.map(v => v.position ?? 0)) : -1;
@@ -3141,7 +3187,7 @@
                 const listNote = affectedLists.length > 0
                     ? `\n\nThis also removes ${count === 1 ? 'it' : 'them'} from ${affectedLists.length} Book List${affectedLists.length !== 1 ? 's' : ''}${affectedLists.length <= 3 ? ` (${affectedLists.map(bl => `"${bl.name}"`).join(', ')})` : ''}.`
                     : '';
-                if (!await showConfirmDialog('Permanently Delete', `Permanently delete ${count} book${count !== 1 ? 's' : ''}? This cannot be undone.${listNote}`)) return;
+                if (!await showConfirmDialog('MOVE', 'Permanently Delete', `Permanently delete ${count} book${count !== 1 ? 's' : ''}? This cannot be undone.${listNote}`)) return;
 
                 // Remove from books state and IndexedDB
                 // v6.19.0 - Capture the doomed books first: their ASINs become the tombstone letter below
@@ -3742,7 +3788,7 @@
             const bakeOrderToManual = async () => {
                 if (folderListSort.column === 'custom') return;
                 const modeLabel = folderListSort.column === 'title' ? 'Name' : 'Count';
-                if (!(await showConfirmDialog('Bake Order',
+                if (!(await showConfirmDialog('ORG', 'Bake Order',
                     `Make the current ${modeLabel} order the new Manual order? Your previous manual arrangement is overwritten (undoable).`))) return;
                 const sortIndexBefore = {}, sortIndexAfter = {}, childIdsBefore = {}, childIdsAfter = {};
                 getChildFolders(null).forEach((f, idx) => {
@@ -3798,7 +3844,7 @@
                 if (opts.confirmLarge) {
                     const countDesc = (fid) => folders.filter(f => f.parentId === fid).reduce((n, k) => n + 1 + countDesc(k.id), 0);
                     const descCount = folderIds.reduce((n, id) => n + countDesc(id), 0);
-                    if (descCount > 20 && !(await showConfirmDialog('Move Folder', `Move folder with ${descCount} subfolders?`))) return false;
+                    if (descCount > 20 && !(await showConfirmDialog('MOVE', 'Move Folder', `Move folder with ${descCount} subfolders?`))) return false;
                 }
 
                 // Save old parentIds for undo
@@ -3916,7 +3962,7 @@
                     } else {
                         confirmMsg = `Delete "${folder.name}" and its ${subCount} subfolder${subCount !== 1 ? 's' : ''}?`;
                     }
-                    if (!(await showConfirmDialog('Delete Folder', confirmMsg))) return false;
+                    if (!(await showConfirmDialog('ORG', 'Delete Folder', confirmMsg))) return false;
                 }
 
                 const savedSortSettings = {};
@@ -5546,7 +5592,7 @@
                         };
 
                         if (currentFolder.id === folderId || isDescendantOf(currentFolder.id, folderId)) {
-                            showInfoDialog('Cannot Paste', 'Cannot paste folder into itself or its descendants.');
+                            showInfoDialog('MOVE', 'Cannot Paste', 'Cannot paste folder into itself or its descendants.');
                             return;
                         }
 
@@ -5654,7 +5700,7 @@
                 dataOpInProgressRef.current = 'import';
                 const booksBefore = books.length;
                 setRelayImporting(true);
-                const progress = showProgressDialog('Relay Import', 'Importing from relay…');
+                const progress = showProgressDialog('IMPORT', 'Relay Import', 'Importing from relay…');
                 try {
                     // v6.19.0 - Relay write redesign Phase 1 (docs/design/RELAY-WRITE-REDESIGN.md):
                     // import = canonical (pointer → fallback → legacy) + pending mailbox letters,
@@ -5911,7 +5957,7 @@
                         adoptBackupCreds = true; // new machine / migration, or same channel — adopt silently
                     } else {
                         adoptBackupCreds = await showConfirmDialog(
-                            'Different sync channel',
+                            'BACKUP', 'Different sync channel',
                             "This backup was made on a different sync channel than the one you're using now. Keep your current credentials (recommended — they match your installed bookmarklet), or switch to the backup's?",
                             "Use the backup's credentials",
                             'Keep current'
@@ -5920,7 +5966,7 @@
                 }
                 // v7.4.0 - Visible progress: restoring a large library takes seconds, and a
                 // dismissed dialog with nothing on screen reads as "done" or "dead".
-                const progress = showProgressDialog('Restoring Backup', 'Taking your library back to the backup’s state…\nThis can take a little while for a large library.');
+                const progress = showProgressDialog('BACKUP', 'Restoring Backup', 'Taking your library back to the backup’s state…\nThis can take a little while for a large library.');
                 try {
                     // 7.26.0 - The backup's organization with every missing part EMPTY (backupCheck.js): Restore
                     // replaces — only the credentials merge, and only after asking (Ron, 2026-11-08). The file was
@@ -5966,7 +6012,7 @@
                             rwLog.log('warning', 'BACKUP-03', 'The restore took longer than 60 seconds to finish — asked the person to reload the page');
                             setSyncStatus('unknown');
                             progress.close();
-                            showInfoDialog('Restore Warning', 'Library loaded but status check timed out. Please refresh the page.');
+                            showInfoDialog('BACKUP', 'Restore Warning', 'Library loaded but status check timed out. Please refresh the page.');
                         }
                     }, 60000);
 
@@ -5994,7 +6040,7 @@
                     } else {
                         rwLog.log('error', 'BACKUP-04', `Restore failed: ${msg}`, { stack: error && error.stack });
                     }
-                    showInfoDialog('Restore Error', `Failed to load backup file: ${msg}`);
+                    showInfoDialog('BACKUP', 'Restore Error', `Failed to load backup file: ${msg}`);
                 } finally {
                     dataOpInProgressRef.current = null;
                     // (7.26.0-alpha.10 - armed on success above, not here)
@@ -6017,7 +6063,7 @@
 
                         // v6.0.0: Only accept backup files — library data syncs via relay
                         if (parsedData.isBackup !== true) {
-                            showInfoDialog('Not a Backup File', 'This is not a backup file. Library data now syncs automatically through the cloud.');
+                            showInfoDialog('BACKUP', 'Not a Backup File', 'This is not a backup file. Library data now syncs automatically through the cloud.');
                             return;
                         }
                         // 7.26.0 - Every part Restore needs, checked at once, before the "restore?" box (backupCheck.js —
@@ -6025,7 +6071,7 @@
                         const problems = backupProblems(parsedData);
                         if (problems.length > 0) {
                             rwLog.log('warning', 'BACKUP-02', `Refused a backup: ${problems.map(p => `${p.words} ${p.issue}`).join('; ')} — nothing was changed`);
-                            showInfoDialog('Restore Error', backupRefusalText(problems));
+                            showInfoDialog('BACKUP', 'Restore Error', backupRefusalText(problems));
                             return;
                         }
 
@@ -6049,7 +6095,7 @@
                             backupDate: backupOrg.exportDate || (parsedData.books && parsedData.books.fetchDate) || null
                         });
                     } catch (error) {
-                        showInfoDialog('Restore Error', `Could not read backup file: ${error.message || 'Unknown error'}`);
+                        showInfoDialog('BACKUP', 'Restore Error', `Could not read backup file: ${error.message || 'Unknown error'}`);
                     }
                 };
                 input.click();
@@ -6236,7 +6282,7 @@
                 // none (BOOT-01; TODO "One backup writer…" item 5 would build it from storage instead)
                 if (!orgLoadedRef.current) {
                     rwLog.log('warning', 'BACKUP-08', "Save Backup refused: the library hasn't finished loading");
-                    showInfoDialog('Save Backup', "Your library isn't loaded, so there's nothing safe to save yet. Reload the page.");
+                    showInfoDialog('BACKUP', 'Save Backup', "Your library isn't loaded, so there's nothing safe to save yet. Reload the page.");
                     return;
                 }
                 // v7.6.2-alpha.2 - Backup receipts (Ron-ratified): Save Backup was silent — real seconds
@@ -6263,7 +6309,7 @@
                         fileHandle = null; // picker unavailable/refused → anchor fallback below
                     }
                 }
-                const progress = showProgressDialog('Saving Backup', 'Preparing your backup…');
+                const progress = showProgressDialog('BACKUP', 'Saving Backup', 'Preparing your backup…');
                 try {
                     const allBooks = await loadBooksFromIndexedDB();
 
@@ -6379,7 +6425,7 @@
                 } catch (error) {
                     progress.close();
                     rwLog.log('error', 'BACKUP-05', `Save Backup failed: ${(error && error.message) || error}`, { stack: error && error.stack });
-                    showInfoDialog('Export Error', 'Failed to export library.');
+                    showInfoDialog('BACKUP', 'Export Error', 'Failed to export library.');
                 }
             };
 
@@ -6405,7 +6451,7 @@
                         fileHandle = null; // picker unavailable/refused → anchor fallback below
                     }
                 }
-                const progress = showProgressDialog('Saving Spreadsheet', 'Preparing your spreadsheet…');
+                const progress = showProgressDialog('BACKUP', 'Saving Spreadsheet', 'Preparing your spreadsheet…');
                 try {
                     const allBooks = (await loadBooksFromIndexedDB()).filter(b => !b.isDeleted);
                     // Reverse joins: book id → folder paths / Book List names
@@ -6455,7 +6501,7 @@
                 } catch (error) {
                     progress.close();
                     rwLog.log('error', 'BACKUP-06', `Save as Spreadsheet failed: ${(error && error.message) || error}`, { stack: error && error.stack });
-                    showInfoDialog('Spreadsheet Error', 'Failed to save the spreadsheet.');
+                    showInfoDialog('BACKUP', 'Spreadsheet Error', 'Failed to save the spreadsheet.');
                 }
             };
 
@@ -6468,7 +6514,7 @@
                 try {
                     // 7.25.1 - a delete another tab blocks is WAITED for, saying why (it said "done" before — RESET-004)
                     let waitBox = null;
-                    await deleteBookStore({ onBlocked: () => { if (!waitBox) waitBox = showProgressDialog('Reset App', BOOK_STORE_TEXT.blocked); } });
+                    await deleteBookStore({ onBlocked: () => { if (!waitBox) waitBox = showProgressDialog('STORE', 'Reset App', BOOK_STORE_TEXT.blocked); } });
                     if (waitBox) waitBox.close();
                     localStorage.removeItem(STORAGE_KEY);
                     localStorage.removeItem(CACHE_KEY);
@@ -6517,7 +6563,7 @@
                     trackEvent('app-reset'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                 } catch (error) {
                     rwLog.log('error', 'STORE-03', `Reset App failed: ${error && error.message}`, { error: String(error) });
-                    showInfoDialog('Reset Error', 'Failed to clear library data.');
+                    showInfoDialog('STORE', 'Reset Error', 'Failed to clear library data.');
                 }
             };
 
@@ -6583,7 +6629,7 @@
 
                 // Check if user selected legacy collections file (v3.9.0.k)
                 if (parsedData.type === 'collections') {
-                    throw notRestorable('You selected an old Collections file. Please select amazon-library.json instead.');
+                    throw notRestorable('You selected an old Collections file — choose a backup made with File → Save Backup.');
                 }
 
                 let data;           // Array of book items
@@ -6961,9 +7007,9 @@
                         } catch (err) {
                             rwLog.log('warning', 'SYNC-08', `A backup restored here, but sending your organization to the relay failed: ${err && err.message}`);
                         }
-                        showInfoDialog('Backup Restored', `${mergedBooks.length} books restored and synced to the cloud.`);
+                        showInfoDialog('BACKUP', 'Backup Restored', `${mergedBooks.length} books restored and synced to the cloud.`);
                     } else if (organizationFromFile !== null) {
-                        showInfoDialog('Backup Restored', `${mergedBooks.length} books restored.\n\nSet up cloud sync (File → Relay Setup) to keep your library in sync.`);
+                        showInfoDialog('BACKUP', 'Backup Restored', `${mergedBooks.length} books restored.\n\nSet up cloud sync (File → Relay Setup) to keep your library in sync.`);
                     }
 
                     setDataSource('enriched');
@@ -9205,7 +9251,7 @@
             // honoring the wizard's own options (series-folder threshold, Miscellaneous). Closes the wizard on open.
             const openWizardRichPreview = () => {
                 const active = wizardActiveAuthors();
-                if (active.length === 0) { showInfoDialog('No Selection', 'Please select at least one listed author to organize.'); return; }
+                if (active.length === 0) { showInfoDialog('AUTO', 'No Selection', 'Please select at least one listed author to organize.'); return; }
                 const authorGroups = active.map(a => ({ displayName: a.displayName, books: a.books }));
                 const opts = {
                     createSeriesFolders: wizardCreateSeriesFolders,
@@ -9479,7 +9525,7 @@
                 const message = suggestedMatch
                     ? `A Book List named “${suggestedMatch.name}” already exists — press OK to add ${n} book${s} to it, or type a different name to create a new list.`
                     : `Add ${n} book${s} to a new Book List.`;
-                const name = await showInputDialog(title, message, suggested, 'List name (e.g. New To Read)');
+                const name = await showInputDialog('AUTO', title, message, suggested, 'List name (e.g. New To Read)');
                 if (name === null) return;
                 const trimmed = (name || '').trim() || 'New To Read';
                 const existing = bookLists.find(b => (b.name || '').trim().toLowerCase() === trimmed.toLowerCase());
@@ -10960,12 +11006,12 @@
                                                             let proposed = autoNameView(buildCurrentFilters());
                                                             if (proposed === 'New View') proposed = '';
                                                             while (true) {
-                                                                const name = await showInputDialog('New Book List', `Save these ${count} book${count !== 1 ? 's' : ''} as a new Book List.`, proposed, 'List name (optional)');
+                                                                const name = await showInputDialog('MOVE', 'New Book List', `Save these ${count} book${count !== 1 ? 's' : ''} as a new Book List.`, proposed, 'List name (optional)');
                                                                 if (name === null) return;
                                                                 const trimmed = (name || '').trim() || 'Saved results';
                                                                 const existing = bookLists.find(b => (b.name || '').trim().toLowerCase() === trimmed.toLowerCase());
                                                                 if (existing) {
-                                                                    const choice = await showChoiceDialog('Name already in use', `A Book List named "${existing.name}" already exists.`, [
+                                                                    const choice = await showChoiceDialog('MOVE', 'Name already in use', `A Book List named "${existing.name}" already exists.`, [
                                                                         { label: 'Cancel', value: 'cancel' },
                                                                         { label: 'Use a different name', value: 'rename' },
                                                                         { label: `Add to "${existing.name}"`, value: 'add', primary: true }
@@ -11643,7 +11689,7 @@
                                                                 React.createElement('button', {
                                                                     onClick: async () => {
                                                                         if (hasCreds) {
-                                                                            const confirmed = await showConfirmDialog('Regenerate credentials', 'This will invalidate your current bookmarklet and unpair any mobile devices. You will need to drag a new bookmarklet to your bookmarks bar and re-pair your phone.', 'Regenerate', 'Cancel');
+                                                                            const confirmed = await showConfirmDialog('SYNC', 'Regenerate credentials', 'This will invalidate your current bookmarklet and unpair any mobile devices. You will need to drag a new bookmarklet to your bookmarks bar and re-pair your phone.', 'Regenerate', 'Cancel');
                                                                             if (!confirmed) return;
                                                                         }
                                                                         const channelId = crypto.randomUUID();
@@ -11688,9 +11734,9 @@
                                                                                         setRelaySetupOpen(false);
                                                                                         setTimeout(() => { setRelaySetupOpen(true); setRelaySetupSection('credentials'); }, 100);
                                                                                     } else {
-                                                                                        showInfoDialog('No credentials found', 'No credentials found in this file.');
+                                                                                        showInfoDialog('SYNC', 'No credentials found', 'No credentials found in this file.');
                                                                                     }
-                                                                                } catch { showInfoDialog('Invalid file', 'Could not read file. Make sure it is a ReaderWrangler backup (.json).'); }
+                                                                                } catch { showInfoDialog('SYNC', 'Invalid file', 'Could not read file. Make sure it is a ReaderWrangler backup (.json).'); }
                                                                             };
                                                                             reader.readAsText(file);
                                                                         };
@@ -11699,7 +11745,7 @@
                                                                     className: 'px-3 py-1.5 rounded text-sm',
                                                                     style: { background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', cursor: 'pointer', width: '100%' },
                                                                     title: 'Load credentials from a ReaderWrangler backup file — your library data is not affected'
-                                                                }, 'Load credentials from backup')
+                                                                }, 'Load credentials from backup file')
                                                             )
                                                         ),
                                                         // ── Danger zone ──
@@ -11708,7 +11754,7 @@
                                                             React.createElement('button', {
                                                                 onClick: async () => {
                                                                     const confirmed = await showConfirmDialog(
-                                                                        'Revoke credentials & wipe relay',
+                                                                        'SYNC', 'Revoke credentials & wipe relay',
                                                                         'This will erase the temporary copy on the relay and block these credentials from future use. Your Amazon library and local ReaderWrangler data are not affected. You will need to generate new credentials to continue syncing.',
                                                                         'Revoke & delete',
                                                                         'Cancel'
@@ -11721,7 +11767,7 @@
                                                                         setTimeout(() => { setRelaySetupOpen(true); setRelaySetupSection('credentials'); }, 100);
                                                                         rwLog.log('info', 'SYNC', 'Relay credentials revoked. Generate new credentials to continue syncing.', null, { toast: true });
                                                                     } catch (err) {
-                                                                        showInfoDialog('Revocation failed', err.message);
+                                                                        showInfoDialog('SYNC', 'Revocation failed', err.message);
                                                                     }
                                                                 },
                                                                 className: 'px-3 py-1.5 rounded text-sm',
@@ -11865,7 +11911,7 @@
                                             <ul style={{ paddingLeft: '18px', marginTop: '6px', listStyleType: 'disc' }}>
                                                 <li><strong>Generate credentials</strong> — creates a new random channel and passphrase</li>
                                                 <li><strong>Enter credentials manually</strong> — type in credentials from another device</li>
-                                                <li><strong>Load credentials from backup</strong> — restore credentials from a saved backup file</li>
+                                                <li><strong>Load credentials from backup file</strong> — restore credentials from a saved backup file</li>
                                                 <li><strong>Test connection</strong> — verifies the relay can be reached with your credentials</li>
                                             </ul>
                                         </div>
@@ -14803,7 +14849,7 @@
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 const viewId = getViewId(viewFolderId);
-                                                                if (await showConfirmDialog('Delete Search', `Remove "${viewLabel}" from Searches?`)) {
+                                                                if (await showConfirmDialog('ORG', 'Delete Search', `Remove "${viewLabel}" from Searches?`)) {
                                                                     deleteSearch(viewId); // v7.10.1-alpha.6 - undoable + receipt via chokepoint
                                                                     if (selectedFolderId === viewFolderId) navigateToFolder('__all__');
                                                                 }
@@ -18029,7 +18075,7 @@
                                             const msg = totalBooks > 0
                                                 ? `Delete ${selectedTags.size} tag${selectedTags.size !== 1 ? 's' : ''} (${tagNames})? This will remove tags from ${totalBooks} book${totalBooks !== 1 ? 's' : ''}.`
                                                 : `Delete ${selectedTags.size} tag${selectedTags.size !== 1 ? 's' : ''} (${tagNames})?`;
-                                            if (await showConfirmDialog('Delete Tags', msg)) {
+                                            if (await showConfirmDialog('ORG', 'Delete Tags', msg)) {
                                                 const toDelete = new Set(selectedTags);
                                                 const delInfo = recordDeleteTags([...toDelete]); // v7.10.1-alpha.4 - undoable cascade
                                                 setBooks(prev => {
@@ -18163,7 +18209,7 @@
                                                                     <button
                                                                         onClick={async () => {
                                                                             const bookCount = getTagCount(tagId);
-                                                                            if (await showConfirmDialog('Delete Tag', `Delete tag "${label}"?${bookCount > 0 ? ` This will remove it from ${bookCount} book${bookCount !== 1 ? 's' : ''}.` : ''}`)) {
+                                                                            if (await showConfirmDialog('ORG', 'Delete Tag', `Delete tag "${label}"?${bookCount > 0 ? ` This will remove it from ${bookCount} book${bookCount !== 1 ? 's' : ''}.` : ''}`)) {
                                                                                 const delInfo = recordDeleteTags([tagId]); // v7.10.1-alpha.4 - undoable cascade
                                                                                 setBooks(prev => {
                                                                                     const updated = prev.map(b => {
@@ -18891,7 +18937,7 @@
                                                 return false;
                                             };
                                             if (folder.id === folderId || isDescendantOf(folder.id, folderId)) {
-                                                showInfoDialog('Cannot Paste', 'Cannot paste folder into itself or its descendants.');
+                                                showInfoDialog('MOVE', 'Cannot Paste', 'Cannot paste folder into itself or its descendants.');
                                                 setFolderContextMenu(null);
                                                 return;
                                             }
@@ -19044,7 +19090,7 @@
                                     onClick={async () => {
                                         setFolderContextMenu(null);
                                         const label = isNamedSearch ? `"${view.name}"` : `this search (${searchLabel})`;
-                                        if (await showConfirmDialog('Delete Search', `Remove ${label} from Searches?\n\nYour books and tags are not affected.`)) {
+                                        if (await showConfirmDialog('ORG', 'Delete Search', `Remove ${label} from Searches?\n\nYour books and tags are not affected.`)) {
                                             deleteSearch(view.id); // v7.10.1-alpha.6 - undoable + receipt via chokepoint
                                             if (isViewFolder(selectedFolderId) && getViewId(selectedFolderId) === view.id) {
                                                 navigateToFolder('__all__');
@@ -19125,7 +19171,7 @@
                             const message = suggestedMatch
                                 ? `A Book List named “${suggestedMatch.name}” already exists — press OK to add ${n} book${s} to it, or type a different name to create a new list.`
                                 : `Add ${n} book${s} to a new Book List.`;
-                            const name = await showInputDialog(title, message, suggested, 'List name (e.g. New To Read)');
+                            const name = await showInputDialog('MOVE', title, message, suggested, 'List name (e.g. New To Read)');
                             if (name === null) return;
                             const trimmed = (name || '').trim() || 'New To Read';
                             const existing = bookLists.find(b => (b.name || '').trim().toLowerCase() === trimmed.toLowerCase());
@@ -19153,7 +19199,7 @@
                         const handleNewFolderThenPlace = async (parentId, isCopy) => {
                             const ids = getSelectedBookIds();
                             if (ids.length === 0) return;
-                            const name = await showInputDialog('New Folder', `Create a folder${parentId ? ' inside this one' : ''} and ${isCopy ? 'copy' : 'move'} ${ids.length} book${ids.length !== 1 ? 's' : ''} into it.`, '', 'Folder name');
+                            const name = await showInputDialog('MOVE', 'New Folder', `Create a folder${parentId ? ' inside this one' : ''} and ${isCopy ? 'copy' : 'move'} ${ids.length} book${ids.length !== 1 ? 's' : ''} into it.`, '', 'Folder name');
                             if (name === null) return;
                             const trimmed = (name || '').trim() || 'New Folder';
                             const newId = `folder-${Date.now()}`;
@@ -19734,12 +19780,12 @@
                                                                 setContextSubmenu(null);
                                                                 const orderedIds = explorerDisplayItems.filter(it => it.type === 'book' && explorerSelectedItems.has(it.book.id)).map(it => it.book.id);
                                                                 if (orderedIds.length < 2) {
-                                                                    await showConfirmDialog('Number by current order', "Select 2 or more books first.\n\nThis numbers the selected books 1, 2, 3… in the order currently shown — it sets each book's series position, handy for putting an author's books in publication order. Tip: switch to Manual Order sort, drag them into the order you want, select them, then run this.", 'OK', 'Close');
+                                                                    await showConfirmDialog('EDIT', 'Number by current order', "Select 2 or more books first.\n\nThis numbers the selected books 1, 2, 3… in the order currently shown — it sets each book's series position, handy for putting an author's books in publication order. Tip: switch to Manual Order sort, drag them into the order you want, select them, then run this.", 'OK', 'Close');
                                                                     return;
                                                                 }
                                                                 const sortCol = explorerSort[0]?.column;
                                                                 const sortLabel = !sortCol || sortCol === 'custom' ? 'Manual' : sortCol;
-                                                                const name = await showInputDialog('Number by current order', `Number the ${orderedIds.length} selected books 1, 2, 3… in the order currently shown (sorted by ${sortLabel}), setting each book's series position.\n\nOptionally give them a series name (blank = none):`, '', 'Series name (optional)', 'Apply', 'Cancel');
+                                                                const name = await showInputDialog('EDIT', 'Number by current order', `Number the ${orderedIds.length} selected books 1, 2, 3… in the order currently shown (sorted by ${sortLabel}), setting each book's series position.\n\nOptionally give them a series name (blank = none):`, '', 'Series name (optional)', 'Apply', 'Cancel');
                                                                 if (name === null) return;
                                                                 applySequentialNumbering(orderedIds, name);
                                                             }}>
@@ -19751,16 +19797,16 @@
                                                                 setContextSubmenu(null);
                                                                 const orderedIds = explorerDisplayItems.filter(it => it.type === 'book' && explorerSelectedItems.has(it.book.id)).map(it => it.book.id);
                                                                 if (orderedIds.length < 1) {
-                                                                    await showConfirmDialog('Set numbers', 'Select one or more books first.\n\nThis maps a comma-separated list of numbers onto the selected books in the order currently shown — so you can place in-between volumes at 13.5, 14.5, etc.', 'OK', 'Close');
+                                                                    await showConfirmDialog('EDIT', 'Set numbers', 'Select one or more books first.\n\nThis maps a comma-separated list of numbers onto the selected books in the order currently shown — so you can place in-between volumes at 13.5, 14.5, etc.', 'OK', 'Close');
                                                                     return;
                                                                 }
-                                                                const raw = await showInputDialog('Set numbers', `Enter ${orderedIds.length} number${orderedIds.length !== 1 ? 's' : ''}, comma-separated, mapped to the selected books in the order shown.\n\nDecimals are fine for in-between volumes — e.g. "13, 13.5, 14, 14.5".`, '', 'e.g. 13, 13.5, 14, 14.5', 'Apply', 'Cancel');
+                                                                const raw = await showInputDialog('EDIT', 'Set numbers', `Enter ${orderedIds.length} number${orderedIds.length !== 1 ? 's' : ''}, comma-separated, mapped to the selected books in the order shown.\n\nDecimals are fine for in-between volumes — e.g. "13, 13.5, 14, 14.5".`, '', 'e.g. 13, 13.5, 14, 14.5', 'Apply', 'Cancel');
                                                                 if (raw === null) return;
                                                                 const tokens = raw.split(',').map(t => t.trim()).filter(t => t.length > 0);
                                                                 const nums = tokens.map(t => Number(t));
                                                                 if (tokens.length !== orderedIds.length || nums.some(n => !isFinite(n))) {
                                                                     const bad = nums.some(n => !isFinite(n));
-                                                                    await showConfirmDialog('Set numbers', `Enter exactly ${orderedIds.length} number${orderedIds.length !== 1 ? 's' : ''} — you entered ${tokens.length}${bad ? ', and some weren’t numbers' : ''}. They map one-to-one to the selected books in display order.`, 'OK', 'Close');
+                                                                    await showConfirmDialog('EDIT', 'Set numbers', `Enter exactly ${orderedIds.length} number${orderedIds.length !== 1 ? 's' : ''} — you entered ${tokens.length}${bad ? ', and some weren’t numbers' : ''}. They map one-to-one to the selected books in display order.`, 'OK', 'Close');
                                                                     return;
                                                                 }
                                                                 applyNumbering(orderedIds, '', nums);
@@ -20260,14 +20306,14 @@
                         // v5.0.0-alpha.143 - Use top-level state for edited name to avoid hooks violation
                         const handleSave = () => {
                             if (!folderPropertiesEditedName.trim()) {
-                                showInfoDialog('Invalid Name', 'Folder name cannot be empty.');
+                                showInfoDialog('ORG', 'Invalid Name', 'Folder name cannot be empty.');
                                 return;
                             }
 
                             // Check for duplicate names at same level
                             const siblings = folders.filter(f => f.parentId === folder.parentId && f.id !== folder.id);
                             if (siblings.some(f => f.name === folderPropertiesEditedName.trim())) {
-                                showInfoDialog('Duplicate Name', 'A folder with this name already exists at this level.');
+                                showInfoDialog('ORG', 'Duplicate Name', 'A folder with this name already exists at this level.');
                                 return;
                             }
 

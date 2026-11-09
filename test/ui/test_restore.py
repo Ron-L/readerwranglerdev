@@ -64,6 +64,9 @@ with App() as app:
         n0 = len(app.console)
         text = app.restore(path, expect="Restore Error")
         check("missing its tag list" in text and "Nothing was changed" in text, "the box doesn't say why: " + text)
+        # every dialog logs what it showed, in the area its caller named (7.26.0-alpha.24, rwLog.dialog)
+        check(any(re.search(r'^info · BACKUP · Box shown: "Restore Error" — This backup can.t be restored', x)
+                  for _, x in app.console[n0:]), "the Restore Error box isn't in the log")
         check(any(re.search(r"^warning · BACKUP-02 · Refused a backup: its tag list missing", x) for _, x in app.console[n0:]),
               "no BACKUP-02 warning naming the tag list")
         after = {k: app.left_count(k) for k in ("All Books", "Inbox")}

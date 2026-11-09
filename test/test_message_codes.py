@@ -37,6 +37,15 @@ ROWS = [
     ("MSG-016", "the logger's hand-over line and a comment mentioning showToast( are allowed",
      "window.rwLog.setToaster((text, o) => showToast(text, o.x, o.y));\n// (was: showToast('x'))\nconst showToast = (message) => {};",
      None),
+    # 2026-11-09 (Ron: option 1): every dialog call names its area FIRST, as a plain quoted word from logger.js's list —
+    # the dialog then logs what it showed in that area (rwLog.dialog); the routines' own definitions are not calls
+    ("MSG-017", "a dialog call with its area first passes; a definition is not a call",
+     "showInfoDialog('BACKUP', 'Restore Error', msg);\nawait showConfirmDialog(\n  'ORG', 'Delete Folder', m);\n"
+     "function showInfoDialog(area, title, message) {}", None),
+    ("MSG-018", "a dialog call with an unknown area is refused", "showInputDialog('FOLDERS', 'New Folder', m);",
+     "unknown area"),
+    ("MSG-019", "a dialog call without its area first (or with a variable) is refused",
+     "showInfoDialog('Restore Error', msg);\nshowChoiceDialog(area, 'x', 'y', []);", "first argument"),
 ]
 
 failures = 0

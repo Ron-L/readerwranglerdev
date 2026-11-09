@@ -329,6 +329,12 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
      removed from books, hide / unhide, kept-removed books, duplicates merged (~12); **AUTO** — Auto-Organize (~9);
      **SHARE** — copying titles, authors, Amazon links, the email text (~11). The smaller choice: AUTO folded into ORG
      (Auto-Organize builds folders). Then the commit check refusing a direct `showToast(`.
+   - **The dialogs ✅ (7.26.0-alpha.24 — Ron, 2026-11-09, option 1):** every dialog call names its area FIRST
+     (`showInfoDialog('BACKUP', title, message)`); the routine logs what it showed, and the answer for those that ask
+     ("Box \"Delete Folder\" answered: Cancel"), through `rwLog.dialog(area, text)` — the one logging call whose code isn't
+     written literally, so the commit check verifies each dialog call's area instead (MSG-017…019) and `rwLog.dialog`
+     checks it again when it runs (UI-05, LOG-029). The boxes themselves are unchanged (thin wrappers around them).
+     **Step 4 is complete.**
    - **A question beside it:** the red refusals ("Inbox cannot be moved", "Can't move a folder into itself") are the
      person's gesture refused, not the app going wrong — by the levels they're warnings, but a warning's toast isn't
      red, and as errors they raise the diagnostics banner. Kept as they were (red, errors) until Ron decides.

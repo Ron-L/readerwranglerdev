@@ -157,7 +157,24 @@ def check(files, areas):
                 continue
             problems.append(f"{path}:{src.count(chr(10), 0, m.start()) + 1}: a direct showToast( call — use "
                             "rwLog.log(level, code, text, null, { toast: true }) so the toast reaches the log with its area")
+    # 2026-11-09 (Ron, option 1): every dialog call names its area FIRST, as a plain quoted word — the dialog logs what it
+    # showed in that area (rwLog.dialog, which checks it again when the app runs). The routines' definitions aren't calls.
+    for path, src in files:
+        for m in DIALOG_CALL_RE.finditer(src):
+            if _in_comment(src, m.start()) or src[max(0, m.start() - 9):m.start()].endswith("function "):
+                continue
+            where = f"{path}:{src.count(chr(10), 0, m.start()) + 1}"
+            area, _ = _read_literal(src, _skip(src, m.end()))
+            if area is None or not re.fullmatch(r"[A-Z]+", area):
+                problems.append(f"{where}: {m.group(1)}'s first argument must be its area, as a plain quoted word "
+                                f"(e.g. {m.group(1)}('BACKUP', title, …)) — the dialog logs what it showed there")
+            elif area not in areas:
+                problems.append(f"{where}: {m.group(1)} names an unknown area \"{area}\" — the areas are logger.js's LOG_AREAS")
     return calls, problems
+
+
+# The dialog routines (readerwrangler.js) — each call names its area first (rwLog.dialog logs what the dialog showed).
+DIALOG_CALL_RE = re.compile(r"\b(showInfoDialog|showConfirmDialog|showChoiceDialog|showInputDialog|showProgressDialog)\(")
 
 
 def _placeholders(text):

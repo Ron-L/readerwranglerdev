@@ -179,6 +179,16 @@ function createLogger(opts = {}) {
             const rest = params.toString();
             return rest ? '?' + rest : '';
         },
+        // 2026-11-09 (Ron, option 1) - A dialog logs what it showed, at info, in the area its CALLER named — the one place a
+        // code isn't written literally, so the commit check verifies each dialog call's area instead (LOGGING.md §6), and
+        // this checks it again when it runs. A mistyped area is UI-05; the dialog is still logged (as UI).
+        dialog: (area, text) => {
+            try {
+                const known = typeof area === 'string' && LOG_AREAS[area] ? area : null;
+                if (!known) log('error', 'UI-05', `A dialog named an unknown area "${area}" (a coding slip)`);
+                record('info', known || 'UI', text, null, false, null);
+            } catch (e) { /* logging must never break the app */ }
+        },
         // A page-load entry: the build, and whether the browser had discarded the tab (LOGGING.md §1).
         pageLoad: ({ build, discarded } = {}) => log('info', 'BOOT',
             `Page loaded — build ${build || 'unknown'}${discarded ? '; the browser had discarded this tab and reloaded it' : ''}`),
