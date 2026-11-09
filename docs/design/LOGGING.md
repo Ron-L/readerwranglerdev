@@ -302,7 +302,16 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    said: the logger loads first and needs it before that script runs — still ONE place. The banner and the critical box
    are plain page elements drawn by the logger (they must work when the app has crashed); neither blocks (the critical
    box says "save a backup now", so File must stay reachable). Wording: Ron, 2026-11-07.
-4. Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides.
+4. ✅ Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides. Done 2026-11-09
+   (7.26.0-alpha.7 … alpha.20: INTEG, STORE, SYNC + IMPORT, BACKUP, BOOT, FIELD, MOVE, UNDO, COVER + PREF + UI, PHONE).
+   The app, storage.js, relay-client.js and the phone app have no console lines left; the generated table holds every
+   numbered code. Departures from the sort, each recorded in its row or here: the build lines kept (the page-load entry
+   can't know the code's build); BOOT-01, PHONE-03 and PHONE-06 critical with their OWN advice (the usual "save a
+   backup now" is harmful or meaningless there); the failed-drop errors toast; a refused backup file is one code
+   (BACKUP-07). **The sort missed reset.js** (the emergency reset page — 7 lines, now STORE, STORE-12 its failure, test
+   RESET-006); the scripts on Amazon's pages (the fetchers, the bookmarklet menu) are their own item (§4 note 6).
+   Still to do in this step: the one pass converting `showToast`'s callers (and its commit check), and the dialog
+   routines logging what they showed.
 5. The Diagnostics view in Data Status (filter, Copy).
 6. The browser driver at `?log=debug`, failing a test on any error or critical.
 

@@ -29,24 +29,23 @@ function showBlockedNotice() {
 
 // Clear all localStorage keys
 function clearLocalStorage() {
-    console.log('🗑️ Clearing localStorage keys...');
     let clearedCount = 0;
 
     STORAGE_KEYS.forEach(key => {
         if (localStorage.getItem(key) !== null) {
             localStorage.removeItem(key);
-            console.log(`  ✅ Cleared: ${key}`);
+            rwLog.log('debug', 'STORE', `Emergency reset: cleared ${key}`);
             clearedCount++;
         }
     });
 
-    console.log(`✅ Cleared ${clearedCount} localStorage keys`);
+    rwLog.log('info', 'STORE', `Emergency reset: cleared ${clearedCount} saved settings`);
 }
 
 // Main reset function
 async function performReset() {
     try {
-        console.log('🔄 Starting ReaderWrangler reset...');
+        rwLog.log('info', 'STORE', 'Emergency reset started (the reset page)');
 
         // Clear localStorage
         clearLocalStorage();
@@ -56,7 +55,7 @@ async function performReset() {
         const blockedBox = document.getElementById('resetBlocked');
         if (blockedBox) blockedBox.remove();
 
-        console.log('✅ Reset complete!');
+        rwLog.log('info', 'STORE', 'Emergency reset complete');
 
         // Show success message
         const successDiv = document.createElement('div');
@@ -79,7 +78,7 @@ async function performReset() {
         }, 3000);
 
     } catch (error) {
-        console.error('❌ Reset failed:', error);
+        rwLog.log('error', 'STORE-12', `The emergency reset failed: ${error && error.message}`, { stack: error && error.stack });
         alert(`Reset failed: ${error.message}\n\nPlease close all ReaderWrangler tabs and try again, or manually clear your browser data.`);
     }
 }
@@ -101,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             performReset();
         } else {
-            console.log('Reset cancelled by user');
+            rwLog.log('debug', 'STORE', 'Emergency reset cancelled');
         }
     });
 });

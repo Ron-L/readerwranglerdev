@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-73 numbered codes. (73 general lines — info and debug, coded by their area alone — not listed.)
+80 numbered codes. (86 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -41,6 +41,12 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-03 | error | That move didn't work. | readerwrangler.js |
 | MOVE-04 | error | That move didn't work. | readerwrangler.js |
 | MOVE-05 | error | That move didn't work. | readerwrangler.js |
+| PHONE-01 | warning | The pairing link couldn't be read — pair again from the computer | mobile.js |
+| PHONE-02 | warning | Couldn't get the library from the relay — showing what's on this phone: … | mobile.js |
+| PHONE-03 | critical | Your library couldn't be loaded on this phone. | mobile.js |
+| PHONE-04 | warning | The scanned code isn't a ReaderWrangler pairing code | mobile.js |
+| PHONE-05 | warning | The camera couldn't start for scanning (permission refused?): … | mobile.js |
+| PHONE-06 | critical | Your library couldn't be loaded on this phone after pairing. | mobile.js |
 | PREF-01 | warning | Your saved filters couldn't be read — they start empty | readerwrangler.js |
 | PREF-02 | warning | Your filters couldn't be saved (is the browser's storage full?) | readerwrangler.js |
 | PREF-03 | warning | Your saved Auto-Organize settings couldn't be read — the defaults are used | readerwrangler.js |
@@ -56,6 +62,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | STORE-09 | warning | The book store is held open by another tab — the reset waits for it to close | storage.js |
 | STORE-10 | error | Your library organization still can't be saved | readerwrangler.js |
 | STORE-11 | error | A "reset in another tab" listener failed: … | storage.js |
+| STORE-12 | error | The emergency reset failed: … | reset.js |
 | SYNC-01 | warning | A permanent delete worked here, but telling the relay failed — if the book comes back after a fetch, delete it again | readerwrangler.js |
 | SYNC-02 | warning | Couldn't check the relay for news: … | readerwrangler.js |
 | SYNC-03 | warning | The background relay poll failed: … | readerwrangler.js |

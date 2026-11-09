@@ -13,6 +13,7 @@
 # still blocked (a tab that won't let go — an older build) makes Reset WAIT with "Close your other ReaderWrangler tabs
 # to finish the reset", then finish.
 import os
+import re
 import sys
 import time
 
@@ -97,5 +98,20 @@ with App() as app:
     test("RESET-005", "no unexpected console messages in the reset tab (RESET-004's deliberate STORE-09 excepted)",
          lambda: check(not [x for x in app.unexpected_console() if "STORE-09" not in x],
                        [x for x in app.unexpected_console() if "STORE-09" not in x]))
+
+    # 2026-11-09 (7.26.0-alpha.20): the emergency reset page (reset.html) logs through the logging module too — the
+    # original sort of the console lines had missed reset.js. Its log lines are the record that a reset ran.
+    def emergency_reset_logged():
+        app.restore(FIXTURE)
+        R, log = app.open_tab("reset.html", wait_for_app=False)
+        R.on("dialog", lambda d: d.accept())
+        R.locator("#resetButton").click()
+        R.get_by_text("Reset Complete!").wait_for(timeout=30_000)
+        lines = [x for _, x in log]
+        check([x for x in lines if re.search(r"^info · STORE · Emergency reset: cleared \d+ saved settings", x)],
+              "no line saying what the emergency reset cleared: " + str(lines[-6:]))
+        check([x for x in lines if re.search(r"^info · STORE · Emergency reset complete", x)], "no 'complete' line")
+        R.close()
+    test("RESET-006", "the emergency reset page records what it did in the log (STORE)", emergency_reset_logged)
 
 done()
