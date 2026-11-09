@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.20";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.21";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -2058,7 +2058,7 @@
             const pasteClipboard = () => {
                 if (!clipboard || !clipboard.bookIds || clipboard.bookIds.length === 0) return false;
                 const refusal = pasteRefusal(selectedFolderId);
-                if (refusal) { showToast(refusal); return true; }
+                if (refusal) { rwLog.log('info', 'MOVE', refusal, null, { toast: true }); return true; }
                 if (isBookListFolder(selectedFolderId)) pasteBooksIntoBookList(getBookListId(selectedFolderId), clipboard);
                 else pasteBooksIntoFolder(selectedFolderId, clipboard);
                 if (clipboard.type === 'cut') { // a cut pastes once
@@ -2096,7 +2096,7 @@
                         type: 'PASTE_BOOKS_CUT', bookIds: clip.bookIds, sourcePositions: clip.sourcePositions, targetFolderId,
                         label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
                     });
-                    showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}' — moved from the original folder`);
+                    rwLog.log('info', 'MOVE', `Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}' — moved from the original folder`, null, { toast: true });
                     rwLog.log('debug', 'MOVE', `Pasted ${clip.bookIds.length} cut book(s) into a folder`);
                 } else {
                     // Copy: just add to the target
@@ -2109,7 +2109,7 @@
                         type: 'PASTE_BOOKS_COPY', bookIds: clip.bookIds, targetFolderId,
                         label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
                     });
-                    showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}'`);
+                    rwLog.log('info', 'MOVE', `Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}'`, null, { toast: true });
                     rwLog.log('debug', 'MOVE', `Pasted ${clip.bookIds.length} copied book(s) into a folder`);
                 }
             };
@@ -2125,12 +2125,12 @@
                 const added = ids.filter(id => !(bl.bookIds || []).includes(id));
                 if (clip.type !== 'cut') {
                     addBooksToBookList(bookListId, ids);
-                    showToast(added.length > 0 ? `Added ${bookCountLabel(added)} to '${bl.name}'` : `Already on '${bl.name}'`);
+                    rwLog.log('info', 'MOVE', added.length > 0 ? `Added ${bookCountLabel(added)} to '${bl.name}'` : `Already on '${bl.name}'`, null, { toast: true });
                     return;
                 }
                 const sourceId = (clip.sourcePositions[0] || {}).folderId;
                 const sourceList = getBookList(sourceId);
-                if (sourceList && sourceList.id === bookListId) { showToast(`Already on '${bl.name}'`); return; }
+                if (sourceList && sourceList.id === bookListId) { rwLog.log('info', 'MOVE', `Already on '${bl.name}'`, null, { toast: true }); return; }
                 const sourceFolder = folders.find(f => f.id === sourceId);
                 const inAnotherFolder = (id) => folders.some(f => f.id !== sourceId && (f.bookIds || []).includes(id));
                 // (a book cut from the Inbox and in no other folder would land straight back there — it stays put)
@@ -2156,7 +2156,7 @@
                     : ids.length === 1 ? " It wasn't in any other folder, so it went to the Inbox."
                     : n === 1 ? " 1 wasn't in any other folder, so it went to the Inbox."
                     : ` ${n} weren't in any other folder, so they went to the Inbox.`;
-                showToast(`${moved ? 'Moved' : 'Added'} ${bookCountLabel(ids)}${moved ? from : ''} to '${bl.name}'.${inbox}`);
+                rwLog.log('info', 'MOVE', `${moved ? 'Moved' : 'Added'} ${bookCountLabel(ids)}${moved ? from : ''} to '${bl.name}'.${inbox}`, null, { toast: true });
             };
             const applyBookListCut = (a) => {
                 setBookLists(prev => prev.map(bl => {
@@ -3075,7 +3075,7 @@
                 if (hideInsteadIds.size > 0) msgs.push(`Hid ${bookCountLabel(Array.from(hideInsteadIds))}${hideInsteadIds.size === 1 ? ' (purchased — hides instead of deleting)' : ' (purchased books hide instead of deleting)'}`); // v7.10.1 - named + teaching kept
                 const removedFromFolder = booksToRemoveFromFolder.length - actualBooksToTrash.length;
                 if (removedFromFolder > 0) msgs.push(`Removed ${removedFromFolder === booksToRemoveFromFolder.length ? bookCountLabel(booksToRemoveFromFolder) : removedFromFolder + ' book' + (removedFromFolder !== 1 ? 's' : '')} from folder`); // v7.10.1
-                if (msgs.length > 0) showToast(msgs.join(', '));
+                if (msgs.length > 0) rwLog.log('info', 'MOVE', msgs.join(', '), null, { toast: true });
             };
 
             const restoreBooks = (bookIds) => {
@@ -3128,7 +3128,7 @@
                 const count = bookIds.length;
                 // v6.12.0 - Book List membership returns automatically on restore (trashed IDs were only filtered)
                 const onLists = restoredBooks.some(({ id }) => bookLists.some(bl => (bl.bookIds || []).includes(id)));
-                showToast(`Restored ${bookCountLabel(Array.from(bookIds))}${onLists ? ' to their folders and Book Lists' : ''}`); // v7.10.1 - named receipt
+                rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(Array.from(bookIds))}${onLists ? ' to their folders and Book Lists' : ''}`, null, { toast: true }); // v7.10.1 - named receipt
             };
 
             const permanentlyDeleteBooks = async (bookIds) => {
@@ -3173,7 +3173,7 @@
                 setUndoStack(prev => prev.filter(a => !mentionsDoomed(a)));
                 setRedoStack(prev => prev.filter(a => !mentionsDoomed(a)));
 
-                showToast(`Permanently deleted ${doomedLabel}`); // v7.10.1 - named receipt
+                rwLog.log('info', 'MOVE', `Permanently deleted ${doomedLabel}`, null, { toast: true }); // v7.10.1 - named receipt
 
                 // v6.19.0 - Relay write redesign Phase 1: the app never rewrites the relay library.
                 // A permanent delete sends a TOMBSTONE LETTER instead (one atomic write); every
@@ -3616,7 +3616,7 @@
                 const movedAllPinned = folderIdsToMove.length > 0 &&
                     folderIdsToMove.every(id => folders.find(f => f.id === id)?.pinned);
                 if (folderListSort.column !== 'custom' && !movedAllPinned) {
-                    showToast('Switch folder sort to Manual (the sort control in the FOLDERS header) to rearrange by hand.');
+                    rwLog.log('info', 'MOVE', 'Switch folder sort to Manual (the sort control in the FOLDERS header) to rearrange by hand.', null, { toast: true });
                     return;
                 }
                 // v7.6.0-alpha.7 (wave B) - Reorder basis = STORED MANUAL order partitioned pins-first — never the
@@ -3786,11 +3786,11 @@
             const reparentFolder = async (folderIds, newParentId, opts = {}) => {
                 for (const folderId of folderIds) {
                     if (folderId === newParentId || isDescendantFolder(folderId, newParentId)) {
-                        showToast("Can't move folder into itself or its subfolder", null, null, { level: 'error' });
+                        rwLog.log('error', 'MOVE-06', "Can't move folder into itself or its subfolder", null, { toast: true });
                         return false;
                     }
                     if (folderId === '__inbox__') {
-                        showToast("Inbox cannot be moved", null, null, { level: 'error' });
+                        rwLog.log('error', 'MOVE-07', "Inbox cannot be moved", null, { toast: true });
                         return false;
                     }
                 }
@@ -3875,7 +3875,7 @@
                     label: `Move "${folderNames}" into "${targetName}"`,
                     description: `Move "${folderNames}" into "${targetName}"`
                 });
-                showToast(`Moved "${folderNames}" into "${targetName}"`);
+                rwLog.log('info', 'MOVE', `Moved "${folderNames}" into "${targetName}"`, null, { toast: true });
                 rwLog.log('debug', 'MOVE', `Moved ${folderIds.length} folder(s) ${newParentId ? 'into a folder' : 'to the top level'}`);
                 return true;
             };
@@ -3993,18 +3993,18 @@
                         const toAdd = bookIds.filter(id => !existing.has(id));
                         return toAdd.length > 0 ? { ...f, bookIds: [...toAdd, ...(f.bookIds || [])] } : f;
                     }));
-                    showToast(`Restored ${bookCountLabel(bookIds)} to '${restoreTargetName}'`);
+                    rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(bookIds)} to '${restoreTargetName}'`, null, { toast: true });
                     return true;
                 }
 
                 // Validate: if ANY folder can't move, abort ENTIRE operation
                 for (const fid of folderIdsToMove) {
                     if (fid === targetFolderId || isDescendantFolder(fid, targetFolderId)) {
-                        showToast("Can't move a folder into itself or a subfolder", null, null, { level: 'error' });
+                        rwLog.log('error', 'MOVE-08', "Can't move a folder into itself or a subfolder", null, { toast: true });
                         return false;
                     }
                     if (fid === '__inbox__') {
-                        showToast("Inbox cannot be moved", null, null, { level: 'error' });
+                        rwLog.log('error', 'MOVE-09', "Inbox cannot be moved", null, { toast: true });
                         return false;
                     }
                 }
@@ -4022,7 +4022,7 @@
                 const newBookIds = bookIds.filter(id => !existingInTarget.has(id));
 
                 if (folderIdsToMove.length === 0 && newBookIds.length === 0) {
-                    if (bookIds.length > 0) showToast(bookIds.length === 1 ? 'Book already in folder' : 'Books already in folder');
+                    if (bookIds.length > 0) rwLog.log('info', 'MOVE', bookIds.length === 1 ? 'Book already in folder' : 'Books already in folder', null, { toast: true });
                     return false;
                 }
 
@@ -4058,7 +4058,7 @@
                     oldParentIds, fromIndices, isCopy, toIndex: 0
                 });
 
-                showToast(`${isCopy ? 'Copied' : 'Moved'} ${summary}`);
+                rwLog.log('info', 'MOVE', `${isCopy ? 'Copied' : 'Moved'} ${summary}`, null, { toast: true });
                 return true;
             };
 
@@ -5403,7 +5403,7 @@
                         // Can't cut from virtual folders (Inbox is a real folder, allow cut)
                         // v7.10.1-alpha.7 (Ron) - was a silent console.log dead key (Law 16): explain instead
                         if (['__all__', '__library__'].includes(selectedFolderId)) {
-                            showToast("Can't cut from this view — cut moves books between folders. Use Copy, or cut from the book's folder.");
+                            rwLog.log('info', 'MOVE', "Can't cut from this view — cut moves books between folders. Use Copy, or cut from the book's folder.", null, { toast: true });
                             return;
                         }
                         const bookIds = getSelectedBookIds();
@@ -5412,7 +5412,7 @@
                             folderId: selectedFolderId
                         }));
                         setClipboard({ type: 'cut', bookIds, sourcePositions });
-                        showToast(`Cut ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
+                        rwLog.log('info', 'MOVE', `Cut ${bookCountLabel(bookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                         rwLog.log('debug', 'MOVE', `Cut ${bookIds.length} book(s) to the clipboard`);
                         return; // Don't fall through to Columns App handler
                     }
@@ -5426,7 +5426,7 @@
                             folderId: selectedFolderId
                         }));
                         setClipboard({ type: 'copy', bookIds, sourcePositions });
-                        showToast(`Copied ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
+                        rwLog.log('info', 'MOVE', `Copied ${bookCountLabel(bookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                         rwLog.log('debug', 'MOVE', `Copied ${bookIds.length} book(s) to the clipboard`);
                         return; // Don't fall through to Columns App handler
                     }
@@ -5777,7 +5777,7 @@
                     if (removedN > 0) extras.push({ key: 'review', label: 'Review…' });
                     const choice = await progress.finish('Relay Import', message + removedLine, extras);
                     if (choice === 'review') openRemovedBooks();
-                    if (choice === 'clear-goals') { applyPriceGoal(goalIds, null); showToast(`Cleared ${goalIds.length === 1 ? 'the price goal' : `${goalIds.length} price goals`} on books you now own`); }
+                    if (choice === 'clear-goals') { applyPriceGoal(goalIds, null); rwLog.log('info', 'IMPORT', `Cleared ${goalIds.length === 1 ? 'the price goal' : `${goalIds.length} price goals`} on books you now own`, null, { toast: true }); }
                 } catch (err) {
                     // split by cause (LOGGING.md §3 #55): the network can fail; a damaged cloud copy has its own recovery
                     // window; anything else is unexpected — a bug
@@ -6259,7 +6259,7 @@
                             types: [{ description: 'ReaderWrangler backup', accept: { 'application/json': ['.json'] } }]
                         });
                     } catch (e) {
-                        if (e && e.name === 'AbortError') { showToast('Backup cancelled — nothing saved'); return; }
+                        if (e && e.name === 'AbortError') { rwLog.log('info', 'BACKUP', 'Backup cancelled — nothing saved', null, { toast: true }); return; }
                         fileHandle = null; // picker unavailable/refused → anchor fallback below
                     }
                 }
@@ -6375,7 +6375,7 @@
                     trackEvent('file-exported'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                     progress.close();
                     // v7.6.2-alpha.2 - The receipt: filename + count + size = the confidence that was missing
-                    showToast(`Backup saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`);
+                    rwLog.log('info', 'BACKUP', `Backup saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`, null, { toast: true });
                 } catch (error) {
                     progress.close();
                     rwLog.log('error', 'BACKUP-05', `Save Backup failed: ${(error && error.message) || error}`, { stack: error && error.stack });
@@ -6401,7 +6401,7 @@
                             types: [{ description: 'Spreadsheet (CSV)', accept: { 'text/csv': ['.csv'] } }]
                         });
                     } catch (e) {
-                        if (e && e.name === 'AbortError') { showToast('Spreadsheet cancelled — nothing saved'); return; }
+                        if (e && e.name === 'AbortError') { rwLog.log('info', 'BACKUP', 'Spreadsheet cancelled — nothing saved', null, { toast: true }); return; }
                         fileHandle = null; // picker unavailable/refused → anchor fallback below
                     }
                 }
@@ -6451,7 +6451,7 @@
                     }
                     trackEvent('spreadsheet-saved'); // v7.21.0 - labeled prod-/dev- (readerwrangler.html)
                     progress.close();
-                    showToast(`Spreadsheet saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`);
+                    rwLog.log('info', 'BACKUP', `Spreadsheet saved — ${allBooks.length.toLocaleString()} books, ${(blob.size / 1048576).toFixed(1)} MB → ${savedName}`, null, { toast: true });
                 } catch (error) {
                     progress.close();
                     rwLog.log('error', 'BACKUP-06', `Save as Spreadsheet failed: ${(error && error.message) || error}`, { stack: error && error.stack });
@@ -8446,7 +8446,7 @@
                         // Note: We need to store the copied folders in the action to redo properly
                         // For now, this is a limitation - we can't redo copy operations
                         // TODO: Store copied folder data in action for proper redo
-                        showToast('Cannot redo copy operation', null, null, { level: 'error' });
+                        rwLog.log('error', 'UNDO-04', 'Cannot redo copy operation', null, { toast: true });
                         break;
                     case 'PASTE_BOOKS_CUT':
                         // v5.0.0-alpha.168 - Redo cut-paste: remove from source folders, add to target
@@ -8770,22 +8770,22 @@
                 // v7.19.0-alpha.10/11 - never a dead key (UNDO-MODEL). An EMPTY history says just that, FIRST — "close it
                 // to undo earlier actions" would promise actions that don't exist (Ron's screenshot). Hints, not receipts:
                 // shown, never logged in the 🕐 history.
-                if (currentStack.length === 0) { showToast('Nothing to undo', undefined, undefined, { log: false }); return; }
+                if (currentStack.length === 0) { rwLog.log('info', 'UNDO', 'Nothing to undo', null, { toast: true, hint: true }); return; }
                 if (imperativeDialogsUp()) {
-                    showToast('Nothing to undo from this dialog — close it to undo earlier actions', undefined, undefined, { log: false });
+                    rwLog.log('info', 'UNDO', 'Nothing to undo from this dialog — close it to undo earlier actions', null, { toast: true, hint: true });
                     return;
                 }
                 // v7.19.0 - reachable only if the top action was recorded AFTER this dialog opened (seq fence)
                 const undoTop = currentStack[currentStack.length - 1];
                 if (!opts.fromPanel && dialogUp() && !(undoTop && (undoTop.seq || 0) > dialogUndoFenceRef.current)) {
-                    showToast('Nothing to undo from this dialog — close it to undo earlier actions', undefined, undefined, { log: false });
+                    rwLog.log('info', 'UNDO', 'Nothing to undo from this dialog — close it to undo earlier actions', null, { toast: true, hint: true });
                     return;
                 }
                 const action = currentStack[currentStack.length - 1];
                 executeUndo(action);
                 setUndoStack(prev => prev.slice(0, -1));
                 setRedoStack(prev => [...prev, action]);
-                showToast(`Undone: ${action.label || FRIENDLY_ACTION[action.type] || action.type}`);
+                rwLog.log('info', 'UNDO', `Undone: ${action.label || FRIENDLY_ACTION[action.type] || action.type}`, null, { toast: true });
             };
 
             const redo = () => {
@@ -8795,22 +8795,22 @@
                 // (i.e., by this dialog session's own undos).
                 // v7.10.1-alpha.6 (DIALOG_POLICY) - universal, matching undo().
                 // v7.19.0-alpha.10/11 - empty FIRST, and hints are never logged (mirrors undo())
-                if (currentStack.length === 0) { showToast('Nothing to redo', undefined, undefined, { log: false }); return; }
+                if (currentStack.length === 0) { rwLog.log('info', 'UNDO', 'Nothing to redo', null, { toast: true, hint: true }); return; }
                 if (imperativeDialogsUp()) {
-                    showToast('Nothing to redo from this dialog — close it to redo earlier actions', undefined, undefined, { log: false });
+                    rwLog.log('info', 'UNDO', 'Nothing to redo from this dialog — close it to redo earlier actions', null, { toast: true, hint: true });
                     return;
                 }
                 // v7.19.0 - same seq fence: only actions recorded (and undone) in this dialog session can be redone
                 const redoTop = currentStack[currentStack.length - 1];
                 if (dialogUp() && !(redoTop && (redoTop.seq || 0) > dialogUndoFenceRef.current)) {
-                    showToast('Nothing to redo from this dialog — close it to redo earlier actions', undefined, undefined, { log: false });
+                    rwLog.log('info', 'UNDO', 'Nothing to redo from this dialog — close it to redo earlier actions', null, { toast: true, hint: true });
                     return;
                 }
                 const action = currentStack[currentStack.length - 1];
                 executeRedo(action);
                 setRedoStack(prev => prev.slice(0, -1));
                 setUndoStack(prev => [...prev, action]);
-                showToast(`Redone: ${action.label || FRIENDLY_ACTION[action.type] || action.type}`);
+                rwLog.log('info', 'UNDO', `Redone: ${action.label || FRIENDLY_ACTION[action.type] || action.type}`, null, { toast: true });
             };
 
 
@@ -11719,7 +11719,7 @@
                                                                         await relayOp('clearKeys');
                                                                         setRelaySetupOpen(false);
                                                                         setTimeout(() => { setRelaySetupOpen(true); setRelaySetupSection('credentials'); }, 100);
-                                                                        showToast('Relay credentials revoked. Generate new credentials to continue syncing.');
+                                                                        rwLog.log('info', 'SYNC', 'Relay credentials revoked. Generate new credentials to continue syncing.', null, { toast: true });
                                                                     } catch (err) {
                                                                         showInfoDialog('Revocation failed', err.message);
                                                                     }
@@ -12359,7 +12359,7 @@
                                     <pre className="text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded p-3" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{window.RW_RECOVERY_NUMBERED || 'Save a backup (File → Save Backup…), then re-download your library and collections from Amazon with the bookmarklet, then File → Import from Relay.'}</pre>
                                 </div>
                                 <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-                                    <button onClick={() => { navigator.clipboard.writeText(window.RW_RECOVERY_STEPS || ''); showToast('Recovery steps copied'); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors">Copy instructions</button>
+                                    <button onClick={() => { navigator.clipboard.writeText(window.RW_RECOVERY_STEPS || ''); rwLog.log('info', 'SYNC', 'Recovery steps copied', null, { toast: true }); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors">Copy instructions</button>
                                     <button onClick={() => setCorruptionRecovery(false)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors">OK</button>
                                 </div>
                         </Dialog>
@@ -12407,7 +12407,7 @@
                                     )}
                                 </div>
                                 <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-                                    <button onClick={async () => { await exportBackup(); showToast('Current state backed up'); }}
+                                    <button onClick={async () => { await exportBackup(); rwLog.log('info', 'BACKUP', 'Current state backed up', null, { toast: true }); }}
                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors">
                                         Back up current first…
                                     </button>
@@ -14927,10 +14927,10 @@
                                                                     { type: 'BOOKLIST_ADD', bookListId: bl.id, bookIds: toAdd },
                                                                     { type: 'BOOKLIST_REMOVE', bookListId: srcListId, bookIds: dropIds }
                                                                 ] }); // v7.8.0-alpha.4 named target
-                                                                showToast(`Moved ${bookCountLabel(dropIds)} to "${bl.name}"`, e.clientX, e.clientY); // v7.10.1 - named receipt
+                                                                rwLog.log('info', 'MOVE', `Moved ${bookCountLabel(dropIds)} to "${bl.name}"`, null, { toast: { x: e.clientX, y: e.clientY } }); // v7.10.1 - named receipt
                                                             } else {
                                                                 const added = addBooksToBookList(bl.id, dropIds);
-                                                                showToast(added > 0 ? `Added ${added === dropIds.length ? bookCountLabel(dropIds) : `${added} book${added !== 1 ? 's' : ''}`} to "${bl.name}"` : `Already in "${bl.name}"`, e.clientX, e.clientY); // v7.10.1
+                                                                rwLog.log('info', 'MOVE', added > 0 ? `Added ${added === dropIds.length ? bookCountLabel(dropIds) : `${added} book${added !== 1 ? 's' : ''}`} to "${bl.name}"` : `Already in "${bl.name}"`, null, { toast: { x: e.clientX, y: e.clientY } }); // v7.10.1
                                                             }
                                                             setExplorerSelectedItems(new Set());
                                                             stopDragVirtualization();
@@ -15175,7 +15175,7 @@
 
                                             // Check if dragging from All Books (view-only)
                                             if (sourceFolder === '__all__') {
-                                                showToast('All Books is view-only. Organize from folders.', e.clientX, e.clientY);
+                                                rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                 setFolderDropHighlight(null);
                                                 setExplorerSelectedItems(new Set());
                                                 return;
@@ -15205,7 +15205,7 @@
                                                     }
                                                     return f;
                                                 }));
-                                                showToast(`Restored ${bookCountLabel(bookIds)} to Inbox`); // v7.10.1 - named receipt
+                                                rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(bookIds)} to Inbox`, null, { toast: true }); // v7.10.1 - named receipt
                                                 setFolderDropHighlight(null);
                                                 setExplorerSelectedItems(new Set());
                                                 stopDragVirtualization();
@@ -15481,14 +15481,14 @@
                                                             const { sourceFolder, bookIds } = dragData;
 
                                                             if (sourceFolder === '__all__') {
-                                                                showToast('All Books is view-only. Organize from folders.', e.clientX, e.clientY);
+                                                                rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
                                                                 return;
                                                             }
                                                             // v5.5.15-alpha.34 - 1I: Disallow drag from tag view to real folder
                                                             if (isViewFolder(sourceFolder)) {
-                                                                showToast('Can\'t move from tag view to folder. Use folders to organize.', e.clientX, e.clientY);
+                                                                rwLog.log('info', 'MOVE', 'Can\'t move from tag view to folder. Use folders to organize.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
                                                                 return;
@@ -15519,7 +15519,7 @@
                                                                     }
                                                                     return f;
                                                                 }));
-                                                                showToast(`Restored ${bookCountLabel(bookIds)} to "${folder.name}"`); // v7.10.1 - named receipt
+                                                                rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(bookIds)} to "${folder.name}"`, null, { toast: true }); // v7.10.1 - named receipt
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
                                                                 stopDragVirtualization();
@@ -16836,9 +16836,9 @@
                                                                                     reorderFoldersInParent(parentForReorder, dragData.folderIds, folder.id, target.position);
                                                                                 }
                                                                             } else if (selectedFolderId === '__all__') {
-                                                                                showToast("Folder reordering not available in All Books", e.clientX, e.clientY);
+                                                                                rwLog.log('info', 'MOVE', "Folder reordering not available in All Books", null, { toast: { x: e.clientX, y: e.clientY } });
                                                                             } else {
-                                                                                showToast("Change sort to Manual Order to reorder folders", e.clientX, e.clientY);
+                                                                                rwLog.log('info', 'MOVE', "Change sort to Manual Order to reorder folders", null, { toast: { x: e.clientX, y: e.clientY } });
                                                                             }
                                                                         }
                                                                     } catch (err) {
@@ -16850,7 +16850,7 @@
                                                                         const dragData = JSON.parse(bookDataStr2);
                                                                         const { sourceFolder, bookIds } = dragData;
                                                                         if (sourceFolder === '__all__') {
-                                                                            showToast('All Books is view-only. Organize from folders.', e.clientX, e.clientY);
+                                                                            rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                         } else {
                                                                             // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
                                                                             const isCopy = ctrlKeyRef.current;
@@ -17150,9 +17150,9 @@
                                                                         }
                                                                     }
                                                                 } else if (selectedFolderId === '__all__' || selectedFolderId === '__library__') {
-                                                                    showToast('Manual ordering not available in All Books and My Library. These views aggregate books from multiple folders. Use column sorting instead.', e.clientX, e.clientY);
+                                                                    rwLog.log('info', 'MOVE', 'Manual ordering not available in All Books and My Library. These views aggregate books from multiple folders. Use column sorting instead.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                 } else if (explorerSort[0].column !== 'custom') {
-                                                                    showToast('Clear sort to reorder', e.clientX, e.clientY);
+                                                                    rwLog.log('info', 'MOVE', 'Clear sort to reorder', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                 }
                                                                 setExplorerDragBookId(null);
                                                             }}
@@ -17582,9 +17582,9 @@
                                                                             reorderFoldersInParent(parentForReorder, dragData.folderIds, folder.id, target.position);
                                                                         }
                                                                     } else if (selectedFolderId === '__all__') {
-                                                                        showToast("Folder reordering not available in All Books", e.clientX, e.clientY);
+                                                                        rwLog.log('info', 'MOVE', "Folder reordering not available in All Books", null, { toast: { x: e.clientX, y: e.clientY } });
                                                                     } else {
-                                                                        showToast("Change sort to Manual Order to reorder folders", e.clientX, e.clientY);
+                                                                        rwLog.log('info', 'MOVE', "Change sort to Manual Order to reorder folders", null, { toast: { x: e.clientX, y: e.clientY } });
                                                                     }
                                                                 }
                                                             } catch (err) {
@@ -17596,7 +17596,7 @@
                                                                 const dragData = JSON.parse(bookDataStr);
                                                                 const { sourceFolder, bookIds } = dragData;
                                                                 if (sourceFolder === '__all__') {
-                                                                    showToast('All Books is view-only. Organize from folders.', e.clientX, e.clientY);
+                                                                    rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                                 } else {
                                                                     // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
                                                                     const isCopy = ctrlKeyRef.current;
@@ -17773,9 +17773,9 @@
                                                                     }
                                                                 }
                                                             } else if (selectedFolderId === '__all__' || selectedFolderId === '__library__') {
-                                                                showToast('Manual ordering not available in All Books and My Library. These views aggregate books from multiple folders. Use column sorting instead.', e.clientX, e.clientY);
+                                                                rwLog.log('info', 'MOVE', 'Manual ordering not available in All Books and My Library. These views aggregate books from multiple folders. Use column sorting instead.', null, { toast: { x: e.clientX, y: e.clientY } });
                                                             } else if (explorerSort[0].column !== 'custom') {
-                                                                showToast('Clear sort to reorder', e.clientX, e.clientY);
+                                                                rwLog.log('info', 'MOVE', 'Clear sort to reorder', null, { toast: { x: e.clientX, y: e.clientY } });
                                                             }
                                                             setExplorerDragBookId(null);
                                                         }}
@@ -19110,9 +19110,9 @@
                             // stay right where they are), so you can keep scanning and adding without re-selecting.
                             setExplorerBookContextMenu(null);
                             setContextSubmenu(null);
-                            showToast(added > 0
+                            rwLog.log('info', 'MOVE', added > 0
                                 ? `Added ${added} book${added !== 1 ? 's' : ''} to '${bl?.name || 'Book List'}'${added < ids.length ? ` (${ids.length - added} already there)` : ''}`
-                                : `All ${ids.length} book${ids.length !== 1 ? 's' : ''} already in '${bl?.name || 'Book List'}'`);
+                                : `All ${ids.length} book${ids.length !== 1 ? 's' : ''} already in '${bl?.name || 'Book List'}'`, null, { toast: true });
                         };
                         const handleAddToNewBookList = async () => {
                             const ids = getSelectedBookIds();
@@ -19134,7 +19134,7 @@
                             // v6.18.0 - KEEP the selection (see handleAddToExistingBookList) — non-destructive overlay.
                             setExplorerBookContextMenu(null);
                             setContextSubmenu(null);
-                            showToast(`Added ${bookCountLabel(ids)} to new list '${trimmed}'`); // v7.10.1 - named receipt
+                            rwLog.log('info', 'MOVE', `Added ${bookCountLabel(ids)} to new list '${trimmed}'`, null, { toast: true }); // v7.10.1 - named receipt
                         };
                         const handleRemoveFromCurrentBookList = () => {
                             const ids = getSelectedBookIds();
@@ -19145,7 +19145,7 @@
                             setExplorerSelectedItems(new Set());
                             setExplorerBookContextMenu(null);
                             setContextSubmenu(null);
-                            showToast(`Removed ${bookCountLabel(ids)} from '${bl?.name || 'Book List'}'`); // v7.10.1 - named receipt
+                            rwLog.log('info', 'MOVE', `Removed ${bookCountLabel(ids)} from '${bl?.name || 'Book List'}'`, null, { toast: true }); // v7.10.1 - named receipt
                         };
 
                         // v6.12.0-alpha.60 (E) - Create a new folder and move/copy the selected books into it.
@@ -19174,7 +19174,7 @@
                             setExplorerSelectedItems(new Set());
                             setExplorerBookContextMenu(null);
                             setContextSubmenu(null);
-                            showToast(`${isCopy ? 'Copied' : 'Moved'} ${bookCountLabel(ids)} to new folder '${trimmed}'`); // v7.10.1 - named receipt
+                            rwLog.log('info', 'MOVE', `${isCopy ? 'Copied' : 'Moved'} ${bookCountLabel(ids)} to new folder '${trimmed}'`, null, { toast: true }); // v7.10.1 - named receipt
                         };
 
                         // Build folder tree for submenu (reused for both Move to and Copy to)
@@ -19457,7 +19457,7 @@
                                                 folderId: selectedFolderId
                                             }));
                                             setClipboard({ type: 'cut', bookIds, sourcePositions });
-                                            showToast(`Cut ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
+                                            rwLog.log('info', 'MOVE', `Cut ${bookCountLabel(bookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                                             setExplorerBookContextMenu(null);
                                             setContextSubmenu(null);
                                         }}>
@@ -19478,7 +19478,7 @@
                                             folderId: selectedFolderId
                                         }));
                                         setClipboard({ type: 'copy', bookIds, sourcePositions });
-                                        showToast(`Copied ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
+                                        rwLog.log('info', 'MOVE', `Copied ${bookCountLabel(bookIds)}`, null, { toast: true }); // v7.10.1 - named receipt
                                         setExplorerBookContextMenu(null);
                                         setContextSubmenu(null);
                                     }}>
@@ -20187,7 +20187,7 @@
                                                         const removedIds = (bl?.bookIds || []).filter(id => ids.includes(id));
                                                         setBookLists(prev => prev.map(b => b.id === blId ? { ...b, bookIds: (b.bookIds || []).filter(id => !ids.includes(id)) } : b));
                                                         if (removedIds.length) recordAction({ type: 'BOOKLIST_REMOVE', bookListId: blId, bookIds: removedIds, label: `Remove ${bookCountLabel(removedIds)} from '${(bookLists.find(b => b.id === blId) || {}).name || 'Book List'}'` }); // v6.12.0 - undoable; v7.8.0-alpha.4 named target
-                                                        showToast(`Removed ${bookCountLabel(ids)} from "${bl?.name || 'list'}"`); // v7.10.1 - named receipt
+                                                        rwLog.log('info', 'MOVE', `Removed ${bookCountLabel(ids)} from "${bl?.name || 'list'}"`, null, { toast: true }); // v7.10.1 - named receipt
                                                         setExplorerSelectedItems(new Set());
                                                         setExplorerBookContextMenu(null);
                                                         setContextSubmenu(null);
