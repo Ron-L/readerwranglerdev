@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-53 numbered codes. (53 general lines — info and debug, coded by their area alone — not listed.)
+57 numbered codes. (54 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -17,6 +17,10 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | BOOT-01 | critical | Your library couldn't be loaded. | readerwrangler.js |
 | BOOT-02 | warning | The saved library status couldn't be read — it shows as unknown until the next fetch | readerwrangler.js |
 | BOOT-03 | warning | The saved view settings couldn't be read — the defaults are used | readerwrangler.js |
+| FIELD-01 | error | The book-field table's self-check found a problem — a field would be dropped on Save: … | readerwrangler.js |
+| FIELD-02 | error | A book field doesn't survive a save and load (the round-trip self-check): … | readerwrangler.js |
+| FIELD-03 | warning | The book-field self-check couldn't run: … | readerwrangler.js |
+| FIELD-04 | error | Book field(s) nothing knows are on stored books: … — add to KNOWN_BOOK_FIELDS (bookFields.js) if legitimate, else a phantom or misnamed field leaked in | storage.js |
 | IMPORT-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
 | IMPORT-02 | warning | Import from Relay failed — the relay couldn't be reached: … | readerwrangler.js |
 | IMPORT-03 | error | Sorting the books by date added crashed: … | readerwrangler.js |

@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.15";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.16";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -4737,20 +4737,20 @@
                                     const _fail = roundTripCheck(loadedBooks);
                                     if (_schema.length) {
                                         const _smsg = _schema.join('\n');
-                                        console.error('🧪❌ [book-fields self-check] table structure PROBLEM —\n' + _smsg);
+                                        rwLog.log('error', 'FIELD-01', `The book-field table's self-check found a problem — a field would be dropped on Save: ${_schema.join('; ')}`);
                                         window.alert('Book-fields table self-check FAILED (localhost dev):\n\n' + _smsg
                                             + '\n\nA field would be dropped on Save. See docs/design/BOOK-FIELDS-TABLE.md.');
                                     } else if (_fail) {
                                         const _msg = `${_fail.asin}.${_fail.field}: ${JSON.stringify(_fail.first)} → ${JSON.stringify(_fail.second)}`;
-                                        console.error('🧪❌ [book-fields self-check] round-trip FAILED — ' + _msg);
+                                        rwLog.log('error', 'FIELD-02', `A book field doesn't survive a save and load (the round-trip self-check): ${_msg}`);
                                         window.alert('Book-fields round-trip self-check FAILED (localhost dev):\n\n' + _msg
                                             + '\n\nA book field does not survive pack→unpack. See docs/design/BOOK-FIELDS-TABLE.md.');
                                     } else {
-                                        console.log(`🧪✅ [book-fields self-check] table sound + ${loadedBooks.length} books round-trip clean (${ORGANIZER_VERSION}).`);
+                                        rwLog.log('debug', 'FIELD', `The book-field self-check: the table is sound and ${loadedBooks.length} books round-trip clean (${ORGANIZER_VERSION})`);
                                     }
                                     localStorage.setItem('rw-serialization-selftest', ORGANIZER_VERSION);
                                 }
-                            } catch (_e) { console.warn('[book-fields self-check] skipped:', _e && _e.message); }
+                            } catch (_e) { rwLog.log('warning', 'FIELD-03', `The book-field self-check couldn't run: ${_e && _e.message}`); }
 
                             await saveBooksToIndexedDB(loadedBooks);
 

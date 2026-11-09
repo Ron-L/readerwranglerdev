@@ -313,8 +313,8 @@ const loadBooksFromIndexedDB = async () => {
                     for (const b of books) for (const k of unknownBookFields(b)) seen.add(k);
                     if (seen.size > 0) {
                         const list = [...seen].sort().join(', ');
-                        console.warn('🔎[schema] Unknown book field(s) on loaded books:', list,
-                            '— add to KNOWN_BOOK_FIELDS (bookFields.js) if legitimate, else a phantom/misnamed field leaked in.');
+                        rwLog.log('error', 'FIELD-04', `Book field(s) nothing knows are on stored books: ${list} — add to KNOWN_BOOK_FIELDS (bookFields.js) if legitimate, else a phantom or misnamed field leaked in`,
+                            { fields: [...seen].sort() });
                         // v7.15.3 - LOCALHOST dev only: a loud popup so a real phantom can't be missed in the
                         // console. (Not on the dev repo or prod — console.warn covers the dev repo; prod is silent.)
                         // v7.21.0 - contributors only (a self-hoster must never get a dev popup).
