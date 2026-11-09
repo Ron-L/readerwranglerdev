@@ -48,6 +48,7 @@
     - [Polish](#polish)
       - [Move and copy books anywhere — folders, Book Lists, All Books, Searches](#move-and-copy-books-anywhere--folders-book-lists-all-books-searches)
       - [Retire two leftover book fields: the hidden "seen" flag and the old price-goal field](#retire-two-leftover-book-fields-the-hidden-seen-flag-and-the-old-price-goal-field)
+      - [Remove code left over from older versions (hiding single copies, phone tag shelves, unused functions)](#remove-code-left-over-from-older-versions-hiding-single-copies-phone-tag-shelves-unused-functions)
       - [Moving and selecting](#moving-and-selecting)
         - [Delete a book from All Books (removes it everywhere)](#delete-a-book-from-all-books-removes-it-everywhere)
         - [Open one book's details without losing a multi-selection](#open-one-books-details-without-losing-a-multi-selection)
@@ -106,6 +107,8 @@
       - [Keep your tabs and browsers in step: catch up quietly, never overwrite newer changes](#keep-your-tabs-and-browsers-in-step-catch-up-quietly-never-overwrite-newer-changes)
       - [Lock the Cloud Sync Key in backups with an optional key password](#lock-the-cloud-sync-key-in-backups-with-an-optional-key-password)
       - [Remind me when my last backup is getting old](#remind-me-when-my-last-backup-is-getting-old)
+      - [Restore checks every book, folder and list inside a backup — skip a bad one and say so](#restore-checks-every-book-folder-and-list-inside-a-backup--skip-a-bad-one-and-say-so)
+      - [One backup writer: Save Backup and the copy sent to the relay are built twice and already differ](#one-backup-writer-save-backup-and-the-copy-sent-to-the-relay-are-built-twice-and-already-differ)
     - [Costs](#costs)
       - [Move to Cloudflare's $5/month plan around launch](#move-to-cloudflares-5month-plan-around-launch)
   - [🗄️ After launch](#after-launch)
@@ -1625,6 +1628,51 @@ _One data-layer round for both (Ron + UX, 2026-10-21) — the same mechanism and
    their next save — the app's clean-up ships first, the fetcher's `targetPrice` check is removed after.
 4. Its own test round (data layer).
 
+#### Remove code left over from older versions (hiding single copies, phone tag shelves, unused functions)
+<!-- id 20261108-1800 -->
+
+_Why it matters:_ Code nothing can reach still has to be read, kept working and tested around — and some of it is
+still written into every save, backup and sync. Less code, nothing for a person to see.
+
+**Found** (2026-11-08, a survey of the live files for the logging work; each claim re-checked by grep). Line numbers
+are approximate (readerwrangler.js unless named).
+1. **Certainly dead:**
+   1. **Hiding a single copy of a book** (v4): `hiddenInstances` + `book._instanceId` + the `HIDE_COPIES` undo / redo
+      cases (state ~1536; set ~4657, ~7961, ~8520; read ~17059, ~17216, ~17679, ~17820; label ~7403) and mobile.js
+      (~106, ~2429, ~2639). Nothing assigns `_instanceId` and nothing records `HIDE_COPIES`; hiding today is
+      `book.isHidden` (a book field, so a restore brings it back). **Written into saved data** — the saved
+      organization (~4798), the relay copy (~6206), Save Backup (~6314) — always empty: every backup of Ron's from
+      2026-09-01 to 2026-11-06 holds `hiddenInstances: []`.
+   2. **Pinned tag folders on the phone** (`pinnedTagFolders`, the `__tag_…__` shelves): mobile.js ~108, ~678,
+      ~853-869, ~1517, ~1640-1660, ~1846-1875, ~2426, ~2636, ~3117, ~3177, ~3209. The desktop dropped it on purpose
+      and never sends it; none of Ron's backups carry it (the old demo library has an empty one).
+   3. **A drag value set but never read:** `explorerDragBookId` (~1562, 20 setters).
+   4. **The startup collections merge** (`mergeCollectionsIntoBooks` ~6508, called once ~4680): it runs once at startup,
+      before `collectionsData` can be set, so it always returns the books unchanged.
+   5. **Never called:** `clearLibrary` (~6446), `getBooksInUserFolders` (~1896), `getRelativeTime` (~4507),
+      `renderStatusIndicator` (~8948), `FolderIconSVG` (~6107), `coverRow` (~12459), mobile.js `IconFolderLarge`
+      (~175); uiHelpers.js `SETTINGS_KEY` (~8; its key string stays in the reset lists).
+2. **Obsolete by Ron's rule** (2026-11-08: "if my oldest backup doesn't contain these fields, consider them obsolete" —
+   none of his backups do):
+   1. `dataSource` and `lastSyncTime` — set and saved with the organization (and the phone's copy), never read.
+   2. The three single-choice filters from v3.8 (`collectionFilter`, `ratingFilter`, `seriesFilter`; state ~1353,
+      ~1411, ~1414; logic ~2565-2583, ~10229-10294; chips ~10859-10873): nothing on screen sets them; only a v3/v4-era
+      saved filter could.
+   3. The old cover cache (`CACHE_KEY` "enriched-cache", read ~6973): never written.
+   4. The one-time moves from the pre-2026 storage (`FOLDERS_KEY` / `BOOKLISTS_KEY` reads ~4623, ~4634, mobile.js
+      ~135) — first a console check that Ron's browser holds neither old key.
+3. **Checked and alive** (don't remove): the refusal of very old files (`amazonData`, `type: 'collections'`), the
+   `isHidden` backfill (uiHelpers.js ~95), `__views__`, the phone's own covers / list setting.
+
+**How**
+1. **With "One backup writer…"** (Before launch → Safety and data protection), not before: three of these
+   (`hiddenInstances`, `dataSource`, `lastSyncTime`) are written by both copies of the backup writer — one writer,
+   then one change.
+2. **Readers stay tolerant:** an old backup or a phone's old copy may still carry them — ignored, never an error (the
+   backup check, 7.26.0, already ignores parts it doesn't know).
+3. The test fixture (test/fixtures/make-small-fixture.js, small-fixture.json) mentions some of them — regenerate it.
+4. Beside "Retire two leftover book fields…" (just above): the same clean-up, at the book level.
+
 #### Moving and selecting
 
 ##### Delete a book from All Books (removes it everywhere)
@@ -2699,6 +2747,20 @@ library.
    the fetcher already makes. Request details: see TODO notes when building.
 4. **A generator on Claude's side** packs it into a demo backup — folders by author and series, Book Lists, a few books
    in the Trash and hidden — the same way the test libraries are generated.
+   - **It must pass Restore's backup check** (backupCheck.js, 7.26.0; Ron's rules, 2026-11-08): Restore replaces
+     everything but the Cloud Sync credentials (merged only after asking), so a part that's missing or empty becomes
+     empty, and a backup is refused only when that leaves the library unusable. Required, each the right kind: the
+     backup marker (`isBackup: true`), a `2.x` version stamp, the list of books (`books.items`, a list), and the tag
+     list (`tagRegistry`, a table) whenever any book has a tag. Folders, Book Lists and Searches: write them (an empty
+     list is fine) — a missing one restores as none (with no folders, every book lands in the Inbox). Any part that's
+     written must be the right kind (collections' `items` a list, the view settings a table).
+   - **Write every part today's Save Backup writes**, and none of the obsolete ones ("Remove code left over from older
+     versions…", Polish: no `hiddenInstances`, `pinnedTagFolders`, `dataSource`, `lastSyncTime`).
+   - **No Cloud Sync credentials** in the file (the private-values commit check refuses them; the old demo files' were
+     revoked 2026-10-31).
+   - **Each book**: what "Restore checks every book, folder and list inside a backup…" (Before launch → Safety and data
+     protection) will require — an ASIN, unique; each folder an ID, a name, a parent and a list of books.
+   - **Test it the way a person would:** a screen test restores the generated file and checks the counts and folders.
 5. **It replaces the demo library made from Ron's purchases** (`readerwrangler-demo-library*.json` and the demo filter's
    list in `tools/demo-library/`) — retire those once the reel no longer needs them.
 6. **Covers:** real ones from Amazon on camera — thumbnails, plus one or two full size in a book window. Ron's call
@@ -3202,6 +3264,49 @@ _Why it matters:_ The one real disaster is a lost or wiped PC with no recent bac
 1. When your last saved backup is more than about a month old, the status area shows a quiet note: *"Last backup: 47
    days ago — Save Backup"* — one click; never a pop-up (Law 18).
 2. The app records when you last saved a backup (this browser); a Restore counts too.
+
+#### Restore checks every book, folder and list inside a backup — skip a bad one and say so
+<!-- id 20261108-1800a -->
+
+_Why it matters:_ Since 7.26.0 Restore checks that a backup has every part it needs, each of the right kind — but not
+what's inside them. One book with no ID, a folder with no list of books, or a Search with no position can still crash
+the restore part-way or leave a broken library.
+
+**Found** (2026-11-08): each book needs an ID (its ASIN — the app's book ID is the ASIN; a book without one, or two
+with the same, break the folders that hold them); each folder an ID, a name, a parent and a list of books; each Book
+List an ID, a name and a list of books; each Search an ID and a number position (the restore computes
+`Math.max` over the positions — a missing one makes it NaN); each tag-list entry a name.
+
+**To decide first:** skip or refuse. Law 18 (don't block the user) says one bad book out of 3,000 shouldn't refuse
+the whole backup. Claude's verdict: restore everything else, skip the bad items and say so with their titles —
+*"Restored 3,295 books; skipped 1 that had no ID: 'Title'"* — and let the folders' integrity check tidy after it;
+refuse only when what's left is unusable (Ron's rule for the parts, 2026-11-08: "if that makes it unusable, we reject
+it"). The skipped items go in the log (BACKUP area), so support can see them.
+
+**How:** the same one checking function as the parts check (backupCheck.js, 7.26.0), extended to the items, with its
+function tests written first.
+
+#### One backup writer: Save Backup and the copy sent to the relay are built twice and already differ
+<!-- id 20261108-1800b -->
+
+_Why it matters:_ The backup file and the copy sent to the relay and the phone hold the same library, but each is put
+together by its own code — and they already disagree: the relay copy carries the folder-list order (Manual / Name;
+`folderListSort`) and when it was saved; the backup has neither, so a restore onto a new computer can't bring the
+folder order back. Every new field has to be remembered twice (Law 4: two answers to one question).
+
+**Found** (2026-11-08): `buildDeviceStatePayload` (readerwrangler.js ~6146, the relay and phone copy) and Save
+Backup's own builder (~6271) each write `books`, `organization`, `collections`; a comment says the first is "shared
+with exportBackup", but Save Backup builds its own. Differences: the relay copy has `savedAt` and
+`explorerSettings.folderListSort`; Save Backup has `exportDate`, `theme`, `appVersion` and the Cloud Sync
+credentials.
+
+**How**
+1. One builder; Save Backup adds only what a file needs (the credentials, the save date) and the relay copy only what
+   it needs (`savedAt`).
+2. The folder-list order joins the view settings it belongs to (a restore onto a computer with books keeps the view
+   here — Ron, 2026-11-08: "restore changes organization, not views").
+3. Then "Remove code left over from older versions…" (Polish) drops the dead parts from the one writer.
+4. Test: a Save Backup → Restore round trip and a relay round trip produce the same organization.
 
 ### Costs
 
