@@ -96,6 +96,8 @@ function createLogger(opts = {}) {
         const entry = { time: now(), level, code, area: code.split('-')[0], text: scrub(asText(text), secrets), count: 1 };
         if (data != null) entry.data = scrubData(data, secrets);
         if (isTest) entry.test = true;
+        // a message's own advice for the critical box, in place of the usual words (BOOT-01: "don't save a backup now")
+        if (toastOptions && typeof toastOptions.advice === 'string') entry.advice = toastOptions.advice;
         if (rank(level) >= rank(setting || 'info')) {   // the console shows the chosen level and up (info and up for everyone)
             try {
                 const write = con[CONSOLE_METHOD[level]] || con.log;
@@ -255,12 +257,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         let box = document.getElementById('rw-log-critical');
         if (!box) { box = el('div', CRITICAL_CSS); box.id = 'rw-log-critical'; box.setAttribute('role', 'alert'); document.body.appendChild(box); }
         box.textContent = '';
+        // a message's own advice outranks the usual words — kept while it's among those shown (a later message without
+        // advice must not bring "save a backup now" back over a "don't")
+        const advised = shown.critical.slice().reverse().find(e => e.advice);
         box.append(
             el('div', 'font-weight:700;font-size:15px;margin-bottom:6px', 'ReaderWrangler hit a problem that may affect your library.'),
             el('div', 'margin-bottom:8px', `${entry.text} (code ${codeOf(entry)})`),
-            el('div', 'margin-bottom:12px;color:var(--text-secondary,#475569)', 'To be safe, save a backup now: File → Save Backup. '
-                + 'If ReaderWrangler stops responding, reload the page. If this keeps happening, press Copy details and send it '
-                + 'to us through Feedback at the bottom of the window.'));
+            el('div', 'margin-bottom:12px;color:var(--text-secondary,#475569)', advised ? advised.advice
+                : 'To be safe, save a backup now: File → Save Backup. If ReaderWrangler stops responding, reload the page. '
+                + 'If this keeps happening, press Copy details and send it to us through Feedback at the bottom of the window.'));
         if (shown.critical.length > 1) box.append(el('div', 'margin-bottom:8px;font-style:italic', `and ${shown.critical.length - 1} more`));
         const row = el('div', 'text-align:right');
         const copyBtn = button('Copy details', CRITICAL_BTN, () => copyInto(copyBtn, shown.critical, 'Copy details'));

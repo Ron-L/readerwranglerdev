@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   missing its list of books, and its folders aren't readable. Nothing was changed."* — before anything changes,
   instead of failing part-way or naming one problem at a time.
 - **Restore's messages say "Restore", not "Import".**
+- **If your library can't be loaded, you're told** — a box says so, with what to do, instead of an empty library and
+  no reason. Until it has loaded, Save Backup waits: a backup made then would be missing your folders.
+- **A damaged library-status note no longer stops your library from loading.** (It only holds how fresh your library
+  is; it now shows as unknown until the next fetch.)
 
 ## [7.25.1] - 2026-11-06
 

@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-49 numbered codes. (45 general lines — info and debug, coded by their area alone — not listed.)
+53 numbered codes. (53 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -13,6 +13,10 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | BACKUP-05 | error | Save Backup failed: … | readerwrangler.js |
 | BACKUP-06 | error | Save as Spreadsheet failed: … | readerwrangler.js |
 | BACKUP-07 | warning | That file can't be restored: … | readerwrangler.js |
+| BACKUP-08 | warning | Save Backup refused: the library hasn't finished loading | readerwrangler.js |
+| BOOT-01 | critical | Your library couldn't be loaded. | readerwrangler.js |
+| BOOT-02 | warning | The saved library status couldn't be read — it shows as unknown until the next fetch | readerwrangler.js |
+| BOOT-03 | warning | The saved view settings couldn't be read — the defaults are used | readerwrangler.js |
 | IMPORT-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
 | IMPORT-02 | warning | Import from Relay failed — the relay couldn't be reached: … | readerwrangler.js |
 | IMPORT-03 | error | Sorting the books by date added crashed: … | readerwrangler.js |

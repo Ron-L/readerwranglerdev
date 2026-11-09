@@ -321,4 +321,17 @@ test('LOG-022','a planted test error raises the banner too (so the banner can be
     assert.strictEqual(last(w).test, true);
 });
 
+test('LOG-028', 'a critical message can carry its own advice for the box (BOOT-01: "don\'t save a backup now"); kept with it', () => {
+    const seen = [];
+    const w = world({ extra: { onAlert: (kind, e) => seen.push(e) } });
+    w.log.log('critical', 'BOOT-01', "Your library couldn't be loaded", null, { advice: "Don't save a backup now." });
+    assert.strictEqual(seen.length, 1);
+    assert.strictEqual(seen[0].advice, "Don't save a backup now.");
+    assert.strictEqual(last(w).advice, "Don't save a backup now.", 'kept in the log with the message');
+    w.log.log('critical', 'STORE-02', 'the library could not be saved');
+    assert.strictEqual(seen[1].advice, undefined, 'no advice given → none (the box shows its usual words)');
+    w.log.log('critical', 'STORE-06', 'x', null, { advice: 42 });
+    assert.strictEqual(seen[2].advice, undefined, 'only words count as advice');
+});
+
 done();

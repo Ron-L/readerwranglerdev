@@ -1,7 +1,7 @@
 // mobile.js — ReaderWrangler Mobile Viewer
 // MOBILE_VERSION tracks mobile-specific iterations
-const MOBILE_VERSION = '1.10.2'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
-console.log(`✅ Mobile viewer ${MOBILE_VERSION} | APP_VERSION: ${APP_VERSION}`);
+const MOBILE_VERSION = '1.11.0-alpha.15'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
+rwLog.log('info', 'BOOT', `Phone app ${MOBILE_VERSION} running (page ${APP_VERSION})`);
 
 // v1.7.0 - Which server is this copy talking to? Derived from the page's own address, so an
 // installed app inherits the answer from wherever it was installed — which is the whole point
@@ -29,7 +29,7 @@ const SERVER_ENV = (() => {
 (() => {
     if ((isContributor() || isDevSite()) && window._RW_RELAY_WORKER_URL === undefined) {
         window._RW_RELAY_WORKER_URL = 'https://readerwrangler-relay-dev.readerwrangler.workers.dev';
-        console.log(`🔧 DEV environment: relay → dev worker (${window._RW_RELAY_WORKER_URL})`);
+        rwLog.log('info', 'BOOT', `This copy uses the dev relay (${window._RW_RELAY_WORKER_URL})`);
     }
 })();
 // v1.8.4 - Which relay store this build actually reads (the hidden var made visible). Dev/localhost

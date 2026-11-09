@@ -83,7 +83,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 
 | # | Where | Now | Today's text (start) | Level | Area | ID / action | Note |
 |---|---|---|---|---|---|---|---|
-| 1 | readerwrangler.js:113 | log | `` `✅ APP_VERSION: ${APP_VERSION} (from readerwrangler.html)`); `` | remove | BOOT |  | the page-load record carries the build |
+| 1 | readerwrangler.js:113 | log | `` `✅ APP_VERSION: ${APP_VERSION} (from readerwrangler.html)`); `` | remove | BOOT |  | the page-load record carries the build — **built (alpha.15) as one line once the code runs**: "Desktop app 7.26.0-alpha.15 running (page 7.25.1)" (the page-load entry is written before the code compiles, and the page's version doesn't move during alphas) |
 | 2 | readerwrangler.js:131 | log | `` `🔧 DEV environment: relay → dev worker (${window._RW_RELAY_WORKER_URL})`); `` | info | BOOT |  | which relay this copy talks to |
 | 3 | readerwrangler.js:965 | warn | `'[Popover] this popup\'s button is missing {...popupTrigger(isOpen)} — spread it onto the butto…` | **error** | UI | UI-01 | a coding slip (contributors only today) |
 | 4 | readerwrangler.js:2769 | error | `'Integrity check failed:', e);` | **error** | INTEG | INTEG-01 | the safety check itself crashed — a bug |
@@ -113,7 +113,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 28 | readerwrangler.js:4592 | error | `'🧪❌ [book-fields self-check] round-trip FAILED — ' + _msg);` | **error** | FIELD | FIELD-02 | contributors' self-check: a field doesn't survive a round trip |
 | 29 | readerwrangler.js:4596 | log | `` `🧪✅ [book-fields self-check] table sound + ${loadedBooks.length} books round-trip clean (${ORGA… `` | debug | FIELD |  |  |
 | 30 | readerwrangler.js:4600 | warn | `'[book-fields self-check] skipped:', _e && _e.message); }` | warning | FIELD | FIELD-03 | the self-check couldn't run |
-| 31 | readerwrangler.js:4622 | error | `'Failed to load data:', error);` | **critical** | BOOT | BOOT-01 | the library didn't load |
+| 31 | readerwrangler.js:4622 | error | `'Failed to load data:', error);` | **critical** | BOOT | BOOT-01 | the library didn't load — **built (alpha.15) with its own advice** in the critical box ("Don't save a backup now…": a start that failed after the books appeared has no folders on screen); Save Backup refuses until the load finished (BACKUP-08). Found: a damaged status note (row 19) or view settings stopped the whole load — each has its own guard now (BOOT-02/03) |
 | 32 | readerwrangler.js:4659 | error | `'❌ Could not save organization:', e);` | **critical** | STORE | STORE-02 | the organization couldn't be saved (the user already gets a toast) |
 | 33 | readerwrangler.js:4705 | error | `'❌ Device-state push failed:', err);` | warning | SYNC | SYNC-04 | the network can fail |
 | 34 | readerwrangler.js:4744 | log | `` `🔧 Integrity auto-fixed:`, result.autoFixed.map(f => f.description)); `` | **error** | INTEG | INTEG-04 | the post-import check repaired something |
@@ -206,7 +206,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 121 | readerwrangler.js:18692 | log | `` `✂️ Cut folder "${folder.name}"`); `` | debug | MOVE |  |  |
 | 122 | readerwrangler.js:18708 | log | `` `📋 Copied folder "${folder.name}"`); `` | debug | MOVE |  |  |
 | 123 | readerwrangler.js:18800 | log | `` `📋 Pasted (copied) "${folderToPaste.name}" into "${folder.name}"`); `` | debug | MOVE |  |  |
-| 124 | mobile.js:4 | log | `` `✅ Mobile viewer ${MOBILE_VERSION} \| APP_VERSION: ${APP_VERSION}`); `` | remove | BOOT |  | the page-load record carries the build |
+| 124 | mobile.js:4 | log | `` `✅ Mobile viewer ${MOBILE_VERSION} \| APP_VERSION: ${APP_VERSION}`); `` | remove | BOOT |  | built like row 1: "Phone app … running (page …)" |
 | 125 | mobile.js:32 | log | `` `🔧 DEV environment: relay → dev worker (${window._RW_RELAY_WORKER_URL})`); `` | info | BOOT |  | which relay |
 | 126 | mobile.js:2401 | log | `'✅ Paired via QR: channel ' + creds.channelId.slice(0, 8) + '...');` | info | PHONE |  | keeps a short channel prefix (allowed); the log's scrubber removes it on Copy |
 | 127 | mobile.js:2404 | error | `'❌ Failed to parse pairing data from URL:', e);` | warning | PHONE | PHONE-01 | a bad pairing link |

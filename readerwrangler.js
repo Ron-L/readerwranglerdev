@@ -110,12 +110,14 @@
 
         // APP_VERSION - Defined ONCE in readerwrangler.html, available in global scope
         // Single source of truth - no duplication!
-        console.log(`✅ APP_VERSION: ${APP_VERSION} (from readerwrangler.html)`);
 
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.14";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.15";  // Build version for this file
+        // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
+        // compiled) and the page's APP_VERSION doesn't move during alphas
+        rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -128,7 +130,7 @@
         (() => {
             if ((isContributor() || isDevSite()) && window._RW_RELAY_WORKER_URL === undefined) {
                 window._RW_RELAY_WORKER_URL = 'https://readerwrangler-relay-dev.readerwrangler.workers.dev';
-                console.log(`🔧 DEV environment: relay → dev worker (${window._RW_RELAY_WORKER_URL})`);
+                rwLog.log('info', 'BOOT', `This copy uses the dev relay (${window._RW_RELAY_WORKER_URL})`);
             }
         })();
 
@@ -4528,22 +4530,22 @@
                         // v5.0.0-alpha.175.49.1 - Removed settings load (dead code, settings state removed in v175.48)
 
                         // Restore libraryStatus and collectionsStatus from localStorage (v3.7.0.n)
+                        // 7.26.0 - its own guard: a damaged status note used to stop the whole library from loading
+                        // (BOOT-01) — it's only "how fresh is your library" (TODO "One safe way to read saved settings…")
                         const savedStatus = localStorage.getItem(STATUS_KEY);
-                        if (savedStatus) {
+                        if (savedStatus) try {
                             const statusData = JSON.parse(savedStatus);
-                            if (statusData.libraryStatus) {
-                                setLibraryStatus(statusData.libraryStatus);
-                                console.log('📦 Restored libraryStatus from localStorage:', statusData.libraryStatus.loadStatus);
-                            }
-                            if (statusData.collectionsStatus) {
-                                setCollectionsStatus(statusData.collectionsStatus);
-                                console.log('📦 Restored collectionsStatus from localStorage:', statusData.collectionsStatus.loadStatus);
-                            }
+                            if (statusData.libraryStatus) setLibraryStatus(statusData.libraryStatus);
+                            if (statusData.collectionsStatus) setCollectionsStatus(statusData.collectionsStatus);
+                            rwLog.log('debug', 'BOOT', `Status restored: library ${statusData.libraryStatus && statusData.libraryStatus.loadStatus}, collections ${statusData.collectionsStatus && statusData.collectionsStatus.loadStatus}`);
+                        } catch (e) {
+                            rwLog.log('warning', 'BOOT-02', "The saved library status couldn't be read — it shows as unknown until the next fetch", { error: String(e) });
                         }
 
                         // v5.0.0 - Load Explorer settings
+                        // 7.26.0 - its own guard too (BOOT-03): damaged view settings fall back to the defaults
                         const savedExplorer = localStorage.getItem(EXPLORER_KEY);
-                        if (savedExplorer) {
+                        if (savedExplorer) try {
                             const explorerData = JSON.parse(savedExplorer);
                             // v5.0.2 - viewMode removed (always Explorer mode)
                             if (explorerData.selectedFolderId) setSelectedFolderId(explorerData.selectedFolderId);
@@ -4601,6 +4603,8 @@
                                 setBookListsSectionCollapsed(!!explorerData.sectionsCollapsed.bookLists);
                                 setFoldersSectionCollapsed(!!explorerData.sectionsCollapsed.folders);
                             }
+                        } catch (e) {
+                            rwLog.log('warning', 'BOOT-03', "The saved view settings couldn't be read — the defaults are used", { error: String(e) });
                         }
                         // v5.0.0-alpha.169.10 - Mark settings loaded (even if no saved data)
                         explorerSettingsLoadedRef.current = true;
@@ -4622,7 +4626,7 @@
                         if (loadedFolders.length === 0) {
                             const savedFolders = localStorage.getItem(FOLDERS_KEY);
                             loadedFolders = savedFolders ? JSON.parse(savedFolders) : [];
-                            if (loadedFolders.length > 0) console.log('📦 Folders migrated from the legacy standalone key (pre-blob install)');
+                            if (loadedFolders.length > 0) rwLog.log('info', 'BOOT', 'Folders moved from the old storage format (a one-time move)');
                         }
 
                         // v6.12.0-alpha.88 - BOOKLISTS_KEY is the one-time migration source for pre-blob
@@ -4647,7 +4651,7 @@
                                 collapsed: false,
                                 isInbox: true
                             }];
-                            console.log('📥 Created default Inbox folder for fresh install');
+                            rwLog.log('info', 'BOOT', 'A fresh start: created the Inbox');
                         }
 
                         // The rest of the organization applies UNCONDITIONALLY too — org is independent
@@ -4692,7 +4696,7 @@
                                     if (b.binding === 'Kindle eBook' && !b.userEdited?.binding) { migrated++; return { ...b, binding: undefined }; }
                                     return b;
                                 });
-                                if (migrated > 0) console.log(`🏷️ Format migration: cleared the invented 'Kindle eBook' default on ${migrated} book(s) — blank until Amazon or you says otherwise`);
+                                if (migrated > 0) rwLog.log('info', 'BOOT', `Format clean-up: cleared the invented 'Kindle eBook' default on ${migrated} book(s) — blank until Amazon or you say otherwise (a one-time move)`);
                             }
 
                             // v6.3.0 - Data integrity check (ghost refs, duplicates, homeless, corrupted).
@@ -4768,7 +4772,13 @@
                         // Actual status display now comes from libraryStatus/collectionsStatus
                         setSyncStatus('none');
                     } catch (error) {
-                        console.error('Failed to load data:', error);
+                        // 7.26.0 - shown to EVERY user (the critical box), with its own advice: the usual "save a backup
+                        // now" would be harmful here — a start that failed after the books appeared has no folders on
+                        // screen, and a backup made from the screen would restore as a library with none
+                        rwLog.log('critical', 'BOOT-01', "Your library couldn't be loaded.", { error: String((error && error.message) || error), stack: error && error.stack },
+                            { advice: "Don't save a backup now — your library isn't fully loaded, so a backup would be missing your folders. "
+                                + 'Reload the page to try again. If this keeps happening, press Copy details and send it to us through '
+                                + 'Feedback at the bottom of the window.' });
                         setSyncStatus('none');
                     }
                 };
@@ -6222,6 +6232,14 @@
 
             // Schema v2.0: Export unified file with organization
             const exportBackup = async () => {
+                // 7.26.0 - Never save a backup of a library that didn't finish loading: its folders and lists may not be on
+                // screen (a start that failed after the books appeared), and the file would restore as a library with
+                // none (BOOT-01; TODO "One backup writer…" item 5 would build it from storage instead)
+                if (!orgLoadedRef.current) {
+                    rwLog.log('warning', 'BACKUP-08', "Save Backup refused: the library hasn't finished loading");
+                    showInfoDialog('Save Backup', "Your library isn't loaded, so there's nothing safe to save yet. Reload the page.");
+                    return;
+                }
                 // v7.6.2-alpha.2 - Backup receipts (Ron-ratified): Save Backup was silent — real seconds
                 // of serialization with nothing on screen, then only Chrome's subtle downloads bubble.
                 // Progress while it works; a rich toast (count, size, filename) as the receipt — NOT a
