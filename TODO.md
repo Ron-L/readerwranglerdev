@@ -551,6 +551,11 @@ _Why it matters:_ Rules that depend on memory keep failing; automatic checks don
 
 **Open items**
 1. **My code safety check can be skipped by accident** (7.19.0 post-mortem). The checklist only fires for my normal editing tool; edits made with a find-and-replace command skip it. Make it fire for those too. Small.
+2. **The version check reads only readerwrangler.html's cache-busters** (found 2026-11-09, 7.26.0-alpha.20). The reset
+   page (reset.html) loads logger.js, storage.js and reset.js with its own `?v=` busters — moved by hand so far, and
+   reset.js had none at all until alpha.20. Derive the module list from EVERY page that loads app scripts (today
+   readerwrangler.html and reset.html), and refuse a commit that changes a module without moving its buster on each
+   page that loads it. Needs its own tests (staged-file cases), so it isn't rushed mid-branch. Small.
 
 **How (technical)**
 - Item 1: the gate hooks only Edit / Write. Add a PreToolUse hook on Bash that spots `sed -i` or redirects onto a root `.js` or the relay worker, and runs the same once-per-turn checklist (reuse `is_app_source()`).

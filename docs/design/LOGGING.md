@@ -312,6 +312,18 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    RESET-006); the scripts on Amazon's pages (the fetchers, the bookmarklet menu) are their own item (§4 note 6).
    Still to do in this step: the one pass converting `showToast`'s callers (and its commit check), and the dialog
    routines logging what they showed.
+   - **The toast pass, part 1 ✅ (7.26.0-alpha.21):** the 61 toasts whose subject fits an existing area (MOVE, UNDO,
+     BACKUP, SYNC, IMPORT); the red refusals keep their red as numbered errors (MOVE-06…09, UNDO-04).
+   - **Part 2 waits for Ron — 56 toasts fit none of the 13 areas.** Claude's proposal (2026-11-09), four new areas:
+     **ORG** — folders, Book Lists, Searches and tags as things: create, rename, delete, pin, order (~25: renames,
+     creates and deletes of all four, "Saved as a Search", pins, "Manual order now matches…", the folder delete, the tag
+     manager); **EDIT** — a book's details: the book window, Bulk Edit, series numbers, price goals, tags added to or
+     removed from books, hide / unhide, kept-removed books, duplicates merged (~12); **AUTO** — Auto-Organize (~9);
+     **SHARE** — copying titles, authors, Amazon links, the email text (~11). The smaller choice: AUTO folded into ORG
+     (Auto-Organize builds folders). Then the commit check refusing a direct `showToast(`.
+   - **A question beside it:** the red refusals ("Inbox cannot be moved", "Can't move a folder into itself") are the
+     person's gesture refused, not the app going wrong — by the levels they're warnings, but a warning's toast isn't
+     red, and as errors they raise the diagnostics banner. Kept as they were (red, errors) until Ron decides.
 5. The Diagnostics view in Data Status (filter, Copy).
 6. The browser driver at `?log=debug`, failing a test on any error or critical.
 
