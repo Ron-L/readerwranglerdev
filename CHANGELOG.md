@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Library repair: 22 issues fixed" for books that were fine. Real repairs are still found and reported.
 - **Restore puts back exactly the backup.** A backup missing a part — its Book Lists, say — used to leave your current
   ones in place beside the backup's books, even though the "restore?" box had just said they'd be removed. Now a
-  missing part restores as none (with no folders, every book lands in the Inbox). Only your Cloud Sync credentials
-  are kept, and only if you choose to keep them, as before; your view settings stay as they are.
+  missing part restores as none (with no folders, every book lands in the Inbox). Your Cloud Sync credentials are the
+  one exception, as before: a restore never switches them without asking. Your view settings stay as they are.
 - **A backup that can't be restored says everything that's wrong at once** — *"This backup can't be restored: it's
   missing its list of books, and its folders aren't readable. Nothing was changed."* — before anything changes,
   instead of failing part-way or naming one problem at a time.
