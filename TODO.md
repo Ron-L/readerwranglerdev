@@ -45,6 +45,7 @@
         - [Stray double spaces in author names create duplicate authors](#stray-double-spaces-in-author-names-create-duplicate-authors)
       - [Tag from Collections, round 2: clearer window, safer tags (decided 2026-10-20)](#tag-from-collections-round-2-clearer-window-safer-tags-decided-2026-10-20)
       - [Restore dialog calls yesterday's backup "today"](#restore-dialog-calls-yesterdays-backup-today)
+      - [One safe way to read saved settings — a damaged one can blank the phone app today](#one-safe-way-to-read-saved-settings--a-damaged-one-can-blank-the-phone-app-today)
     - [Polish](#polish)
       - [Move and copy books anywhere — folders, Book Lists, All Books, Searches](#move-and-copy-books-anywhere--folders-book-lists-all-books-searches)
       - [Retire two leftover book fields: the hidden "seen" flag and the old price-goal field](#retire-two-leftover-book-fields-the-hidden-seen-flag-and-the-old-price-goal-field)
@@ -1506,6 +1507,39 @@ fall for the quickie trap again")
 3. **Delete the dead `formatRelativeTime`** so nobody reuses the buggy copy.
 4. **An automated test** across midnight (11:59 PM vs 12:01 AM) and a daylight-saving date. Ron's check: any backup
    file saved yesterday reads "yesterday".
+
+#### One safe way to read saved settings — a damaged one can blank the phone app today
+<!-- id 20261109-0912 -->
+
+_Why it matters:_ Both apps read about 20 saved settings and notes from the browser, each with its own hand-written
+guard — or none. On the phone, one damaged settings note blanks the whole app (it's read on every redraw of the main
+screen); a guard that isn't there can't be noticed until it bites. Medium-high (Ron, 2026-11-09).
+
+**Found** (2026-11-09, the logging switch's BOOT area — a sweep of every `JSON.parse` of a saved value; line numbers
+approximate)
+1. **Unprotected on the phone** (mobile.js): the phone settings (`MOBILE_PREFS_KEY`, ~2466 — read at the top of the main
+   screen on every redraw: damaged = a blank app); the same note when you change the sort or the shelves (~2472, ~2490,
+   ~2554 — that tap fails).
+2. **Unprotected on the desktop:** the old-format folders and Book Lists (readerwrangler.js ~4624, ~4635 — only
+   pre-2026 installs; "Remove code left over from older versions…" (Polish) removes them). The library status and the
+   view settings (~4533, ~4547) got their own guard in 7.26.0 (BOOT-02/03), because a damaged one stopped the library
+   from loading.
+3. **Protected by hand** (each its own try/catch, ~12 on the phone, ~8 on the desktop): filters, search history, the
+   Auto-Organize wizard, the organization, the cover cache, the Cloud Sync credentials, the phone's collapsed sections
+   and navigation.
+4. **Past damage:** a note that reads fine but holds the wrong kind of value (column widths saved as text, say) gets
+   past every one of these guards.
+
+**How (Claude's proposal)**
+1. **One shared reader** in uiHelpers.js (both apps load it): `readSaved(name, fallback, rightKind)` — the saved value
+   when it reads and is the right kind, else the fallback and ONE warning naming the note (STORE area). Function tests
+   first.
+2. **Every read above becomes a one-line call**, the hand-written guards included — a new setting gets the guard for
+   free. Publish the before / after list (each site's fallback) for Ron's red pen.
+3. Then a commit check could refuse a bare `JSON.parse(localStorage.getItem(` — the way the logging check refuses a
+   stray code.
+4. Not the phone's startup load (books + organization, ~2627, no guard at all): that's the phone's "your library didn't
+   load", done in the logging switch's PHONE area (7.26.0).
 
 ### Polish
 
@@ -3307,6 +3341,14 @@ credentials.
    here — Ron, 2026-11-08: "restore changes organization, not views").
 3. Then "Remove code left over from older versions…" (Polish) drops the dead parts from the one writer.
 4. Test: a Save Backup → Restore round trip and a relay round trip produce the same organization.
+5. **Build the backup from storage, not the screen** (medium — Ron, 2026-11-09). Save Backup reads the books from the
+   book store but the folders, Book Lists and tags from what's on screen. When the start fails AFTER the books are
+   readable (the organization store is never written by a failed start — F1), the screen is empty but storage still
+   holds the whole library: a backup built from storage would be complete, one from the screen is missing its folders
+   — and since 7.26.0 a restore from it gives exactly that. 7.26.0 refuses Save Backup until the library has loaded
+   (the guard); with this, "save a backup now" becomes safe advice even after a failed start, and BOOT-01's critical box
+   can say so again. Normally the screen and storage agree (the organization is saved on every change) — check that
+   nothing pending is lost (a change still on its way to storage).
 
 ### Costs
 
