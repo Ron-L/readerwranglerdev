@@ -108,6 +108,7 @@
       - [Keep your tabs and browsers in step: catch up quietly, never overwrite newer changes](#keep-your-tabs-and-browsers-in-step-catch-up-quietly-never-overwrite-newer-changes)
       - [Lock the Cloud Sync Key in backups with an optional key password](#lock-the-cloud-sync-key-in-backups-with-an-optional-key-password)
       - [Remind me when my last backup is getting old](#remind-me-when-my-last-backup-is-getting-old)
+      - [Restore from Cloud Sync: your books and organization back from the cloud copy, no backup file needed](#restore-from-cloud-sync-your-books-and-organization-back-from-the-cloud-copy-no-backup-file-needed)
       - [Restore checks every book, folder and list inside a backup — skip a bad one and say so](#restore-checks-every-book-folder-and-list-inside-a-backup--skip-a-bad-one-and-say-so)
       - [One backup writer: Save Backup and the copy sent to the relay are built twice and already differ](#one-backup-writer-save-backup-and-the-copy-sent-to-the-relay-are-built-twice-and-already-differ)
     - [Costs](#costs)
@@ -3065,6 +3066,11 @@ Someone resetting is often already having a bad day (Ron, 2026-10-30, noticed th
 4. **Verify before writing:** does Reset also clear the stored Cloud Sync Key? If it does, "reconnect" needs the key
    from a backup or another device — and the message must say so ("you'll need your Cloud Sync Key").
 5. Then the help notes and the User Guide's "Starting over" section (User Guide task) say the same thing.
+6. **Updates (2026-11-09):** the reset page's dead "Import amazon-library.json → Books only" bullet was deleted in
+   7.26.0 (the library file was replaced by the relay in 6.0), and its other bullet says "Restore backup file"; checked —
+   the emergency reset does NOT clear the stored Cloud Sync Key (item 4). Until "Restore from Cloud Sync…" (Before launch
+   → Safety and data protection) is built, the one way back offered is the backup file (Ron); once it is, offer that as
+   the second.
 
 ### Safety and data protection
 
@@ -3307,6 +3313,32 @@ _Why it matters:_ The one real disaster is a lost or wiped PC with no recent bac
 1. When your last saved backup is more than about a month old, the status area shows a quiet note: *"Last backup: 47
    days ago — Save Backup"* — one click; never a pop-up (Law 18).
 2. The app records when you last saved a backup (this browser); a Restore counts too.
+
+#### Restore from Cloud Sync: your books and organization back from the cloud copy, no backup file needed
+<!-- id 20261109-1700 -->
+
+_Why it matters:_ The worst case — a lost or wiped computer and no recent backup file — already has its cure sitting in
+the cloud. With Cloud Sync on, the computer sends the relay the phone's copy (the code's "device-state") a few seconds
+after each change: the whole library AND the organization (folders, Book Lists, Searches, tags), in a backup's shape. But
+nothing on the computer reads it back; Import from Relay merges only the books the fetcher sent.
+
+**Decided** (Ron + Claude, 2026-11-09)
+1. **One restore, two readers.** A file reader and a relay reader each turn their source into the same backup-shaped
+   data; from there ONE path — the backup check (backupCheck.js), the "restore?" box, the restore itself
+   (performRestore / loadLibrary) — that can't tell where the data came from.
+2. **Credentials:** the relay's copy carries none, and needs none — reaching the relay already took yours. The restore
+   keeps the current ones (as a backup file without credentials does).
+3. **The new computer:** once built, the app tells the person that any backup FILE made since their current credentials
+   were created brings them back — File → Relay Setup → Credentials → "Load credentials from backup file" (the label says
+   "backup file" since 7.26.0, so it can't be mistaken for this).
+4. **Two computers on one Cloud Sync:** the restore brings back whichever sent last — expected, no special handling
+   (Ron).
+5. **Until this is built, every recovery message offers only the backup file** (Ron: one option until then). When it's
+   built, "Reset App: one honest message in all four places" (Before launch → Cloud Sync) offers it as the second way
+   back. The menu: one item, "Restore…", asking "from a backup file / from Cloud Sync" only when Cloud Sync is set up —
+   otherwise straight to the file box (Claude's UX verdict; Ron to confirm when it's built).
+- How current: as of the last send (seconds); a change made in the moments before a crash may be missing — say so in
+  the "restore?" box ("your cloud copy from 2 minutes ago").
 
 #### Restore checks every book, folder and list inside a backup — skip a bad one and say so
 <!-- id 20261108-1800a -->
