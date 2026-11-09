@@ -163,7 +163,7 @@ class LocalRelay:
 
 
 class App:
-    def __init__(self, headed=None, relay=False, zoom=1.0, size=(1400, 900)):
+    def __init__(self, headed=None, relay=False, zoom=1.0, size=(1400, 900), log="debug"):
         self.headed = os.environ.get("RW_HEADED") == "1" if headed is None else headed
         self.want_relay = relay
         self.relay = None
@@ -171,6 +171,16 @@ class App:
         # wide. (An emulation: the browser's own scrollbars scale with it, which real zoom doesn't do.)
         self.zoom, self.size = zoom, size
         self.console, self.crashes, self.violations = [], [], []
+        # LOGGING.md §5 step 6: every session runs at ?log=debug (the remembered level, set before the page's scripts,
+        # only when none is set — a test that changes it keeps its change), and its end fails the file on any error or
+        # critical message the test didn't declare with expect(). log=None: the page's own default (the gate's tests).
+        self.log_level = log
+        self.expected_codes = set()
+
+    def expect(self, *codes):
+        """Declare error / critical messages this test causes ON PURPOSE (e.g. 'BOOT-01') — the end-of-session log check
+        lets exactly these through."""
+        self.expected_codes.update(codes)
 
     # --- start / stop -------------------------------------------------------------------------------------------
     def __enter__(self):
@@ -204,6 +214,9 @@ class App:
                                             device_scale_factor=self.zoom)
         self.ctx.route(lambda u: "goatcounter" in u or "gc.zgo.at" in u,
                        lambda r: r.fulfill(status=204, body=""))
+        if self.log_level:
+            self.ctx.add_init_script(f"""try {{ if (localStorage.getItem('readerwrangler-log-level') === null)
+                localStorage.setItem('readerwrangler-log-level', {json.dumps(self.log_level)}); }} catch (e) {{}}""")
         if self.relay:
             # Before the app's own scripts on every load: point it at the local relay, and give a fresh profile the test
             # channel (only when none is set, so a reload keeps whatever the app has done since).
@@ -219,7 +232,22 @@ class App:
         self.page.wait_for_selector("#splash", state="detached", timeout=APP_TIMEOUT_MS)
         return self
 
+    def logged_failures(self):
+        """Every error / critical message in this session's console (the logging module's "level · CODE · text" lines)
+        that the test didn't declare with expect() — lines a test planted on purpose (marked TEST) excepted."""
+        out = []
+        for _, x in self.console:
+            m = re.match(r"^(error|critical) · ([A-Z]+(?:-\d+)?)(-!TEST!)? · ", x)
+            if m and not m.group(3) and m.group(2) not in self.expected_codes:
+                out.append(x[:220])
+        return out
+
     def __exit__(self, *exc):
+        if not exc or exc[0] is None:
+            found = self.logged_failures()
+            if found:
+                from harness import fail_after   # (test/ui is on the path — every screen test imports harness first)
+                fail_after("the session's log", "error / critical messages the tests didn't expect:\n" + "\n".join(found))
         try:
             if getattr(self, "browser", None):
                 self.browser.close()

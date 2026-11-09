@@ -63,6 +63,7 @@ with App() as app:
     test("BOOT-005", "a damaged saved-filters note is a warning (PREF-01) and the library still loads", damaged_filters_note)
 
     def failed_after_the_books():
+        app.expect("BOOT-01")   # caused on purpose (the end-of-session log check lets exactly this through)
         # the start's save of the books back fails AFTER they're on screen — the folders never get there
         saved_before = page.evaluate(SAVED_ORG)
         app.ctx.add_init_script("""IDBObjectStore.prototype.clear = function () {
@@ -88,6 +89,7 @@ with App() as app:
     page = app.page
 
     def store_wont_open():
+        app.expect("BOOT-01")   # caused on purpose
         # the first, normal start saves its organization a moment after the screen is up — wait for it, or "before" is
         # read too early and that save looks like the failed start's (measured 2026-11-09: its savedAt preceded the reload)
         page.wait_for_function("() => localStorage.getItem('readerwrangler-state') !== null", timeout=30_000)

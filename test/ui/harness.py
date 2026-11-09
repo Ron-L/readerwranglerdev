@@ -33,6 +33,13 @@ def check(cond, msg):
         raise AssertionError(msg)
 
 
+def fail_after(label, msg):
+    """A failure found after the tests ran (the driver's end-of-session log check — LOGGING.md §5 step 6): counted like
+    any failed test, printed under `label` (not a test ID — it belongs to the whole file)."""
+    _failures.append(label)
+    print(f"  ✗ {label}\n      " + "\n      ".join(str(msg).splitlines()[:12]), flush=True)
+
+
 def done():
     print(f"{_passed} passed, {len(_failures)} failed", flush=True)
     sys.exit(1 if _failures else 0)

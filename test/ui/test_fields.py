@@ -20,6 +20,7 @@ PHANTOM = "phantomTestField"
 
 with App() as app:
     page = app.page
+    app.expect("FIELD-04")   # the planted field is caught on purpose (the end-of-session log check lets it through)
     app.restore(FIXTURE)
     page.evaluate("""() => { localStorage.setItem('readerwrangler-contributor', 'on');
                              localStorage.removeItem('rw-serialization-selftest'); rwLog.setLevel('debug'); }""")

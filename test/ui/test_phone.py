@@ -29,6 +29,7 @@ with App(relay=True, size=(390, 844)) as app:
     test("PHONE-001", "a phone-width window runs the phone app, and it says which build", build_line)
 
     def library_unreadable():
+        app.expect("PHONE-03")   # caused on purpose
         app.ctx.add_init_script("""indexedDB.open = function () {
             throw new Error('the book store refused to open (screen test)'); };""")
         app.reload()

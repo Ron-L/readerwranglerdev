@@ -22,7 +22,7 @@ def plant(app, level, code, text):
     app.page.evaluate("([l, c, t]) => window.rwLog.log(l, c, t, null, { test: true })", [level, code, text])
 
 
-with App() as app:
+with App(log=None) as app:     # the gate's own tests: the page's default level, not the driver's ?log=debug
     page = app.page
 
     def address_sets_diagnostics():
