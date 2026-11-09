@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.16";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.17";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -2096,7 +2096,7 @@
                         label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
                     });
                     showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}' — moved from the original folder`);
-                    console.log(`📥 Pasted ${clip.bookIds.length} book(s) (cut) to folder`);
+                    rwLog.log('debug', 'MOVE', `Pasted ${clip.bookIds.length} cut book(s) into a folder`);
                 } else {
                     // Copy: just add to the target
                     setFolders(prev => prev.map(folder => {
@@ -2109,7 +2109,7 @@
                         label: `Paste ${bookCountLabel(clip.bookIds)} into '${targetName}'`
                     });
                     showToast(`Pasted ${bookCountLabel(clip.bookIds)} into '${targetName}'`);
-                    console.log(`📥 Pasted ${clip.bookIds.length} book(s) (copy) to folder`);
+                    rwLog.log('debug', 'MOVE', `Pasted ${clip.bookIds.length} copied book(s) into a folder`);
                 }
             };
 
@@ -3531,7 +3531,7 @@
                     toIndex: targetIndex,
                     label: `Reorder ${bookCountLabel(bookIdsToMove)}` // v7.8.0-alpha.4 named target
                 });
-                console.log(`🔄 Reordered ${bookIdsToMove.length} book(s) in folder`);
+                rwLog.log('debug', 'MOVE', `Reordered ${bookIdsToMove.length} book(s) in a folder`);
             };
 
             // v6.12.0 - Reorder books within a Book List (manual order); mirrors reorderBooksInFolder
@@ -3691,7 +3691,7 @@
                     description: `Reorder "${folderNames}"`
                 });
 
-                console.log(`🔄 Reordered ${folderIdsToMove.length} folder(s) in parent ${parentId || 'root'}`);
+                rwLog.log('debug', 'MOVE', `Reordered ${folderIdsToMove.length} folder(s) ${parentId ? 'inside a folder' : 'at the top level'}`);
             };
 
             // v7.6.0-alpha.1 (wave A, spec item D) - Move a folder to the top/bottom of its sibling list.
@@ -3875,7 +3875,7 @@
                     description: `Move "${folderNames}" into "${targetName}"`
                 });
                 showToast(`Moved "${folderNames}" into "${targetName}"`);
-                console.log(`📁 Moved ${folderIds.length} folder(s) into ${newParentId || 'root'}`);
+                rwLog.log('debug', 'MOVE', `Moved ${folderIds.length} folder(s) ${newParentId ? 'into a folder' : 'to the top level'}`);
                 return true;
             };
 
@@ -3952,7 +3952,7 @@
                 showToast(bookCount > 0
                     ? `Deleted "${folder.name}" — ${bookCount} book${bookCount !== 1 ? 's' : ''} moved to ${destinationId === '__inbox__' ? 'Inbox' : `"${destinationName}"`}`
                     : `Deleted "${folder.name}"`);
-                console.log(`🗑️ Deleted folder "${folder.name}"${subCount > 0 ? ` + ${subCount} subfolder(s)` : ''}${bookCount > 0 ? `, ${bookCount} book(s) → ${destinationName}` : ''}`);
+                rwLog.log('debug', 'MOVE', `Deleted a folder${subCount > 0 ? ` and ${subCount} subfolder(s)` : ''}${bookCount > 0 ? `; ${bookCount} book(s) moved to ${destinationId === '__inbox__' ? 'the Inbox' : 'its parent folder'}` : ''}`);
                 return true;
             };
 
@@ -5389,7 +5389,7 @@
                             allIds.push(...specialFolders.map(f => f.id));
                         }
                         setExplorerSelectedItems(new Set(allIds));
-                        console.log(`✅ Selected ${allIds.length} item(s) in Explorer`);
+                        rwLog.log('debug', 'MOVE', `Selected all ${allIds.length} item(s) in the right pane`);
                     }
 
                     // v5.0.0-alpha.168 - Ctrl+X in Explorer view: Cut selected books
@@ -5412,7 +5412,7 @@
                         }));
                         setClipboard({ type: 'cut', bookIds, sourcePositions });
                         showToast(`Cut ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
-                        console.log(`✂️ Cut ${bookIds.length} book(s) to clipboard (Explorer)`);
+                        rwLog.log('debug', 'MOVE', `Cut ${bookIds.length} book(s) to the clipboard`);
                         return; // Don't fall through to Columns App handler
                     }
 
@@ -5426,7 +5426,7 @@
                         }));
                         setClipboard({ type: 'copy', bookIds, sourcePositions });
                         showToast(`Copied ${bookCountLabel(bookIds)}`); // v7.10.1 - named receipt
-                        console.log(`📋 Copied ${bookIds.length} book(s) to clipboard (Explorer)`);
+                        rwLog.log('debug', 'MOVE', `Copied ${bookIds.length} book(s) to the clipboard`);
                         return; // Don't fall through to Columns App handler
                     }
 
@@ -5490,7 +5490,7 @@
                     // v7.18.0-alpha.41 - not the Esc that closed an overlay (see the registry Esc listener)
                     if (e.key === 'Escape' && !e.defaultPrevented && !overlayRegistry.topLayer() && folderClipboard.items.length > 0) {
                         setFolderClipboard({ items: [], operation: null });
-                        console.log('📋 Clipboard cleared');
+                        rwLog.log('debug', 'MOVE', 'Clipboard cleared');
                     }
                 };
                 window.addEventListener('keydown', handleEsc);
@@ -5515,14 +5515,14 @@
                     if (e.ctrlKey && e.key === 'x' && !isSpecialFolder) {
                         e.preventDefault();
                         setFolderClipboard({ items: [currentFolder.id], operation: 'cut' });
-                        console.log(`✂️ Cut folder "${currentFolder.name}"`);
+                        rwLog.log('debug', 'MOVE', 'Cut a folder (keyboard)');
                     }
 
                     // Ctrl+C - Copy folder
                     if (e.ctrlKey && e.key === 'c' && !isSpecialFolder) {
                         e.preventDefault();
                         setFolderClipboard({ items: [currentFolder.id], operation: 'copy' });
-                        console.log(`📋 Copied folder "${currentFolder.name}"`);
+                        rwLog.log('debug', 'MOVE', 'Copied a folder (keyboard)');
                     }
 
                     // Ctrl+V - Paste into current folder
@@ -5592,7 +5592,7 @@
                                 const topCopy = { ...newFolders[0] };
                                 delete topCopy.sortIndex;
                                 setFolders(prev => placeNewFoldersAtTop([...prev, topCopy, ...newFolders.slice(1)], [topCopy]));
-                                console.log(`📌 Pasted (copied) "${folderToPaste.name}" into "${currentFolder.name}"`);
+                                rwLog.log('debug', 'MOVE', 'Pasted a copied folder into another folder (keyboard)');
                             }
                         }
                     }
@@ -15168,7 +15168,7 @@
                                                 try {
                                                     const folderDragData = JSON.parse(folderDataStr);
                                                     reparentFolder(folderDragData.folderIds, '__inbox__');
-                                                } catch (err) { console.warn('Folder reparent failed:', err); }
+                                                } catch (err) { rwLog.log('error', 'MOVE-01', `Dropping folders on the Inbox failed: ${err && err.message}`, { stack: err && err.stack }); }
                                             }
                                             if (!bookDataStr) { setFolderDropHighlight(null); return; }
                                             const dragData = JSON.parse(bookDataStr);
@@ -15416,7 +15416,7 @@
                                                                     }
                                                                     repositionSearch(draggedViewId, newPos); // v7.10.1-alpha.6 - undoable via chokepoint
                                                                 } catch (err) {
-                                                                    console.error('Tag view on folder drop error:', err);
+                                                                    rwLog.log('error', 'MOVE-02', `Dropping a Search into a new place in the left pane failed: ${err && err.message}`, { stack: err && err.stack });
                                                                 }
                                                                 return;
                                                             }
@@ -15469,7 +15469,7 @@
                                                                         }
                                                                     }
                                                                 } catch (err) {
-                                                                    console.error('Sidebar folder drop error:', err);
+                                                                    rwLog.log('error', 'MOVE-03', `A drop on a folder in the left pane failed: ${err && err.message}`, { stack: err && err.stack });
                                                                 }
                                                                 // v6.11.2 - Don't return early; fall through to also process books
                                                             }
@@ -15874,7 +15874,7 @@
                                                                     const newParentId = folder.id === '__library__' ? null : folder.id;
                                                                     reparentFolder(folderIds, newParentId);
                                                                 } catch (err) {
-                                                                    console.error('Breadcrumb folder drop error:', err);
+                                                                    rwLog.log('error', 'MOVE-04', `Dropping folders on the folder path above the right pane failed: ${err && err.message}`, { stack: err && err.stack });
                                                                 }
                                                                 return;
                                                             }
@@ -15894,7 +15894,7 @@
                                                                     setExplorerDragBookId(null);
                                                                     setExplorerDragData(null);
                                                                 } catch (err) {
-                                                                    console.error('Breadcrumb book drop error:', err);
+                                                                    rwLog.log('error', 'MOVE-05', `Dropping books on the folder path above the right pane failed: ${err && err.message}`, { stack: err && err.stack });
                                                                 }
                                                             }
                                                         }}
@@ -18837,7 +18837,7 @@
                                         onClick={() => {
                                             setFolderClipboard({ items: [folder.id], operation: 'cut' });
                                             setFolderContextMenu(null);
-                                            console.log(`✂️ Cut folder "${folder.name}"`);
+                                            rwLog.log('debug', 'MOVE', 'Cut a folder (right-click)');
                                         }}>
                                         <span>✂️</span>
                                         <span>Cut</span>
@@ -18853,7 +18853,7 @@
                                         onClick={() => {
                                             setFolderClipboard({ items: [folder.id], operation: 'copy' });
                                             setFolderContextMenu(null);
-                                            console.log(`📋 Copied folder "${folder.name}"`);
+                                            rwLog.log('debug', 'MOVE', 'Copied a folder (right-click)');
                                         }}>
                                         <span>📋</span>
                                         <span>Copy</span>
@@ -18945,7 +18945,7 @@
                                                         delete topCopy.sortIndex;
                                                         return placeNewFoldersAtTop([...prev, topCopy, ...newFolders.slice(1)], [topCopy]);
                                                     });
-                                                    console.log(`📋 Pasted (copied) "${folderToPaste.name}" into "${folder.name}"`);
+                                                    rwLog.log('debug', 'MOVE', 'Pasted a copied folder into another folder (right-click)');
                                                 }
                                             }
                                             setFolderContextMenu(null);

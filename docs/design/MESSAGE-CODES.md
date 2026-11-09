@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-57 numbered codes. (54 general lines — info and debug, coded by their area alone — not listed.)
+62 numbered codes. (70 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -33,6 +33,11 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | INTEG-05 | error | The integrity check found … problem(s) it couldn't fix (after an Import or Restore) | readerwrangler.js |
 | INTEG-06 | error | Library repair while loading an Import or Restore: … kind(s) of problem fixed | readerwrangler.js |
 | INTEG-07 | warning | Could not save the integrity check's results (storage full?) | integrity.js |
+| MOVE-01 | error | Dropping folders on the Inbox failed: … | readerwrangler.js |
+| MOVE-02 | error | Dropping a Search into a new place in the left pane failed: … | readerwrangler.js |
+| MOVE-03 | error | A drop on a folder in the left pane failed: … | readerwrangler.js |
+| MOVE-04 | error | Dropping folders on the folder path above the right pane failed: … | readerwrangler.js |
+| MOVE-05 | error | Dropping books on the folder path above the right pane failed: … | readerwrangler.js |
 | STORE-01 | critical | Your saved organization could not be read — ReaderWrangler is using a fallback copy. | readerwrangler.js |
 | STORE-02 | critical | Your library organization could not be saved — browser storage may be full. | readerwrangler.js |
 | STORE-03 | error | Reset App failed: … | readerwrangler.js |
