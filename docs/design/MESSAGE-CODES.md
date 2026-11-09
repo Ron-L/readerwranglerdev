@@ -7,7 +7,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | Code | Level | Message | File |
 |---|---|---|---|
 | BACKUP-01 | warning | … is already running — it will finish in a moment. | readerwrangler.js |
-| BACKUP-02 | warning | Refused a backup with no organization section (no folders or lists) — nothing was changed | readerwrangler.js |
+| BACKUP-02 | warning | Refused a backup: … — nothing was changed | readerwrangler.js |
 | BACKUP-03 | warning | The restore took longer than 60 seconds to finish — asked the person to reload the page | readerwrangler.js |
 | BACKUP-04 | error | Restore failed: … | readerwrangler.js |
 | BACKUP-05 | error | Save Backup failed: … | readerwrangler.js |

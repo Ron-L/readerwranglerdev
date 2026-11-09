@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Then, once that was fixed, a second check showed up: an Import that found nothing to bring in (a brand-new channel,
   for example) left a follow-up check waiting, and it misfired during your next Restore or Import — reporting
   "Library repair: 22 issues fixed" for books that were fine. Real repairs are still found and reported.
+- **Restore puts back exactly the backup.** A backup missing a part — its Book Lists, say — used to leave your current
+  ones in place beside the backup's books, even though the "restore?" box had just said they'd be removed. Now a
+  missing part restores as none (with no folders, every book lands in the Inbox). Only your Cloud Sync credentials
+  are kept, and only if you choose to keep them, as before; your view settings stay as they are.
+- **A backup that can't be restored says everything that's wrong at once** — *"This backup can't be restored: it's
+  missing its list of books, and its folders aren't readable. Nothing was changed."* — before anything changes,
+  instead of failing part-way or naming one problem at a time.
+- **Restore's messages say "Restore", not "Import".**
 
 ## [7.25.1] - 2026-11-06
 

@@ -115,7 +115,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.13";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.14";  // Build version for this file
 
         // v6.19.0 - Dev environments talk to the DEV relay worker (isolated KV namespace), so
         // local/dev testing can never touch production relay data. Mirrors the nav-hub's rule,
@@ -5913,29 +5913,28 @@
                 // dismissed dialog with nothing on screen reads as "done" or "dead".
                 const progress = showProgressDialog('Restoring Backup', 'Taking your library back to the backup’s state…\nThis can take a little while for a large library.');
                 try {
-                    let organizationFromFile = null;
-                    // Extract organization from backup file
-                    if (parsedData.organization) {
-                        organizationFromFile = parsedData.organization;
-                        // v7.4.0 - Presentation cluster (view mode, cover columns, pane width, column
-                        // visibility/widths) restores ONLY onto an empty system (new machine / post-reset
-                        // — the "give me my setup back" case). A rollback on a live system keeps the
-                        // CURRENT presentation: your organization is rolling back, your eyes aren't.
-                        // folderSortSettings rides with curation — losing "Manual" mode would hide
-                        // drag-ordered work. Convention: full-device restores bring settings;
-                        // data-level restores never touch app preferences (game saves vs video options).
-                        if (!(restoreOpts && restoreOpts.includePresentation)) {
-                            const es = organizationFromFile.explorerSettings;
-                            organizationFromFile = {
-                                ...organizationFromFile,
-                                theme: undefined, // v7.4.0 - theme rides the presentation cluster too
-                                explorerSettings: es ? { folderSortSettings: es.folderSortSettings } : undefined
-                            };
-                            rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders and lists, keeping the view settings here');
-                        } else {
-                            rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders, lists and view settings');
-                        }
-                    }   // (a backup without one is refused before it gets here — restoreBackup, 7.26.0-alpha.13)
+                    // 7.26.0 - The backup's organization with every missing part EMPTY (backupCheck.js): Restore
+                    // replaces — only the credentials merge, and only after asking (Ron, 2026-11-08). The file was
+                    // checked when it was picked (restoreBackup).
+                    let organizationFromFile = backupOrganization(parsedData);
+                    // v7.4.0 - Presentation cluster (view mode, cover columns, pane width, column
+                    // visibility/widths) restores ONLY onto an empty system (new machine / post-reset
+                    // — the "give me my setup back" case). A rollback on a live system keeps the
+                    // CURRENT presentation: your organization is rolling back, your eyes aren't (Ron, 2026-11-08:
+                    // "restore changes organization, not views"). folderSortSettings rides with curation — losing
+                    // "Manual" mode would hide drag-ordered work. Convention: full-device restores bring settings;
+                    // data-level restores never touch app preferences (game saves vs video options).
+                    if (!(restoreOpts && restoreOpts.includePresentation)) {
+                        const es = organizationFromFile.explorerSettings;
+                        organizationFromFile = {
+                            ...organizationFromFile,
+                            theme: undefined, // v7.4.0 - theme rides the presentation cluster too
+                            explorerSettings: es ? { folderSortSettings: es.folderSortSettings } : undefined
+                        };
+                        rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders and lists, keeping the view settings here');
+                    } else {
+                        rwLog.log('info', 'BACKUP', 'Restoring the backup — its folders, lists and view settings');
+                    }
                     // v7.14.3 - Apply the credential decision made above; never silently overwrites
                     // existing creds (RELAY-CRED-MISMATCH). adoptBackupCreds is true only for a fresh
                     // app, the same channel, or an explicit "use the backup's" choice.
@@ -6012,12 +6011,12 @@
                             showInfoDialog('Not a Backup File', 'This is not a backup file. Library data now syncs automatically through the cloud.');
                             return;
                         }
-                        // 7.26.0-alpha.13 - Restore puts back EXACTLY the backup, so one without its organization (no
-                        // folders or lists — never saved that way by the app; only cut out by hand) is refused, not
-                        // loaded like an Import into the library here (Ron, 2026-11-08)
-                        if (!parsedData.organization) {
-                            rwLog.log('warning', 'BACKUP-02', 'Refused a backup with no organization section (no folders or lists) — nothing was changed');
-                            showInfoDialog('Restore Error', "This backup has no folders or lists in it, so it can't be restored. Nothing was changed.\n\nChoose a backup made with File → Save Backup.");
+                        // 7.26.0 - Every part Restore needs, checked at once, before the "restore?" box (backupCheck.js —
+                        // Ron, 2026-11-08: name every problem in one message, never one at a time)
+                        const problems = backupProblems(parsedData);
+                        if (problems.length > 0) {
+                            rwLog.log('warning', 'BACKUP-02', `Refused a backup: ${problems.map(p => `${p.words} ${p.issue}`).join('; ')} — nothing was changed`);
+                            showInfoDialog('Restore Error', backupRefusalText(problems));
                             return;
                         }
 
@@ -6842,7 +6841,14 @@
 
                         // 7.26.0-alpha.3 - An Import files its new books FIRST, so the check below reports only real repairs
                         // (a backup restore takes the backup's folders exactly as they are)
-                        const placedFolders = isBackupRestore ? restoredFolders : fileNewBooksInInbox(restoredFolders, newBookIds);
+                        // 7.26.0 - A backup whose folders hold no book (it had none — a missing part restores as none,
+                        // Ron 2026-11-08) puts its books in the Inbox, as after a first fetch — not in no folder, which the
+                        // check below would report as a repair. Books in the Trash stay out of folders, as always.
+                        const noFolderHoldsABook = isBackupRestore && !restoredFolders.some(f => (f.bookIds || []).length > 0);
+                        if (noFolderHoldsABook) rwLog.log('info', 'BACKUP', "The backup's folders hold no books — its books go to the Inbox");
+                        const placedFolders = !isBackupRestore ? fileNewBooksInInbox(restoredFolders, newBookIds)
+                            : noFolderHoldsABook ? fileNewBooksInInbox(restoredFolders, mergedBooks.filter(b => !b.isDeleted).map(b => b.id))
+                            : restoredFolders;
 
                         // v6.3.0 - Run integrity check on restored folders (replaces v5.1.0-alpha.8 inline orphan cleanup)
                         const integrityResult = runIntegrityCheck(mergedBooks, placedFolders);
@@ -6858,8 +6864,8 @@
                         pushOrgOverride.folders = finalFolders; // v7.6.0-alpha.19 - the integrity-checked applied set
                     } else {
                         // No folders in backup - preserve existing folders from localStorage (backward compatibility)
-                        if (isBackupRestore) rwLog.log('info', 'BACKUP', 'The backup has no folders — the folders already here were kept');
-                        else loadNote("This browser's saved organization has no folders — the folders here were kept");
+                        // (an Import only: a restore always has a folder list — backupOrganization makes a missing one empty)
+                        loadNote("This browser's saved organization has no folders — the folders here were kept");
                         if (!isBackupRestore && newBookIds.length > 0) setFolders(prev => fileNewBooksInInbox(prev, newBookIds)); // 7.26.0-alpha.3
                     }
 
@@ -6914,7 +6920,7 @@
                     // stale-stamped pre-restore payload. Presentation fields stay the CURRENT ones from
                     // buildDeviceStatePayload (rollbacks keep your eyes — the 7.4.0 cluster rule).
                     if (isBackupRestore) {
-                        rwLog.log('info', 'BACKUP', `Backup restored: ${mergedBooks.length} books${pushOrgOverride.folders ? `, ${pushOrgOverride.folders.length} folders` : ''}`);
+                        rwLog.log('info', 'BACKUP', `Backup restored: ${mergedBooks.length} books, ${(pushOrgOverride.folders || []).length} folders, ${(pushOrgOverride.bookLists || []).length} Book Lists, ${(pushOrgOverride.savedSearches || []).length} Searches`);
                     }
                     if (organizationFromFile !== null && window.RWRelay && window.RWRelay.isConfigured()) {
                         try {

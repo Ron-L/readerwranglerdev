@@ -258,7 +258,8 @@ class App:
 
     def restore(self, path, expect="Backup Restored"):
         """File → Restore Backup… with this file, through the real menu and file box. Refuses a file carrying a key.
-        Waits for the box titled `expect` (a refused file: "Restore Error"); returns its text and closes it."""
+        Onto a library that has books, answers the "restore?" box with Restore, as a person would. Waits for the box
+        titled `expect` (a refused file: "Restore Error"); returns its text and closes it."""
         raw = gzip.open(path).read() if path.endswith(".gz") else open(path, "rb").read()
         relay = json.loads(raw).get("relay") or {}
         if relay.get("channelId") or relay.get("passphrase"):
@@ -269,8 +270,15 @@ class App:
         name = os.path.basename(path)[:-3] if path.endswith(".gz") else os.path.basename(path)
         fc.value.set_files(files=[{"name": name, "mimeType": "application/json", "buffer": raw}])
         dialog = self.page.get_by_text(expect, exact=True)
-        dialog.wait_for(timeout=120_000)
-        box = dialog.locator("xpath=ancestor::*[.//button][1]")
+        confirm = self.page.get_by_role("button", name="Restore", exact=True)
+        deadline = time.time() + 120
+        while not dialog.first.is_visible():
+            if time.time() > deadline:
+                raise AssertionError(f"no {expect!r} box within 120 s")
+            if confirm.count() and confirm.first.is_visible():
+                confirm.first.click()
+            self.page.wait_for_timeout(100)
+        box = dialog.first.locator("xpath=ancestor::*[.//button][1]")
         text = box.inner_text()
         box.get_by_role("button", name="OK").click()
         return text

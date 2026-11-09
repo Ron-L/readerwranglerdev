@@ -143,7 +143,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 | 58 | readerwrangler.js:5786 | warn | `'⚠️ Data operation already in progress, skipping restore');` | warning | BACKUP | BACKUP-01 | FINDING F2: Restore skipped SILENTLY while another operation runs |
 | 59 | readerwrangler.js:5831 | log | `'📋 Restoring organization from backup file (keeping current view settings)');` | info | BACKUP |  |  |
 | 60 | readerwrangler.js:5833 | log | `'📋 Restoring organization from backup file (full, incl. view settings)');` | info | BACKUP |  |  |
-| 61 | readerwrangler.js:5836 | log | `'⚠️ Backup file has no organization section - will start fresh');` | warning | BACKUP | BACKUP-02 | an odd backup file — **built (alpha.13) as a refusal** (Ron, 2026-11-08): a backup with no organization section is refused at the file pick, nothing changed; it used to load like an Import |
+| 61 | readerwrangler.js:5836 | log | `'⚠️ Backup file has no organization section - will start fresh');` | warning | BACKUP | BACKUP-02 | an odd backup file — **built as a refusal** (alpha.13; alpha.14: every part checked at once by backupCheck.js — Ron, 2026-11-08: a missing part restores as empty, refused only when that leaves the library unusable or a part is the wrong kind; one message names every problem) |
 | 62 | readerwrangler.js:5857 | error | `'⚠️ Status check timed out after 60 seconds');` | warning | BACKUP | BACKUP-03 | a restore timed out |
 | 63 | readerwrangler.js:5878 | error | `'Failed to sync:', error);` | **error** | BACKUP | BACKUP-04 | Restore failed — one entry with the details (63–65) |
 | 64 | readerwrangler.js:5881 | error | `'Error details:', error.message, error.stack);` | merge→63 | BACKUP |  |  |

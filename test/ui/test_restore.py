@@ -21,11 +21,11 @@ with App() as app:
     app.page.evaluate("() => rwLog.setLevel('debug')")
 
     def refused_file():
-        # an old Collections file, marked as a backup and given an (empty) organization so it gets past the file box's
-        # own checks ("Not a Backup File", BACKUP-003's) to the load, which refuses it
+        # an old Collections file, given what the file box checks for ("Not a Backup File", then every part Restore
+        # needs — BACKUP-003) so it reaches the load, which refuses it
         path = os.path.join(tempfile.mkdtemp(prefix="rw-test-restore-"), "old-collections.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"isBackup": True, "type": "collections", "organization": {}}, f)
+            json.dump({"isBackup": True, "schemaVersion": "2.4", "type": "collections", "books": {"items": []}}, f)
         n0 = len(app.console)
         text = app.restore(path, expect="Restore Error")
         lines = [(t, x) for t, x in app.console[n0:]]
@@ -45,24 +45,55 @@ with App() as app:
         check(not [x for t, x in app.console[n0:] if t == "error"], "the restore logged an error")
     test("BACKUP-002", "a restore that works logs what it brought back: the books and the folders", restored)
 
-    # 2026-11-08 (Ron): a backup with no organization section (no folders or lists) is refused. It used to load like an
-    # Import — merged into the library here, folders kept — breaking Restore's "exactly the backup" promise; no file
-    # today's app saves lacks it, so the only way to get one is to cut it out by hand.
-    def no_organization_refused():
+    # 2026-11-08 (Ron): Restore replaces everything but the Cloud Sync credentials — a missing part restores as EMPTY
+    # (it used to load like an Import: merged into the library here, folders kept), and a backup is refused only when
+    # that leaves the library unusable, naming every problem at once (backupCheck.js; its function tests: BCHK-001…).
+    def fixture_without(edit):
         with open(FIXTURE, encoding="utf-8") as f:
             data = json.load(f)
-        del data["organization"]
-        path = os.path.join(tempfile.mkdtemp(prefix="rw-test-restore-"), "no-organization.json")
+        edit(data)
+        path = os.path.join(tempfile.mkdtemp(prefix="rw-test-restore-"), "edited-fixture.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        return path
+
+    def unusable_refused():
+        # no organization while books carry tags: the tags would vanish from the tag filter and the Tags menu
+        path = fixture_without(lambda d: d.pop("organization"))
         before = {k: app.left_count(k) for k in ("All Books", "Inbox")}
         n0 = len(app.console)
         text = app.restore(path, expect="Restore Error")
-        check("no folders or lists" in text, "the box doesn't say why: " + text)
-        check(any(re.search(r"^warning · BACKUP-02 · ", x) for _, x in app.console[n0:]), "no BACKUP-02 warning")
+        check("missing its tag list" in text and "Nothing was changed" in text, "the box doesn't say why: " + text)
+        check(any(re.search(r"^warning · BACKUP-02 · Refused a backup: its tag list missing", x) for _, x in app.console[n0:]),
+              "no BACKUP-02 warning naming the tag list")
         after = {k: app.left_count(k) for k in ("All Books", "Inbox")}
         check(after == before, f"the library changed: {before} → {after}")
-    test("BACKUP-003", "a backup with no folders or lists is refused, and the library is left as it was",
-         no_organization_refused)
+    test("BACKUP-003", "a backup a restore would leave unusable is refused — naming why — and the library is left as it was",
+         unusable_refused)
+
+    def missing_parts_restore_as_none():
+        # no organization and no tags: usable — every part restores as none, and the books land in the Inbox
+        def strip(d):
+            d.pop("organization")
+            for b in d["books"]["items"]:
+                b.pop("tags", None)
+        # what the library holds, from its saved organization (the screen's own state, saved a moment after a change)
+        held = """() => { const o = JSON.parse(localStorage.getItem('readerwrangler-state')).organization;
+                          return [o.bookLists.length, o.savedSearches.length]; }"""
+        before = app.page.evaluate(held)
+        check(before[0] > 0 and before[1] > 0, f"the library had no Book Lists or Searches to replace: {before}")
+        n0 = len(app.console)
+        text = app.restore(fixture_without(strip))
+        check("23 books restored" in text, "it didn't restore: " + text)
+        app.page.wait_for_timeout(2500)   # the after-restore integrity check runs once the screen settles
+        check(app.page.evaluate(held) == [0, 0], f"the library kept its Book Lists / Searches: {app.page.evaluate(held)}")
+        check(app.left_count("Inbox") == app.left_count("All Books"), "not every book is in the Inbox")
+        lines = [x for _, x in app.console[n0:]]
+        check(any(re.search(r"^info · BACKUP · Backup restored: 23 books, 1 folders, 0 Book Lists, 0 Searches", x) for x in lines),
+              "no 'Backup restored' line with the counts: " + str([x for x in lines if "Backup restored" in x]))
+        repairs = [x for _, x in app.console[n0:] if re.search(r"Integrity auto-fixed|Library repair", x)]
+        check(not repairs, "a repair was reported: " + str(repairs))
+    test("BACKUP-004", "a backup with no folders, Book Lists or Searches restores with none — every book in the Inbox, "
+         "no repair reported", missing_parts_restore_as_none)
 
 done()
