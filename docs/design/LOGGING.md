@@ -325,7 +325,11 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
      person's gesture refused, not the app going wrong — by the levels they're warnings, but a warning's toast isn't
      red, and as errors they raise the diagnostics banner. Kept as they were (red, errors) until Ron decides.
 5. The Diagnostics view in Data Status (filter, Copy).
-6. The browser driver at `?log=debug`, failing a test on any error or critical.
+6. ✅ The browser driver at `?log=debug`, failing a test on any error or critical (2026-11-09, test/ui/rw.py): every
+   session sets the remembered level before the page's scripts (a test that changes it keeps its change; the gate's
+   own tests opt out with `App(log=None)`), and its end fails the file on any `error ·` / `critical ·` line the tests
+   didn't declare with `app.expect('CODE')` — planted lines (marked TEST) excepted. The first run found exactly the
+   four failures the tests cause on purpose, and nothing hidden.
 
 ## 6. The module's shape (Ron + Claude, 2026-11-07)
 

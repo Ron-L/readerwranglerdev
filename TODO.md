@@ -254,6 +254,10 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
   and never show the Channel ID in an error" (After launch) — one place, with a test; this task builds it first.
 - Its own branch (`feature/logging`), alpha versions, tests first (TESTING.md): the module's function tests, then the
   screen tests (the gate, the banner, the reader, the driver failing on an error).
+- **A flaky screen test, seen once** (2026-11-09, during step 6, not reproduced in the next 3 runs): test_boot.py stopped
+  outside any test — the driver couldn't find the File menu button (30 s) when restoring the test library right after
+  BOOT-001. Read it before fixing it (TESTING.md §7): what was on screen (the failure screenshot), whether the menu bar
+  was covered or not yet drawn. If it comes back, set it aside the same day rather than re-run past it.
 
 #### Generated test libraries: made-up books at any size, with their own covers
 <!-- id 20261104-1613a -->
