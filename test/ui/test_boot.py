@@ -63,7 +63,9 @@ with App() as app:
     test("BOOT-005", "a damaged saved-filters note is a warning (PREF-01) and the library still loads", damaged_filters_note)
 
     def failed_after_the_books():
-        app.expect("BOOT-01")   # caused on purpose (the end-of-session log check lets exactly this through)
+        # caused on purpose (the end-of-session log check lets exactly these through): the failed save says so itself
+        # (STORE-07 — since alpha.22's fix; before, only BOOT-01), then the start does
+        app.expect("BOOT-01", "STORE-07")
         # the start's save of the books back fails AFTER they're on screen — the folders never get there
         saved_before = page.evaluate(SAVED_ORG)
         app.ctx.add_init_script("""IDBObjectStore.prototype.clear = function () {

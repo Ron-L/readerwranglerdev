@@ -259,7 +259,9 @@ const saveBooksToIndexedDB = async (books, preserveUserData = false) => {
 
         // v6.3.0 - Atomic clear+add in single transaction (prevents race where
         // a concurrent read sees empty store between separate clear and add txns)
-        return new Promise((resolve, reject) => {
+        // 7.26.0 - `return AWAIT`: without it the finally below let go of the write lock as soon as the write STARTED (a
+        // second save could start mid-write), and a failure while starting it skipped the catch's STORE-07 (STORE-001/002)
+        return await new Promise((resolve, reject) => {
             const txn = db.transaction([BOOKS_STORE], 'readwrite');
             const store = txn.objectStore(BOOKS_STORE);
             store.clear();

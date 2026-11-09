@@ -41,10 +41,10 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-03 | error | That move didn't work. | readerwrangler.js |
 | MOVE-04 | error | That move didn't work. | readerwrangler.js |
 | MOVE-05 | error | That move didn't work. | readerwrangler.js |
-| MOVE-06 | error | Can't move folder into itself or its subfolder | readerwrangler.js |
-| MOVE-07 | error | Inbox cannot be moved | readerwrangler.js |
-| MOVE-08 | error | Can't move a folder into itself or a subfolder | readerwrangler.js |
-| MOVE-09 | error | Inbox cannot be moved | readerwrangler.js |
+| MOVE-06 | warning | Can't move folder into itself or its subfolder | readerwrangler.js |
+| MOVE-07 | warning | Inbox cannot be moved | readerwrangler.js |
+| MOVE-08 | warning | Can't move a folder into itself or a subfolder | readerwrangler.js |
+| MOVE-09 | warning | Inbox cannot be moved | readerwrangler.js |
 | PHONE-01 | warning | The pairing link couldn't be read — pair again from the computer | mobile.js |
 | PHONE-02 | warning | Couldn't get the library from the relay — showing what's on this phone: … | mobile.js |
 | PHONE-03 | critical | Your library couldn't be loaded on this phone. | mobile.js |
@@ -90,4 +90,4 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | UNDO-01 | error | An action has no undo / redo label (a coding slip): … | readerwrangler.js |
 | UNDO-02 | error | Undo did nothing — this code doesn't know the action (a coding slip): … | readerwrangler.js |
 | UNDO-03 | error | Redo did nothing — this code doesn't know the action (a coding slip): … | readerwrangler.js |
-| UNDO-04 | error | Cannot redo copy operation | readerwrangler.js |
+| UNDO-04 | warning | Cannot redo copy operation | readerwrangler.js |

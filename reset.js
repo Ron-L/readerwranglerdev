@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmed = confirm(
             '⚠️ This will clear all ReaderWrangler data from your browser.\n\n' +
             'Your files on disk are safe. To recover:\n' +
-            '• Import backup file → Books + organization\n' +
+            '• Restore backup file → Books + organization\n' +
             '• Import amazon-library.json → Books only\n\n' +
             'Continue with reset?'
         );

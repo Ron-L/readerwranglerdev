@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.21";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.22";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -3786,11 +3786,11 @@
             const reparentFolder = async (folderIds, newParentId, opts = {}) => {
                 for (const folderId of folderIds) {
                     if (folderId === newParentId || isDescendantFolder(folderId, newParentId)) {
-                        rwLog.log('error', 'MOVE-06', "Can't move folder into itself or its subfolder", null, { toast: true });
+                        rwLog.log('warning', 'MOVE-06', "Can't move folder into itself or its subfolder", null, { toast: true });
                         return false;
                     }
                     if (folderId === '__inbox__') {
-                        rwLog.log('error', 'MOVE-07', "Inbox cannot be moved", null, { toast: true });
+                        rwLog.log('warning', 'MOVE-07', "Inbox cannot be moved", null, { toast: true });
                         return false;
                     }
                 }
@@ -4000,11 +4000,11 @@
                 // Validate: if ANY folder can't move, abort ENTIRE operation
                 for (const fid of folderIdsToMove) {
                     if (fid === targetFolderId || isDescendantFolder(fid, targetFolderId)) {
-                        rwLog.log('error', 'MOVE-08', "Can't move a folder into itself or a subfolder", null, { toast: true });
+                        rwLog.log('warning', 'MOVE-08', "Can't move a folder into itself or a subfolder", null, { toast: true });
                         return false;
                     }
                     if (fid === '__inbox__') {
-                        rwLog.log('error', 'MOVE-09', "Inbox cannot be moved", null, { toast: true });
+                        rwLog.log('warning', 'MOVE-09', "Inbox cannot be moved", null, { toast: true });
                         return false;
                     }
                 }
@@ -8446,7 +8446,7 @@
                         // Note: We need to store the copied folders in the action to redo properly
                         // For now, this is a limitation - we can't redo copy operations
                         // TODO: Store copied folder data in action for proper redo
-                        rwLog.log('error', 'UNDO-04', 'Cannot redo copy operation', null, { toast: true });
+                        rwLog.log('warning', 'UNDO-04', 'Cannot redo copy operation', null, { toast: true });
                         break;
                     case 'PASTE_BOOKS_CUT':
                         // v5.0.0-alpha.168 - Redo cut-paste: remove from source folders, add to target
