@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-65 numbered codes. (71 general lines — info and debug, coded by their area alone — not listed.)
+73 numbered codes. (73 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -17,6 +17,9 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | BOOT-01 | critical | Your library couldn't be loaded. | readerwrangler.js |
 | BOOT-02 | warning | The saved library status couldn't be read — it shows as unknown until the next fetch | readerwrangler.js |
 | BOOT-03 | warning | The saved view settings couldn't be read — the defaults are used | readerwrangler.js |
+| COVER-01 | warning | The old book-details cache couldn't be read (a leftover from older versions) | readerwrangler.js |
+| COVER-02 | warning | The cover cache couldn't be read — covers load from Amazon instead | storage.js |
+| COVER-03 | warning | Saving covers in this browser's cache failed — they load from Amazon each time instead | storage.js |
 | FIELD-01 | error | The book-field table's self-check found a problem — a field would be dropped on Save: … | readerwrangler.js |
 | FIELD-02 | error | A book field doesn't survive a save and load (the round-trip self-check): … | readerwrangler.js |
 | FIELD-03 | warning | The book-field self-check couldn't run: … | readerwrangler.js |
@@ -38,6 +41,10 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-03 | error | That move didn't work. | readerwrangler.js |
 | MOVE-04 | error | That move didn't work. | readerwrangler.js |
 | MOVE-05 | error | That move didn't work. | readerwrangler.js |
+| PREF-01 | warning | Your saved filters couldn't be read — they start empty | readerwrangler.js |
+| PREF-02 | warning | Your filters couldn't be saved (is the browser's storage full?) | readerwrangler.js |
+| PREF-03 | warning | Your saved Auto-Organize settings couldn't be read — the defaults are used | readerwrangler.js |
+| PREF-04 | warning | Your Auto-Organize settings couldn't be saved (is the browser's storage full?) | readerwrangler.js |
 | STORE-01 | critical | Your saved organization could not be read — ReaderWrangler is using a fallback copy. | readerwrangler.js |
 | STORE-02 | critical | Your library organization could not be saved — browser storage may be full. | readerwrangler.js |
 | STORE-03 | error | Reset App failed: … | readerwrangler.js |
@@ -65,6 +72,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | SYNC-14 | error | The relay's library could not be read: … | relay-client.js |
 | SYNC-15 | warning | Sending to the relay failed (it can be retried): … | relay-client.js |
 | SYNC-16 | warning | Checking for old batches on the relay was skipped: … | relay-client.js |
+| UI-01 | error | A popup's button is missing {...popupTrigger(isOpen)} — spread it onto the button so other popups switch to it in one click (a coding slip) | readerwrangler.js |
 | UI-02 | error | A logging call was malformed: … | logger.js |
 | UI-03 | error | Uncaught error: … | logger.js |
 | UI-04 | error | A failed promise nobody handled: … | logger.js |

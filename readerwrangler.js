@@ -114,7 +114,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.18";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.19";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -964,7 +964,8 @@
                 if (kind === 'list' || !anchorRef || !anchorRef.current) return;
                 if (!isContributor()) return; // v7.21.0 - developer warning → contributors only (was: any local server)
                 if (!anchorRef.current.closest('[data-popover-trigger]')) {
-                    console.warn('[Popover] this popup\'s button is missing {...popupTrigger(isOpen)} — spread it onto the button so other popups switch to it in one click:', anchorRef.current);
+                    rwLog.log('error', 'UI-01', "A popup's button is missing {...popupTrigger(isOpen)} — spread it onto the button so other popups switch to it in one click (a coding slip)",
+                        { button: (anchorRef.current.outerHTML || '').slice(0, 200) });
                 }
             }, []);
             // v7.18.0-alpha.61 - Shift+click inside a popup never starts a TEXT selection (Ron: Shift+click on the Sort menu
@@ -4253,7 +4254,7 @@
                         } catch(e) {}
                     }
                 } catch (e) {
-                    console.error('Failed to load filters from localStorage:', e);
+                    rwLog.log('warning', 'PREF-01', "Your saved filters couldn't be read — they start empty", { error: String(e) });
                 }
                 // v4.15.6: Mark filters as loaded after a small delay to let React batch state updates
                 setTimeout(() => {
@@ -4379,7 +4380,7 @@
                     };
                     localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
                 } catch (e) {
-                    console.error('Failed to save filters to localStorage:', e);
+                    rwLog.log('warning', 'PREF-02', "Your filters couldn't be saved (is the browser's storage full?)", { error: String(e) });
                 }
             }, [searchTerm, readStatusFilter, collectionFilter, ratingFilter, ownershipFilter, seriesFilter, datePreset, dateFrom, dateTo, showHidden, tagFilter, selectedCollections, minAmazonRating, minMyRating, selectedSeries]);
 
@@ -4446,7 +4447,7 @@
                         if (wizard.seriesFolderMin !== undefined) setWizardSeriesFolderMin(wizard.seriesFolderMin);
                     }
                 } catch (e) {
-                    console.error('Failed to load wizard settings from localStorage:', e);
+                    rwLog.log('warning', 'PREF-03', "Your saved Auto-Organize settings couldn't be read — the defaults are used", { error: String(e) });
                 }
                 // Mark settings loaded after a small delay
                 setTimeout(() => {
@@ -4470,7 +4471,7 @@
                     };
                     localStorage.setItem(WIZARD_KEY, JSON.stringify(wizard));
                 } catch (e) {
-                    console.error('Failed to save wizard settings to localStorage:', e);
+                    rwLog.log('warning', 'PREF-04', "Your Auto-Organize settings couldn't be saved (is the browser's storage full?)", { error: String(e) });
                 }
             }, [wizardMinBooksSlider, wizardMinBooks, wizardSortBy, wizardCreateSeriesFolders, wizardSortByPosition, wizardCreateMiscellaneous, wizardSeriesFolderMin]);
 
@@ -5609,7 +5610,6 @@
                                 setRightPanelEditingId(folder.id);
                                 setRightPanelEditingName(folder.name);
                                 setRightPanelPlaceholderMode(false);
-                                console.log(`✏️ F2: Renaming "${folder.name}" in right panel`);
                             }
                         }
                         // Priority 2: Otherwise rename currently viewed folder in left panel
@@ -5617,7 +5617,6 @@
                             setEditingFolderId(currentFolder.id);
                             setEditingFolderName(currentFolder.name);
                             setIsPlaceholderMode(false);
-                            console.log(`✏️ F2: Renaming "${currentFolder.name}" in left panel`);
                         }
                     }
 
@@ -7009,7 +7008,7 @@
                         }
                     }
                 } catch (e) {
-                    console.error('Cache read error:', e);
+                    rwLog.log('warning', 'COVER-01', "The old book-details cache couldn't be read (a leftover from older versions)", { error: String(e) });
                 }
 
                 setModalBook(book);

@@ -353,9 +353,9 @@ const buildCoverUrlMap = async (books) => {
             }
         }
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-        console.log(`📷 Cover cache: ${Object.keys(urlMap).length}/${books.length} covers loaded from cache in ${elapsed}s`);
+        rwLog.log('debug', 'COVER', `Covers from this browser's cache: ${Object.keys(urlMap).length} of ${books.length} books, in ${elapsed} s`);
     } catch (e) {
-        console.error('Cover cache read failed:', e);
+        rwLog.log('warning', 'COVER-02', "The cover cache couldn't be read — covers load from Amazon instead", { error: String(e) });
     }
     return urlMap;
 };
@@ -400,8 +400,8 @@ const populateCoverCache = async (books) => {
         }
 
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-        console.log(`📷 Cover cache populated: ${cached} already cached, ${fetched} newly fetched, ${failed} failed in ${elapsed}s`);
+        rwLog.log('debug', 'COVER', `Cover cache filled: ${cached} already there, ${fetched} fetched, ${failed} failed, in ${elapsed} s`);
     } catch (e) {
-        console.error('Cover cache population failed:', e);
+        rwLog.log('warning', 'COVER-03', "Saving covers in this browser's cache failed — they load from Amazon each time instead", { error: String(e) });
     }
 };

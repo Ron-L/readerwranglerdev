@@ -52,6 +52,16 @@ with App() as app:
     test("BOOT-002", "a damaged library-status note no longer stops the library from loading — a warning (BOOT-02)",
          damaged_status_note)
 
+    def damaged_filters_note():
+        all_books = app.left_count("All Books")
+        page.evaluate("() => localStorage.setItem('readerwrangler-filters', '{damaged')")
+        n0 = len(app.console)
+        app.reload()
+        page.wait_for_timeout(1500)
+        check(app.left_count("All Books") == all_books, "the library didn't load")
+        check(since(app, n0, r"^warning · PREF-01 · "), "no PREF-01 warning for the damaged filters note")
+    test("BOOT-005", "a damaged saved-filters note is a warning (PREF-01) and the library still loads", damaged_filters_note)
+
     def failed_after_the_books():
         # the start's save of the books back fails AFTER they're on screen — the folders never get there
         saved_before = page.evaluate(SAVED_ORG)
