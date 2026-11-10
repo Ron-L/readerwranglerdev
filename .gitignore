@@ -41,6 +41,11 @@ node_modules/
 dist/
 build/
 output/
+# ...except the app built ahead of time (tools/build.py, 2026-11-10): it IS the site — GitHub Pages serves it, and
+# serve.py refuses whatever git ignores
+!/dist/
+# ...and the build's own tools (the compiler + its pinned versions; its node_modules stay ignored)
+!/tools/build/
 
 # Temporary files
 temp/

@@ -127,10 +127,9 @@
     <!-- Libraries (moved from head to allow splash to paint first) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- v6.12.0 - PINNED to Babel 7: Babel 8's react preset defaults to the automatic JSX runtime,
-         which emits `import {jsx} from "react/jsx-runtime"` and breaks the non-module text/babel script
-         ("Cannot use import statement outside a module"). Unpinned unpkg started serving 8.0.0. -->
-    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
+    <!-- 7.27.0 - No in-browser compiler: the app is built ahead of time into dist/ (tools/build.py, Babel 7.29.7 pinned
+         in tools/build/ — the version this page used to load here) and loaded below as a plain script. Compiling here
+         took ~50 s on every load (TODO "Faster loading"). -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Shared modules (pure JS, no Babel needed) -->
@@ -170,7 +169,7 @@
     <!-- v6.0.0 - QR code generation for mobile pairing (desktop only, ~4KB) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- Main app with JSX (needs Babel) - Dynamic loading for cache busting -->
+    <!-- Main app (built ahead of time into dist/ — 7.27.0) - Dynamic loading for cache busting -->
     <script>
         // APP_VERSION - Single source of truth for cache busting
         // Update this on each release to force browsers to fetch new code
@@ -262,15 +261,16 @@
 
             // Dynamically load the appropriate app with version-based cache busting
             window._appLoading = true; // Signal to emergency reset timer
-            window._appTimeout = isMobile ? 45000 : 15000; // Mobile Babel compile is slow on phones
+            window._appTimeout = isMobile ? 45000 : 15000; // phones are slower (set when the page compiled in the browser)
             var script = document.createElement('script');
-            script.type = 'text/babel';
+            // 7.27.0 - a plain script: the BUILT copy in dist/ (tools/build.py; serve.py rebuilds it when the source
+            // changes). Was type text/babel, compiled here on every load.
             // v7.18.0-alpha.53 - On a LOCAL dev server (this PC, or a phone on the home LAN hitting it) use a fresh
             // stamp per load: APP_VERSION doesn't move between alphas, so the browser could reuse a stale copy and a
             // hard refresh sometimes didn't fetch the new one (2026-10-06 stale-page false bug). Harmless for anyone
             // self-hosting (only skips caching of their own local file); production keeps the version-based cache.
             // v7.21.0 - asks isLocalServer() (stays "local server", not contributor — spec)
-            script.src = (isMobile ? 'mobile.js' : 'readerwrangler.js') + '?v=' + (isLocalServer() ? Date.now() : APP_VERSION);
+            script.src = 'dist/' + (isMobile ? 'mobile.js' : 'readerwrangler.js') + '?v=' + (isLocalServer() ? Date.now() : APP_VERSION);
             document.body.appendChild(script);
 
             // Dev-only mode indicator (localhost / file:// only — never ships to users). The desktop/mobile

@@ -11,6 +11,10 @@ Production (GitHub Pages) publishes exactly the files in git and never lists fol
 
 Refused paths get a plain 404, as if they didn't exist.
 
+It also BUILDS on demand (2026-11-10, TODO "Faster loading"): the page loads the app compiled ahead of time from
+dist/; a request for a compiled copy whose source changed rebuilds it first (tools/build.py). A source that doesn't
+compile is served as a script that throws the compiler's message, so the page's error screen shows it.
+
 It listens on the whole home network ON PURPOSE (a phone tests your local copy over Wi-Fi) — which is exactly why it
 must not hand out private files to every device on that network. Same address and port as before
 (http://localhost:8000), so everything the browser stores for ReaderWrangler stays put.
@@ -22,6 +26,9 @@ Needs git on the PATH (it asks git what's ignored); exits with a clear message i
 """
 import functools
 import http.server
+import importlib.util
+import io
+import json
 import os
 import posixpath
 import subprocess
@@ -30,6 +37,14 @@ import urllib.parse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+
+# 2026-11-10 (TODO "Faster loading"): the page loads the app BUILT ahead of time (dist/). A request for a built copy
+# whose source is newer gets a fresh build first (~2 s), so the loop stays edit → refresh. tools/build.py is the one
+# place that knows how to build.
+_spec = importlib.util.spec_from_file_location("rw_build", os.path.join(ROOT, "tools", "build.py"))
+build = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(build)
+BUILT = {f"{build.OUT_DIR}/{name}": name for name in build.SOURCES}
 
 
 def git_available():
@@ -79,7 +94,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.log_message("REFUSED %s - %s", self.path, reason)  # plain hyphen: a Windows console garbles "—"
             self.send_error(404, "File not found")
             return None
+        rel = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path).lstrip("/")
+        if rel in BUILT:
+            try:
+                if build.build_if_stale(BUILT[rel]):
+                    self.log_message("built %s (its source changed)", rel)
+            except build.BuildError as e:
+                return self.send_script_error(f"ReaderWrangler build failed - {e}")
         return super().send_head()
+
+    def send_script_error(self, message):
+        """A source that doesn't compile: serve a one-line script that throws the compiler's message, so the page's
+        load-error screen shows it (never a stale copy that hides the mistake)."""
+        self.log_message("BUILD FAILED %s", message.replace("\n", " | ")[:300])
+        body = f"throw new Error({json.dumps(message)});\n".encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/javascript; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        return io.BytesIO(body)
 
     def list_directory(self, path):
         # Production never lists folders; a folder with an index.html never gets here (send_head serves the page).

@@ -172,6 +172,11 @@ Bypass (Ron's call only): `git commit --no-verify`.
   header** — `<!-- id YYYYMMDD-HHMM -->`, the time it was filed (the stamp hook's time; a letter suffix only when that
   minute is taken) — and a task that absorbs others lists them: `<!-- id … ; merged <id>, <id> -->`. The same check
   refuses a missing or repeated ID; `tools/backlog_report.py` follows tasks by them (Ron, 2026-10-21).
+- **The built app** (`tools/build.py --check-staged`, pre-commit step 9; 7.27.0): the page loads `dist/readerwrangler.js`
+  and `dist/mobile.js`, compiled ahead of time by `tools/build.py` (Babel 7.29.7 pinned in `tools/build/`; once:
+  `cd tools/build && npm ci`). When a source or its copy is staged, the staged copy must be exactly the build of the
+  staged source. `serve.py` rebuilds on demand, so the local loop is still edit → refresh. **Never edit `dist/`.**
+  Load time: `.venv\Scripts\python tools/time_load.py [--large]` (was ~50 s; 0.7 s to the app, 1.3 s to 3,270 books).
 - **No task leaves TODO.md silently** (`git-hooks/check-removed-tasks.py`, from `git-hooks/commit-msg` — it needs the
   message): a commit that removes a task must show why — it had a ✅, another task lists it as merged
   (`<!-- id … ; merged <id> -->`), or the message says **`done <id>`** (finished, shipped without a ✅ — the backlog

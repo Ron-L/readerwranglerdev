@@ -66,8 +66,14 @@ From then on, git runs these checks on every commit and refuses the commit if on
    time is read out of an id (the relay's nightly cleanup deletes by those rules).
 4. **TODO table of contents** (`check-toc.js`) — TODO.md's table of contents must match its headers, and every task
    needs its ID line (`<!-- id YYYYMMDD-HHMM -->`) right under its header.
+5. **The built app** (`tools/build.py --check-staged`) — the page loads the app built ahead of time (`dist/`); a commit
+   that changes `readerwrangler.js` or `mobile.js` must carry the matching build in `dist/` (run `py tools/build.py`).
 
 To skip the checks for one deliberate commit: `git commit --no-verify`.
+
+**The build tools, once** (Node.js needed): `cd tools/build && npm ci` — the pinned compiler (Babel 7.29.7) that turns
+`readerwrangler.js` and `mobile.js` into the plain scripts in `dist/`. The page used to compile them in the browser on
+every load (~50 seconds); built ahead of time, it opens in under a second.
 
 ### 2. Start the local server
 
@@ -89,6 +95,10 @@ publishes exactly the files in git and never lists folders). It refuses:
 Refused paths get a plain "not found" (each is logged as REFUSED in the server window). It still listens on the whole
 home network on purpose — that's how a phone tests your local copy — which is exactly why it must not hand out anything
 the real site doesn't serve (e.g. the directories beginning with a dot, git-ignored files, etc.). It needs git installed (it asks git what's ignored).
+
+It also **builds on demand**: edit `readerwrangler.js` or `mobile.js` and just refresh — the server rebuilds the copy
+in `dist/` first (about 2 seconds; logged as "built"). If your edit doesn't compile, the page's error screen shows the
+compiler's message.
 
 Then open http://localhost:8000/readerwrangler.html.
 

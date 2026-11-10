@@ -60,3 +60,11 @@ python tools/run_tests.py --changed --tier 1 --quiet || exit 1
 if git diff --cached --name-only --diff-filter=ACMD | grep -qE '^[^/]+\.js$|^docs/design/MESSAGE-CODES\.md$'; then
     python tools/message_codes.py --check || exit 1
 fi
+
+# 9. The app built ahead of time (2026-11-10, TODO "Faster loading"): the page loads dist/readerwrangler.js and
+#    dist/mobile.js, compiled by tools/build.py — so when either source or its built copy is staged, the staged copy
+#    must be exactly the build of the staged source (compared by content: what's committed is what GitHub Pages
+#    serves). Fix: py tools/build.py, then stage dist/. (tools/build.py; its tests: test/test_build.py)
+if git diff --cached --name-only --diff-filter=ACMD | grep -qE '^(readerwrangler|mobile)\.js$|^dist/'; then
+    python tools/build.py --check-staged || exit 1
+fi

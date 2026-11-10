@@ -77,7 +77,7 @@ _STATUS_BAR_JS = """() => {
     };
 """
 FORBIDDEN_HOSTS = re.compile(r"workers\.dev|amazon\.|media-amazon|ssl-images-amazon")
-APP_TIMEOUT_MS = 180_000     # the in-browser compile takes ~50 s on a cold profile today
+APP_TIMEOUT_MS = 180_000     # generous: the app opens in ~0.5 s since 7.27.0 (it took ~50 s while it compiled in the browser)
 BROWSER = os.environ.get("RW_BROWSER", "chrome")
 
 # The local relay: wrangler from relay/node_modules (relay/package.json), and a made-up channel that exists only in the
