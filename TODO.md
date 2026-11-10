@@ -479,6 +479,9 @@ close this out").
   Cloudflare $5 plan (Costs, around launch). The Cloud Sync task keeps its app-side work and the "make a new key" order.
 - Tool survey 2026-11-03 (docs/design/TOOL-SURVEY.md): Cloudflare's official skills (`cloudflare/skills`) — the skills only, not the remote
   server with access to the Cloudflare account; the local Workers Vitest plugin for tests; `wrangler telemetry disable`.
+- **Channel IDs in the emails in the app's short form** (2026-11-09): the daily summary says "channel 22222222…" (first
+  8 only — relay-worker.js ~1383, ~1400); the app's log and Relay Setup now show `41e0e16f...726c` (first 8 … last 4,
+  logger.js `shortChannelId`, Ron) so old and new keys read differently. The emails should match.
 
 #### Outside reviews before building: launch risks, security, data safety, a newcomer's first look
 <!-- id 20261023-1239 -->

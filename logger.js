@@ -38,9 +38,17 @@ const EXTENSION_SCRIPT_RE = /^(chrome|moz|safari-web|ms-browser)-extension:\/\//
 const CONSOLE_METHOD = { debug: 'debug', info: 'info', warning: 'warn', error: 'error', critical: 'error' };
 const rank = (level) => LOG_LEVELS.indexOf(level);
 
-// Channel IDs keep their first 8 characters (enough to tell channels apart); a secret becomes "[passphrase]".
+// THE short form of a Channel ID — first 8 … last 4, as Relay Setup shows it — used by the log's cleaner AND Relay Setup
+// (rwLog.shortChannelId), so the two can never show one channel two ways, and two keys that share their first 8 still
+// read differently (Ron, 2026-11-09: telling old credentials from new matters most when they've just changed).
+function shortChannelId(id) {
+    const s = id == null ? '' : String(id);
+    return s.length > 12 ? `${s.slice(0, 8)}...${s.slice(-4)}` : s;
+}
+
+// Channel IDs become their short form (above); a secret (the passphrase) becomes "[passphrase]", none of it shown.
 function scrub(text, secrets) {
-    let s = String(text).replace(CHANNEL_ID_RE, '$1…');
+    let s = String(text).replace(CHANNEL_ID_RE, (id) => shortChannelId(id));
     for (const secret of secrets || []) {
         if (typeof secret === 'string' && secret.length >= 4) s = s.split(secret).join('[passphrase]');
     }
@@ -179,6 +187,7 @@ function createLogger(opts = {}) {
         TEST_MARK,
         entries: () => entries.map(e => ({ ...e })),
         flush: save,
+        shortChannelId,
         switches: () => ({ ...switches }),
         setSwitch,
         // The app hands over its toast routine: fn(text, { level, x, y, hint }). Until then (or if the app has crashed) a
@@ -327,6 +336,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { createLogger, scrub, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY, LOG_LEVEL_KEY, LOG_SWITCH_KEYS };
+    module.exports = { createLogger, scrub, shortChannelId, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY, LOG_LEVEL_KEY, LOG_SWITCH_KEYS };
 }
 })();

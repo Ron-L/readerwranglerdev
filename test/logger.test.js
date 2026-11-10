@@ -129,7 +129,7 @@ test('LOG-010', 'the scrubber removes Channel IDs and the passphrase — from th
     const w = world({ secrets: ['correct horse battery'] });
     w.log.log('warning', 'SYNC-03', `channel ${id} refused; passphrase correct horse battery`, { channelId: id });
     const e = last(w);
-    assert.ok(!e.text.includes(id) && e.text.includes('58c1bfd7…'), e.text);
+    assert.ok(!e.text.includes(id) && e.text.includes('58c1bfd7...89ab'), e.text);   // Relay Setup's form (LOG-031)
     assert.ok(!e.text.includes('correct horse battery') && e.text.includes('[passphrase]'), e.text);
     assert.ok(!JSON.stringify(e.data).includes(id), JSON.stringify(e.data));
     assert.ok(!w.out[0][1].includes(id) && !w.out[0][1].includes('correct horse'), w.out[0][1]);
@@ -275,6 +275,19 @@ test('LOG-021', 'the address: ?errorBanner= and ?logDetail= applied, remembered,
     assert.strictEqual(w.log.applyAddress('?log=debug'), null, 'the old ?log= is no longer read');
 });
 
+test('LOG-031', 'one short form for a Channel ID — first 8 … last 4, as Relay Setup shows it — so old and new keys differ', () => {
+    // (Ron, 2026-11-09: "if the issue is 'I changed my credentials…', distinguishing which use the old credentials and
+    // which the new will be crucial" — the first 8 alone can't promise that; Relay Setup already shows this form)
+    assert.strictEqual(L.shortChannelId('41e0e16f-1234-4abc-9def-01234567726c'), '41e0e16f...726c');
+    const w = world();
+    assert.strictEqual(w.log.shortChannelId('41e0e16f-1234-4abc-9def-01234567726c'), '41e0e16f...726c', 'on rwLog too');
+    w.log.log('info', 'SYNC', 'old 41e0e16f-1234-4abc-9def-01234567726c, new 41e0e16f-9999-4abc-9def-012345671111');
+    assert.ok(last(w).text.includes('41e0e16f...726c') && last(w).text.includes('41e0e16f...1111'),
+              'two keys that share their first 8 still read differently: ' + last(w).text);
+    assert.strictEqual(L.shortChannelId(''), '', 'nothing in, nothing out');
+    assert.strictEqual(L.shortChannelId(null), '');
+});
+
 test('LOG-030', 'an old remembered level (the ladder, before 2026-11-09) becomes the switches once, then is gone', () => {
     const store = new Map([['readerwrangler-log-level', 'debug']]);
     const storage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)),
@@ -332,7 +345,7 @@ test('LOG-027', 'a critical message shows the critical box, not a toast; the toa
     assert.strictEqual(w.toasts.length, 0, 'no toast for critical');
     assert.deepStrictEqual(w.alerts, [['critical', 'STORE-02']]);
     w.log.log('error', 'SYNC-04', 'channel 58c1bfd7-1234-4abc-9def-0123456789ab refused', null, { toast: true });
-    assert.ok(!w.toasts[0][0].includes('1234-4abc') && w.toasts[0][0].includes('58c1bfd7…'), w.toasts[0][0]);
+    assert.ok(!w.toasts[0][0].includes('1234-4abc') && w.toasts[0][0].includes('58c1bfd7...89ab'), w.toasts[0][0]);
     assert.strictEqual(w.toasts[0][1].level, 'error');
 });
 

@@ -1,6 +1,6 @@
 // mobile.js — ReaderWrangler Mobile Viewer
 // MOBILE_VERSION tracks mobile-specific iterations
-const MOBILE_VERSION = '1.11.0-alpha.20'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
+const MOBILE_VERSION = '1.11.0-alpha.26'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
 rwLog.log('info', 'BOOT', `Phone app ${MOBILE_VERSION} running (page ${APP_VERSION})`);
 
 // v1.7.0 - Which server is this copy talking to? Derived from the page's own address, so an
@@ -2402,7 +2402,7 @@ function SearchView({ books, folders, folderId, showDealsOnly, showHidden, sortO
         const creds = JSON.parse(json);
         if (creds.channelId && creds.passphrase) {
             localStorage.setItem(RELAY_KEY, JSON.stringify(creds));
-            rwLog.log('info', 'PHONE', `Paired from the QR link: channel ${creds.channelId.slice(0, 8)}…`);
+            rwLog.log('info', 'PHONE', `Paired from the QR link: channel ${rwLog.shortChannelId(creds.channelId)}`);
         }
     } catch (e) {
         rwLog.log('warning', 'PHONE-01', "The pairing link couldn't be read — pair again from the computer", { error: String(e) });
@@ -2927,7 +2927,7 @@ function MobileApp() {
     const completePairing = (creds, method) => {
         localStorage.setItem(RELAY_KEY, JSON.stringify({ channelId: creds.channelId, passphrase: creds.passphrase }));
         if (window.RWRelay) window.RWRelay.initFromStorage();
-        rwLog.log('info', 'PHONE', `Paired ${method}: channel ${creds.channelId.slice(0, 8)}…`);
+        rwLog.log('info', 'PHONE', `Paired ${method}: channel ${rwLog.shortChannelId(creds.channelId)}`);
         setPairingError(null);
         setPairingScreen('success');
         setLoading(true);
