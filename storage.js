@@ -288,6 +288,26 @@ const saveBooksToIndexedDB = async (books, preserveUserData = false) => {
     }
 };
 
+// 7.27.0 - What the last read found, as text fixed at read time (so an in-place edit afterwards can't hide a change):
+// asin → the stored record's JSON. Read by saveBooksIfChanged (the load's save). Plain JSON, fields in stored order:
+// the load's clean-up keeps that order (all 3,270 of Ron's books compare equal), and a differing order would only cause
+// one unneeded save — the safe direction. (A fixed-order form cost 263 ms a pass vs 114 ms — measured 2026-11-10.)
+let _readSnapshot = null;
+const _fixedText = (v) => JSON.stringify(v);
+
+// 7.27.0 - The load's save (TODO "Every load saves the whole library back…"; "Faster loading"): only when what it would
+// save differs from what was read — the load's own clean-ups (normalizeBook stripping an old field, the format fix, a
+// merged collection, a duplicate) all count, with no list of them to keep. Unchanged → no write (~0.9 s for 3,270).
+const saveBooksIfChanged = async (books) => {
+    const was = _readSnapshot;
+    _readSnapshot = null;
+    if (was && was.size === books.length && books.every(b => was.get(b.asin) === _fixedText(b))) {
+        rwLog.log('debug', 'STORE', `Nothing changed in ${books.length} books since they were read — not saved again`);
+        return books;
+    }
+    return saveBooksToIndexedDB(books);
+};
+
 // v4.18.0.a - Apply normalizeBook to handle legacy isWishlist/isOwned fields
 const loadBooksFromIndexedDB = async () => {
     const db = await openDB();
@@ -298,6 +318,7 @@ const loadBooksFromIndexedDB = async () => {
     return new Promise((resolve, reject) => {
         request.onsuccess = () => {
             // Normalize all books to handle any legacy field formats
+            _readSnapshot = new Map((request.result || []).map(r => [r.asin, _fixedText(r)]));   // 7.27.0
             const books = (request.result || []).map(normalizeBook);
             rwLog.log('debug', 'STORE', `Loaded ${books.length} books from the book store`);
             // v7.15.3 (1B) - DEV-ONLY schema check: WARN (never throw) if any loaded book carries a key that

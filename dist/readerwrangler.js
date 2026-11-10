@@ -221,7 +221,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.27.0-alpha.3"; // Build version for this file
+var ORGANIZER_VERSION = "7.27.0-alpha.4"; // Build version for this file
 // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
 // compiled) and the page's APP_VERSION doesn't move during alphas
 rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -321,7 +321,7 @@ var IS_LOCAL_HOST = isLocalServer();
 var IS_CONTRIBUTOR = isContributor();
 document.title = IS_CONTRIBUTOR ? "ReaderWrangler (local · contributor)" : IS_LOCAL_HOST ? "ReaderWrangler (local)" : "ReaderWrangler";
 // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
-// saveBooksToIndexedDB, loadBooksFromIndexedDB, deleteBookStore, onBookStoreGone - see storage.js
+// saveBooksToIndexedDB, saveBooksIfChanged, loadBooksFromIndexedDB, deleteBookStore, onBookStoreGone - see storage.js
 // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, formatRelativeTime - see uiHelpers.js
 // clearCoverCache - see storage.js (7.27.0: the desktop keeps no cover copies; buildCoverUrlMap and
 // populateCoverCache serve the phone)
@@ -4907,7 +4907,9 @@ function ReaderWrangler() {
             }
           } catch (_e) {rwLog.log('warning', 'FIELD-03', `The book-field self-check couldn't run: ${_e && _e.message}`);}
 
-          await saveBooksToIndexedDB(loadedBooks);
+          // 7.27.0 - saved only when the load itself changed something (was: always — every load rewrote
+          // every book, ~0.9 s for 3,270, before the folders could appear)
+          await saveBooksIfChanged(loadedBooks);
 
           // 7.27.0 - No cover copies on the desktop (Ron, 2026-11-10; alpha.2's experiment: folders 4.4 s →
           // 2.3 s). Since 5.0.0 the grid and list draw covers from their normal address (the browser's own

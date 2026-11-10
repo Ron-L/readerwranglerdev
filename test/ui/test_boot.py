@@ -66,7 +66,17 @@ with App() as app:
         # caused on purpose (the end-of-session log check lets exactly these through): the failed save says so itself
         # (STORE-07 — since alpha.22's fix; before, only BOOT-01), then the start does
         app.expect("BOOT-01", "STORE-07")
-        # the start's save of the books back fails AFTER they're on screen — the folders never get there
+        # the start's save of the books back fails AFTER they're on screen — the folders never get there. Since 7.27.0
+        # the start saves only when its clean-up changed a book, so give it one to change (a stored book still wearing
+        # the old invented 'Kindle eBook' format, as STORE-004 does)
+        page.evaluate("""async () => {
+            const db = await openDB();
+            const all = await new Promise(r => { const q = db.transaction([BOOKS_STORE]).objectStore(BOOKS_STORE).getAll();
+                                                  q.onsuccess = () => r(q.result); });
+            const b = all.find(b => !(b.userEdited && b.userEdited.binding));
+            b.binding = 'Kindle eBook';
+            await new Promise(r => { const t = db.transaction([BOOKS_STORE], 'readwrite'); t.objectStore(BOOKS_STORE).put(b);
+                                     t.oncomplete = r; }); }""")
         saved_before = page.evaluate(SAVED_ORG)
         app.ctx.add_init_script("""IDBObjectStore.prototype.clear = function () {
             throw new Error('the book store refused to save (screen test)'); };""")
