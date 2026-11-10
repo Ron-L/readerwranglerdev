@@ -362,6 +362,19 @@ const buildCoverUrlMap = async (books) => {
     return urlMap;
 };
 
+// 7.27.0 - Remove the cover copies (the desktop's one-time clean-up: since 5.0.0 the desktop draws covers from their
+// normal address, so its copies only took storage space — the space the library shares). The phone rebuilds its own.
+const clearCoverCache = async () => {
+    try {
+        const had = await caches.delete(COVER_CACHE_NAME);
+        if (had) rwLog.log('info', 'COVER', "Removed this browser's old cover copies — the desktop shows covers from their normal address (a one-time move)");
+        return true;
+    } catch (e) {
+        rwLog.log('warning', 'COVER-04', "The old cover copies couldn't be removed — they only take storage space", { error: String(e) });
+        return false;
+    }
+};
+
 // Populate cache in background (non-blocking) with parallel fetching
 const populateCoverCache = async (books) => {
     const CONCURRENCY = 20; // Number of parallel fetches

@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-88 numbered codes. (201 general lines — info and debug, coded by their area alone — not listed.)
+89 numbered codes. (202 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -20,6 +20,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | COVER-01 | warning | The old book-details cache couldn't be read (a leftover from older versions) | readerwrangler.js |
 | COVER-02 | warning | The cover cache couldn't be read — covers load from Amazon instead | storage.js |
 | COVER-03 | warning | Saving covers in this browser's cache failed — they load from Amazon each time instead | storage.js |
+| COVER-04 | warning | The old cover copies couldn't be removed — they only take storage space | storage.js |
 | FIELD-01 | error | The book-field table's self-check found a problem — a field would be dropped on Save: … | readerwrangler.js |
 | FIELD-02 | error | A book field doesn't survive a save and load (the round-trip self-check): … | readerwrangler.js |
 | FIELD-03 | warning | The book-field self-check couldn't run: … | readerwrangler.js |

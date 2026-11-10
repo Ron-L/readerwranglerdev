@@ -16,6 +16,7 @@ const SEARCH_HISTORY_KEY = "readerwrangler-search-history"; // v5.4.9 - Search h
 const THEME_KEY = "readerwrangler-theme"; // v5.5.7 - Theme preference
 const RELAY_KEY = "readerwrangler-relay"; // v6.0.0 - Relay credentials (channelId, passphrase)
 const RELAY_STATUS_KEY = "readerwrangler-relay-status"; // v6.9.0 - Persisted relay key status ('ok'|'revoked'|null)
+const DESKTOP_COVERS_CLEARED_KEY = "readerwrangler-desktop-covers-cleared"; // 7.27.0 - the desktop's old cover copies removed (once)
 
 // ===== Amazon =====
 const AMAZON_AFFILIATE_TAG = 'rclewent-20';
