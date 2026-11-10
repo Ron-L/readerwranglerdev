@@ -3,7 +3,7 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [Faster loading: build the app ahead of time (35 seconds → 1)](#faster-loading-build-the-app-ahead-of-time-35-seconds--1)
+      - [🚧 Faster loading: build the app ahead of time (35 seconds → 1)](#faster-loading-build-the-app-ahead-of-time-35-seconds--1)
       - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
@@ -80,9 +80,11 @@
         - [Right-click: add "Copy ASINs" below Copy Titles / Copy Authors](#right-click-add-copy-asins-below-copy-titles--copy-authors)
         - [Bulk Edit hints that read like "you can type several values"](#bulk-edit-hints-that-read-like-you-can-type-several-values)
         - [With a filter on, the right pane still shows subfolders with no matching books](#with-a-filter-on-the-right-pane-still-shows-subfolders-with-no-matching-books)
-        - [Every load saves the whole library back to storage, even when nothing changed](#every-load-saves-the-whole-library-back-to-storage-even-when-nothing-changed)
+        - [✅ Every load saves the whole library back to storage, even when nothing changed](#every-load-saves-the-whole-library-back-to-storage-even-when-nothing-changed)
         - [A missing book description: one quiet line, on the computer and the phone](#a-missing-book-description-one-quiet-line-on-the-computer-and-the-phone)
         - [Remove the old version 4 app from the site — it shares your library's storage](#remove-the-old-version-4-app-from-the-site--it-shares-your-librarys-storage)
+        - [Every edit rewrites the whole library in storage](#every-edit-rewrites-the-whole-library-in-storage)
+        - [The phone's cover copies: still worth it? And why wasn't the browser's own cache enough?](#the-phones-cover-copies-still-worth-it-and-why-wasnt-the-browsers-own-cache-enough)
         - [Relay Setup's Test connection always checks the production relay](#relay-setups-test-connection-always-checks-the-production-relay)
       - [Auto-Organize: Shift-click ranges should follow what you see](#auto-organize-shift-click-ranges-should-follow-what-you-see)
       - [Folder right-click menu: add Auto-Organize](#folder-right-click-menu-add-auto-organize)
@@ -175,8 +177,15 @@ drifted). To change the order, move the task.
 
 ### High priority
 
-#### Faster loading: build the app ahead of time (35 seconds → 1)
+#### 🚧 Faster loading: build the app ahead of time (35 seconds → 1)
 <!-- id 20261014-1030s -->
+
+**Status (2026-11-10, branch `feature/faster-loading`, 7.27.0-alpha.4):** step 1 built — the app compiled ahead of time
+(tools/build.py → dist/; serve.py rebuilds on demand; commit check step 9): ~50 s → 0.5 s to the app. Ron then counted
+~7 s to his books: the desktop read every cover copy one by one before the folders (removed — the desktop hasn't drawn
+from them since 5.0.0) and rewrote every book (now only when changed). Measured with tools/time_load.py (your library,
+full cover cache): folders on screen 4.4 → 1.8 s; Ron counted ~3 s to folders, ~4 s to every cover on alpha.2. Next:
+step 2, the styles. Then the decided item 3 (drop the const → var conversion) when its filter task is clean.
 
 _Why it matters:_ Opening ReaderWrangler takes **about 35 seconds** on Ron's PC — 32 of them the browser compiling the
 app's code, on every load. Built ahead of time, the app appeared in **1.0 second**. It's the first thing a newcomer
@@ -2394,8 +2403,12 @@ time").
 - Tool survey 2026-11-03 (docs/design/TOOL-SURVEY.md): ESLint's `no-use-before-define` (+ `eslint-plugin-react-hooks`) in a commit check is
   the ready-made form of item 2 — expect tuning, since it also flags reads inside functions that only run later.
 
-##### Every load saves the whole library back to storage, even when nothing changed
+##### ✅ Every load saves the whole library back to storage, even when nothing changed
 <!-- id 20261103-1702 -->
+
+**Done in 7.27.0-alpha.4** (with "Faster loading"): the load saves only when what it would save differs from what it
+read (`saveBooksIfChanged`, storage.js) — any clean-up's change counts, no list kept. The save cost 863 ms of
+Ron's load. Tests STORE-003/004.
 
 _Why it matters:_ Each time the app opens it rewrites all of your books (3,270 for Ron) right after reading them — work
 on every load, and a full write of the library each time is a needless chance for something to go wrong. Seen
@@ -2445,6 +2458,34 @@ historical reference", docs/design/archive/V4-REMOVAL-PLAN.md)
 4. Closed at the same time: "Check nothing was lost between versions 4 and 5" — nine months and 20+ releases of daily
    use since 5.0, the book-field table's round-trip check guards the data, and outside review 4 looks at today's
    features fresh.
+
+##### Every edit rewrites the whole library in storage
+<!-- id 20261110-1734 -->
+
+_Why it matters:_ Changing one book — a tag, a rating, a move — saves all 3,270 books again (the book store is cleared
+and refilled each time, ~0.9 s on Ron's PC): slow work after every change, and a full rewrite is a needless chance
+for something to go wrong. Found 2026-11-10 while fixing the load's save ("Faster loading").
+
+**What to look into**
+1. `saveBooksToIndexedDB(updated)` is called from more than 60 places with the whole list; it clears the store and
+   adds every book (storage.js). The class needs a site map first.
+2. Likely shape: one save that writes only the books that changed (the store keys books by id) — the same "compare
+   with what's stored" idea as the load's `saveBooksIfChanged`, or the callers say which books they changed.
+3. Keep the write lock and the one-transaction safety (no moment where a reader sees half a library).
+
+##### The phone's cover copies: still worth it? And why wasn't the browser's own cache enough?
+<!-- id 20261110-1734a -->
+
+_Why it matters:_ The desktop dropped its cover copies in 7.27.0 (it hadn't drawn from them since 5.0.0, and reading
+them held every load back by seconds). The phone still reads every cover copy into memory at start — maybe the same
+cost for little gain.
+
+**What to look into**
+1. Time the phone's start with and without its copies (mobile.js's load reads them before showing covers?).
+2. Ron (2026-11-10): the copies were added in 4.14.0 for speed — "we were seeing speed issues and the cache helped" —
+   and nobody remembers why the browser's own image cache wasn't enough then. Find out before removing them: the
+   browser's cache is shared with every site and can drop images; Amazon's image server may ask the browser to check
+   back; 3,270 images requested at once may have been the real cost.
 
 ##### Relay Setup's Test connection always checks the production relay
 <!-- id 20261102-1503 -->
