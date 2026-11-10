@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness import check, done, test   # noqa: E402
 from rw import FIXTURE, App              # noqa: E402
 
-with App() as app:      # (the driver runs at ?log=debug, so the store's own "Saving… / Saved…" lines are on)
+with App() as app:      # (the driver turns extra detail on, so the store's own "Saving… / Saved…" lines are on)
     page = app.page
     app.restore(FIXTURE)
     page.wait_for_timeout(1500)

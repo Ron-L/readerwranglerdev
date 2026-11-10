@@ -33,9 +33,9 @@ const last = (w) => w.log.entries()[w.log.entries().length - 1];
 
 console.log('logger tests:');
 
-test('LOG-001', 'each level goes to its own console method, as "level · CODE · text" (at ?log=debug)', () => {
+test('LOG-001', 'each level goes to its own console method, as "level · CODE · text" (with extra detail on)', () => {
     const w = world();
-    w.log.setLevel('debug');   // (debug reaches the console only at debug — LOG-016)
+    w.log.setSwitch('logDetail', true);   // (debug is recorded — and so printed — only with extra detail on, LOG-016/017)
     w.log.log('debug', 'STORE', 'saved 3 books');
     w.log.log('info', 'IMPORT', 'Library updated: 26 books');
     w.log.log('warning', 'IMPORT-01', 'An Import is already running');
@@ -195,74 +195,96 @@ test('LOG-015', 'the vocabulary: five levels in order, and the 17 areas as a fro
     assert.ok(Object.isFrozen(L.LOG_AREAS));
 });
 
-// ---- Step 3 (LOGGING.md §1, TODO decisions 3-4): the one tunable gate, diagnostics mode, the alerts ----
-// The setting: none (an ordinary user) or a level chosen with ?log=… (diagnostics mode). The console shows the chosen
-// level and up (info and up when none is chosen); debug is kept only at debug. In diagnostics mode, error and above
-// raise the banner; critical is shown to EVERY user. The logger decides; a thin renderer draws (onAlert).
+// ---- The two switches (LOGGING.md §5 step 5.1 — Ron, 2026-11-09; they replace step 3's ladder of levels) ----
+// errorBanner: an error raises the banner. logDetail: debug lines are recorded (and so printed). Independent; both off
+// for an ordinary user. Info and up are ALWAYS recorded; the console prints exactly what is recorded; critical is shown
+// to EVERY user. Each is remembered in this browser; the address can set them (?errorBanner=on|off, ?logDetail=on|off).
+// The logger decides; a thin renderer draws (onAlert).
 function alertWorld(opts = {}) {
     const alerts = [];
     const w = world({ ...opts, extra: { onAlert: (kind, e) => alerts.push([kind, e.code]), ...(opts.extra || {}) } });
     return { ...w, alerts };
 }
 
-test('LOG-016', 'no setting (an ordinary user): the console shows info and up; no diagnostics', () => {
+test('LOG-016', 'both switches off (an ordinary user): info and up recorded and printed; debug neither; no banner', () => {
     const w = alertWorld();
     w.log.log('debug', 'STORE', 'detail');
     w.log.log('info', 'BOOT', 'started');
-    assert.deepStrictEqual(w.out.map(o => o[0]), ['info'], 'debug stays out of the console');
-    assert.strictEqual(w.log.diagnostics(), false);
-    assert.strictEqual(w.log.level(), 'info');
+    w.log.log('warning', 'PREF-02', 'not saved');
+    assert.deepStrictEqual(w.out.map(o => o[0]), ['info', 'warn'], 'debug stays out of the console');
+    assert.ok(!w.log.entries().some(e => e.level === 'debug'), 'and out of the log');
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: false, logDetail: false });
 });
 
-test('LOG-017', 'setLevel("debug"): debug shows and is kept, diagnostics on, and the choice is remembered', () => {
+test('LOG-017', 'logDetail on: debug is recorded and printed, the choice is remembered — and it doesn\'t turn the banner on', () => {
     const w = alertWorld();
-    w.log.setLevel('debug');
+    w.log.setSwitch('logDetail', true);
     w.log.log('debug', 'STORE', 'detail');
     assert.ok(w.out.some(o => o[0] === 'debug'), 'debug printed');
-    assert.ok(w.log.entries().some(e => e.level === 'debug'), 'debug kept at debug');
-    assert.strictEqual(w.log.diagnostics(), true);
-    assert.strictEqual(w.store.get('readerwrangler-log-level'), 'debug', 'remembered');
+    assert.ok(w.log.entries().some(e => e.level === 'debug'), 'debug recorded');
+    assert.strictEqual(w.store.get('readerwrangler-log-detail'), 'on', 'remembered');
     const again = alertWorld({ storage: { getItem: k => w.store.get(k) ?? null, setItem: () => {} } });
-    assert.strictEqual(again.log.level(), 'debug', 'a new page keeps it');
+    assert.deepStrictEqual(again.log.switches(), { errorBanner: false, logDetail: true }, 'a new page keeps it');
+    w.log.log('error', 'INTEG-06', 'repaired');
+    assert.deepStrictEqual(w.alerts, [], 'no banner: the switches are independent');
 });
 
-test('LOG-018', 'a higher setting hides lower lines from the console — but info and up are still KEPT', () => {
+test('LOG-018', 'the console prints exactly what is recorded — no threshold of its own', () => {
     const w = alertWorld();
-    w.log.setLevel('warning');
+    w.log.setSwitch('errorBanner', true);
     w.log.log('info', 'BOOT', 'started');
-    assert.strictEqual(w.out.length, 0, 'info not printed at warning');
-    assert.ok(w.log.entries().some(e => e.text === 'started'), 'but kept');
+    assert.strictEqual(w.out.length, 1, 'info printed with the banner on, too');
+    assert.ok(w.log.entries().some(e => e.text === 'started'), 'and recorded');
 });
 
-test('LOG-019', 'an error raises the banner only in diagnostics mode', () => {
+test('LOG-019', 'errorBanner on: an error raises the banner; off again: no banner; remembered either way', () => {
     const w = alertWorld();
     w.log.log('error', 'INTEG-06', 'repaired 3 books');
     assert.deepStrictEqual(w.alerts, [], 'no banner for an ordinary user');
-    w.log.setLevel('error');
+    w.log.setSwitch('errorBanner', true);
     w.log.log('error', 'INTEG-06', 'repaired 3 books again');
     assert.deepStrictEqual(w.alerts, [['banner', 'INTEG-06']]);
+    assert.strictEqual(w.store.get('readerwrangler-log-banner'), 'on');
+    w.log.setSwitch('errorBanner', false);
+    w.log.log('error', 'INTEG-06', 'a third time');
+    assert.strictEqual(w.alerts.length, 1, 'off again: no banner');
+    assert.notStrictEqual(w.store.get('readerwrangler-log-banner'), 'on', 'off remembered');
+    w.log.setSwitch('loud', true);
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: false, logDetail: false }, 'an unknown switch changes nothing');
 });
 
-test('LOG-020', 'a critical message is shown to EVERY user — diagnostics or not', () => {
+test('LOG-020', 'a critical message is shown to EVERY user — whatever the switches', () => {
     const w = alertWorld();
     w.log.log('critical', 'STORE-02', 'the library could not be saved');
     assert.deepStrictEqual(w.alerts, [['critical', 'STORE-02']]);
-    w.log.setLevel('debug');
+    w.log.setSwitch('errorBanner', true);
+    w.log.setSwitch('logDetail', true);
     w.log.log('critical', 'STORE-02', 'again');
-    assert.deepStrictEqual(w.alerts[1], ['critical', 'STORE-02'], 'one alert kind for critical, also in diagnostics');
+    assert.deepStrictEqual(w.alerts[1], ['critical', 'STORE-02'], 'one alert kind for critical, either way');
 });
 
-test('LOG-021', '?log=… on the address: applied, remembered, and taken OUT of the address; ?log=off clears it', () => {
+test('LOG-021', 'the address: ?errorBanner= and ?logDetail= applied, remembered, and taken OUT of the address', () => {
     const w = alertWorld();
-    assert.strictEqual(w.log.applyAddress('?log=debug&x=1'), '?x=1');
-    assert.strictEqual(w.log.level(), 'debug');
-    assert.strictEqual(w.log.applyAddress('?log=debug'), '', 'the only parameter: nothing left');
-    assert.strictEqual(w.log.applyAddress('?x=1'), null, 'no ?log= — leave the address alone');
-    assert.strictEqual(w.log.applyAddress('?log=off'), '');
-    assert.strictEqual(w.log.diagnostics(), false);
-    assert.strictEqual(w.log.level(), 'info');
-    assert.strictEqual(w.log.applyAddress('?log=loud'), '', 'an unknown value is still removed…');
-    assert.strictEqual(w.log.diagnostics(), false, '…and changes nothing');
+    assert.strictEqual(w.log.applyAddress('?errorBanner=on&logDetail=on&x=1'), '?x=1');
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: true, logDetail: true });
+    assert.strictEqual(w.log.applyAddress('?logDetail=off'), '', 'the only parameter: nothing left');
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: true, logDetail: false }, 'one at a time');
+    assert.strictEqual(w.log.applyAddress('?x=1'), null, 'neither — leave the address alone');
+    assert.strictEqual(w.log.applyAddress('?errorBanner=loud'), '', 'an unknown value is still removed…');
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: true, logDetail: false }, '…and changes nothing');
+    assert.strictEqual(w.log.applyAddress('?log=debug'), null, 'the old ?log= is no longer read');
+});
+
+test('LOG-030', 'an old remembered level (the ladder, before 2026-11-09) becomes the switches once, then is gone', () => {
+    const store = new Map([['readerwrangler-log-level', 'debug']]);
+    const storage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)),
+                      removeItem: k => store.delete(k) };
+    const w = world({ storage });
+    assert.deepStrictEqual(w.log.switches(), { errorBanner: true, logDetail: true }, 'debug: both on');
+    assert.ok(!store.has('readerwrangler-log-level'), 'the old setting removed');
+    store.set('readerwrangler-log-level', 'error');
+    store.delete('readerwrangler-log-banner'); store.delete('readerwrangler-log-detail');
+    assert.deepStrictEqual(world({ storage }).log.switches(), { errorBanner: true, logDetail: false }, 'any other level: the banner');
 });
 
 // ---- Where a message goes: the user, with { toast } (LOGGING.md §6, 2026-11-08) ----
@@ -316,7 +338,7 @@ test('LOG-027', 'a critical message shows the critical box, not a toast; the toa
 
 test('LOG-022','a planted test error raises the banner too (so the banner can be tested), marked as a test', () => {
     const w = alertWorld();
-    w.log.setLevel('debug');
+    w.log.setSwitch('errorBanner', true);
     w.log.log('error', 'UI-03', 'planted', null, { test: true });
     assert.deepStrictEqual(w.alerts, [['banner', 'UI-03']]);
     assert.strictEqual(last(w).test, true);

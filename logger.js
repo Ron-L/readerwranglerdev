@@ -29,7 +29,9 @@ const LOG_AREAS = Object.freeze({
 });
 const TEST_MARK = '-!TEST!';                          // written after the code of a planted test message — defined ONCE
 const LOG_STORAGE_KEY = 'readerwrangler-log';
-const LOG_LEVEL_KEY = 'readerwrangler-log-level';     // the remembered ?log= choice (none = an ordinary user)
+const LOG_LEVEL_KEY = 'readerwrangler-log-level';     // the OLD remembered ?log= level (before 2026-11-09) — read once, then removed
+// The two switches (LOGGING.md §5 step 5.1 — Ron, 2026-11-09): remembered in this browser as 'on'; absent = off.
+const LOG_SWITCH_KEYS = Object.freeze({ errorBanner: 'readerwrangler-log-banner', logDetail: 'readerwrangler-log-detail' });
 const CODE_RE = /^([A-Z]+)(?:-(\d{2}))?$/;            // 'IMPORT' or 'IMPORT-12'
 const CHANNEL_ID_RE = /\b([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const EXTENSION_SCRIPT_RE = /^(chrome|moz|safari-web|ms-browser)-extension:\/\//;
@@ -62,14 +64,33 @@ function createLogger(opts = {}) {
     const cap = opts.cap || 500;
     const keepRank = rank(opts.keepLevel || 'info');
     const saveDelayMs = opts.saveDelayMs != null ? opts.saveDelayMs : 3000;
-    const levelKey = opts.levelKey || LOG_LEVEL_KEY;
     const onAlert = opts.onAlert || null;      // (kind 'banner' | 'critical', entry) — the page draws it
-    // The one tunable gate (LOGGING.md §1; TODO decision 4): null = an ordinary user; a level = diagnostics mode, chosen
-    // with ?log=… (or rwLog.setLevel in the console) and remembered in this browser. One value — "diagnostics mode" is
-    // derived from it, never a second flag.
-    let setting = (() => {
-        try { const v = storage && storage.getItem(levelKey); return LOG_LEVELS.includes(v) ? v : null; } catch (e) { return null; }
-    })();
+    // The two switches (LOGGING.md §5 step 5.1 — Ron, 2026-11-09; they replace the ladder of levels): errorBanner — an
+    // error raises the banner; logDetail — debug lines are recorded too. Independent (all four combinations make sense);
+    // both off for an ordinary user. Set in the Diagnostics window, on the address (?errorBanner= / ?logDetail=) or the
+    // console (rwLog.setSwitch), and remembered in this browser.
+    const readSwitch = (name) => { try { return !!storage && storage.getItem(LOG_SWITCH_KEYS[name]) === 'on'; } catch (e) { return false; } };
+    const writeSwitch = (name, on) => {
+        try {
+            if (!storage) return;
+            if (on) storage.setItem(LOG_SWITCH_KEYS[name], 'on');
+            else if (storage.removeItem) storage.removeItem(LOG_SWITCH_KEYS[name]);
+            else storage.setItem(LOG_SWITCH_KEYS[name], '');
+        } catch (e) { /* not remembered: still applies to this page */ }
+    };
+    const switches = { errorBanner: readSwitch('errorBanner'), logDetail: readSwitch('logDetail') };
+    // the old ladder's remembered level becomes the switches once (debug: both on; any other level: the banner)
+    try {
+        const old = storage && storage.getItem(LOG_LEVEL_KEY);
+        if (old) {
+            if (LOG_LEVELS.includes(old)) {
+                switches.errorBanner = true; writeSwitch('errorBanner', true);
+                if (old === 'debug') { switches.logDetail = true; writeSwitch('logDetail', true); }
+            }
+            if (storage.removeItem) storage.removeItem(LOG_LEVEL_KEY); else storage.setItem(LOG_LEVEL_KEY, '');
+        }
+    } catch (e) { /* storage refused: nothing to move */ }
+    const recorded = (level) => rank(level) >= (switches.logDetail ? rank('debug') : keepRank);
 
     let entries = (() => {
         try {
@@ -101,14 +122,14 @@ function createLogger(opts = {}) {
         if (isTest) entry.test = true;
         // a message's own advice for the critical box, in place of the usual words (BOOT-01: "don't save a backup now")
         if (toastOptions && typeof toastOptions.advice === 'string') entry.advice = toastOptions.advice;
-        if (rank(level) >= rank(setting || 'info')) {   // the console shows the chosen level and up (info and up for everyone)
+        if (recorded(level)) {   // the console prints exactly what is recorded (its own level filter does the rest)
             try {
                 const write = con[CONSOLE_METHOD[level]] || con.log;
                 if (entry.data !== undefined) write.call(con, format(entry), entry.data); else write.call(con, format(entry));
             } catch (e) { /* no console */ }
         }
-        // the alerts: critical for EVERY user; an error raises the banner in diagnostics mode
-        if (onAlert && (level === 'critical' || (level === 'error' && setting !== null))) {
+        // the alerts: critical for EVERY user; an error raises the banner when that switch is on
+        if (onAlert && (level === 'critical' || (level === 'error' && switches.errorBanner))) {
             try { onAlert(level === 'critical' ? 'critical' : 'banner', entry); } catch (e) { /* drawing must not break logging */ }
         }
         // the user: only when the call says { toast } — a critical message shows its box instead (LOGGING.md §6)
@@ -116,7 +137,7 @@ function createLogger(opts = {}) {
             const where = typeof toastOptions.toast === 'object' ? toastOptions.toast : {};
             try { toaster(entry.text, { level, x: where.x, y: where.y, hint: !!toastOptions.hint }); } catch (e) { /* the app's problem */ }
         }
-        if (rank(level) < (setting === 'debug' ? rank('debug') : keepRank)) return;   // debug is kept only at debug
+        if (!recorded(level)) return;   // debug is recorded only with extra detail on (logDetail)
         const prev = entries[entries.length - 1];
         if (prev && prev.level === level && prev.code === code && prev.text === entry.text && !!prev.test === !!isTest) {
             prev.count = (prev.count || 1) + 1;   // repeats counted, not stored again
@@ -145,14 +166,11 @@ function createLogger(opts = {}) {
         } catch (e) { /* logging must never break the app */ }
     };
 
-    const setLevel = (lv) => {
-        setting = LOG_LEVELS.includes(lv) ? lv : null;
-        try {
-            if (!storage) return;
-            if (setting) storage.setItem(levelKey, setting);
-            else if (storage.removeItem) storage.removeItem(levelKey);
-            else storage.setItem(levelKey, '');
-        } catch (e) { /* not remembered: still applies to this page */ }
+    // One switch on or off, remembered; an unknown name changes nothing.
+    const setSwitch = (name, on) => {
+        if (!Object.prototype.hasOwnProperty.call(LOG_SWITCH_KEYS, name)) return;
+        switches[name] = !!on;
+        writeSwitch(name, !!on);
     };
 
     return {
@@ -161,21 +179,23 @@ function createLogger(opts = {}) {
         TEST_MARK,
         entries: () => entries.map(e => ({ ...e })),
         flush: save,
-        level: () => setting || 'info',
-        diagnostics: () => setting !== null,
-        setLevel,
+        switches: () => ({ ...switches }),
+        setSwitch,
         // The app hands over its toast routine: fn(text, { level, x, y, hint }). Until then (or if the app has crashed) a
         // { toast } message still reaches the log and the console.
         setToaster: (fn) => { toaster = typeof fn === 'function' ? fn : null; },
-        // ?log=debug|info|warning|error|off on the page's address: applied, remembered, and taken out of the address (so
-        // it isn't bookmarked or shared). Returns the address's remaining query ('' if none), or null if there was no
-        // ?log= (leave the address alone). An unknown value changes nothing but is still removed.
+        // ?errorBanner=on|off and ?logDetail=on|off on the page's address (the ?contributor= pattern): applied, remembered,
+        // and taken out of the address (so they aren't bookmarked or shared). Returns the address's remaining query ('' if
+        // none), or null if neither was there (leave the address alone). An unknown value changes nothing but is removed.
         applyAddress: (search) => {
             const params = new URLSearchParams(search || '');
-            if (!params.has('log')) return null;
-            const v = params.get('log');
-            if (v === 'off') setLevel(null); else if (LOG_LEVELS.includes(v)) setLevel(v);
-            params.delete('log');
+            const named = Object.keys(LOG_SWITCH_KEYS).filter(n => params.has(n));
+            if (named.length === 0) return null;
+            for (const n of named) {
+                const v = params.get(n);
+                if (v === 'on' || v === 'off') setSwitch(n, v === 'on');
+                params.delete(n);
+            }
             const rest = params.toString();
             return rest ? '?' + rest : '';
         },
@@ -262,7 +282,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         const close = () => { shown.banner = []; bar.remove(); };
         const copyBtn = button('Copy', BANNER_BTN, () => copyInto(copyBtn, shown.banner, 'Copy'));
         bar.append(msg, copyBtn, button('Dismiss', BANNER_BTN, close),
-            button('Turn off diagnostics', BANNER_LINK, () => { rwLog.setLevel(null); close(); }));
+            button('Turn off this banner', BANNER_LINK, () => { rwLog.setSwitch('errorBanner', false); close(); }));
         debugger; // eslint-disable-line no-debugger -- stops here only when DevTools is open (TODO decision 3)
     });
     const showCritical = (entry) => whenBody(() => {
@@ -288,7 +308,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
     const rwLog = createLogger({ console: window.console, storage: pageStorage, secrets: relaySecrets,
         onAlert: (kind, entry) => (kind === 'critical' ? showCritical(entry) : showBanner(entry)) });
-    // ?log=… on the address: applied, remembered, and removed from the address bar (TODO decision 4)
+    // ?errorBanner= / ?logDetail= on the address: applied, remembered, and removed from the address bar
     const remaining = rwLog.applyAddress(window.location.search);
     if (remaining !== null) {
         try { window.history.replaceState(window.history.state, '', window.location.pathname + remaining + window.location.hash); }
@@ -307,6 +327,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { createLogger, scrub, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY, LOG_LEVEL_KEY };
+    module.exports = { createLogger, scrub, LOG_LEVELS, LOG_AREAS, TEST_MARK, LOG_STORAGE_KEY, LOG_LEVEL_KEY, LOG_SWITCH_KEYS };
 }
 })();

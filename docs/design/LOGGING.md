@@ -338,7 +338,30 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    - **A question beside it:** the red refusals ("Inbox cannot be moved", "Can't move a folder into itself") are the
      person's gesture refused, not the app going wrong — by the levels they're warnings, but a warning's toast isn't
      red, and as errors they raise the diagnostics banner. Kept as they were (red, errors) until Ron decides.
-5. The Diagnostics view in Data Status (filter, Copy).
+5. The Diagnostics view (filter, Copy). **Decided** (Ron + Claude, 2026-11-09 — NOT in Data Status: many messages have
+   nothing to do with the data, and the log is "a more formal and complete notification history"). Build list:
+   1. **Two switches replace the ladder of levels** (the old `?log=` value did three things at once — the console's
+      threshold, whether debug was recorded, whether errors raised the banner; with everything kept and the window
+      filtering, only two of those matter): **"Show a banner when something goes wrong"** (`errorBanner`) and **"Also
+      record extra detail (fills the log fast — turn on only while chasing a problem)"** (`logDetail`; the cap is ~500
+      entries, so detail crowds out older lines). Independent — all four combinations make sense. The console prints
+      whatever is recorded (its own level filter does the rest). The address takes **`?errorBanner=on|off`** and
+      **`?logDetail=on|off`** (the `?contributor=` pattern: applied, remembered, removed from the address bar); `?log=`
+      goes (pre-release — only Ron and the screen tests used it; an old remembered `debug` turns both on once). Tests
+      rewritten FIRST: LOG-001/016–022, LOGUI-001–006, the driver ("both on").
+   2. **The Channel ID form of Relay Setup** in every logged line: `41e0e16f...726c` (first 8 … last 4) — one shared
+      function for the log's cleaner and Relay Setup, so old and new credentials can be told apart (Ron); the
+      passphrase stays fully hidden ("[passphrase]").
+   3. **The window** — its own, opened from **two doors**: a "Full log…" link at the bottom of the 🕐 history panel and
+      **Help → Diagnostics…**. Newest first, one line per entry (time, level, code, text, ×count), ▸ opens the details
+      (the error, the stack, the data); error and critical tinted; TEST entries badged. The filter on top: level, area,
+      time, test entries. The two switches at the bottom (tooltips explain them), with **Clear** (like DevTools) and
+      **Copy diagnostics** (everything kept, always — not just what the filter shows; with a header: the build, the
+      browser, the date). Built on the overlay primitive (`<Dialog>`).
+   4. **The phone: a Copy diagnostics button** on its About panel — no viewer (Ron).
+   5. **Later, not this release:** the fetch's problems as their own group, *"From your last fetch (date)"* — not
+      interleaved by time, so two computers' clocks never need to agree (rides on the fetcher's own logging, §4 note 6);
+      a "Send a test message" button (plants TEST-marked entries so support can say "do you see the banner?").
 6. ✅ The browser driver at `?log=debug`, failing a test on any error or critical (2026-11-09, test/ui/rw.py): every
    session sets the remembered level before the page's scripts (a test that changes it keeps its change; the gate's
    own tests opt out with `App(log=None)`), and its end fails the file on any `error ·` / `critical ·` line the tests

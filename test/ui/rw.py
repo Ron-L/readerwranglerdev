@@ -163,7 +163,7 @@ class LocalRelay:
 
 
 class App:
-    def __init__(self, headed=None, relay=False, zoom=1.0, size=(1400, 900), log="debug"):
+    def __init__(self, headed=None, relay=False, zoom=1.0, size=(1400, 900), log=True):
         self.headed = os.environ.get("RW_HEADED") == "1" if headed is None else headed
         self.want_relay = relay
         self.relay = None
@@ -171,10 +171,11 @@ class App:
         # wide. (An emulation: the browser's own scrollbars scale with it, which real zoom doesn't do.)
         self.zoom, self.size = zoom, size
         self.console, self.crashes, self.violations = [], [], []
-        # LOGGING.md §5 step 6: every session runs at ?log=debug (the remembered level, set before the page's scripts,
-        # only when none is set — a test that changes it keeps its change), and its end fails the file on any error or
-        # critical message the test didn't declare with expect(). log=None: the page's own default (the gate's tests).
-        self.log_level = log
+        # LOGGING.md §5 step 6 (switches since 5.1): every session runs with BOTH logging switches on — the banner and the
+        # extra detail — set before the page's scripts, ONCE per browser profile (a test that turns one off keeps it off
+        # across reloads), and its end fails the file on any error or critical message the test didn't declare with
+        # expect(). log=None: the page's own defaults, both off (the switches' own tests).
+        self.log_switches = bool(log)
         self.expected_codes = set()
 
     def expect(self, *codes):
@@ -214,9 +215,10 @@ class App:
                                             device_scale_factor=self.zoom)
         self.ctx.route(lambda u: "goatcounter" in u or "gc.zgo.at" in u,
                        lambda r: r.fulfill(status=204, body=""))
-        if self.log_level:
-            self.ctx.add_init_script(f"""try {{ if (localStorage.getItem('readerwrangler-log-level') === null)
-                localStorage.setItem('readerwrangler-log-level', {json.dumps(self.log_level)}); }} catch (e) {{}}""")
+        if self.log_switches:
+            self.ctx.add_init_script("""try { if (!localStorage.getItem('rw-test-log-switches-set')) {
+                localStorage.setItem('readerwrangler-log-banner', 'on'); localStorage.setItem('readerwrangler-log-detail', 'on');
+                localStorage.setItem('rw-test-log-switches-set', '1'); } } catch (e) {}""")
         if self.relay:
             # Before the app's own scripts on every load: point it at the local relay, and give a fresh profile the test
             # channel (only when none is set, so a reload keeps whatever the app has done since).

@@ -18,7 +18,7 @@ from harness import check, done, test   # noqa: E402
 from rw import FIXTURE, App              # noqa: E402
 
 with App() as app:
-    app.page.evaluate("() => rwLog.setLevel('debug')")
+    app.page.evaluate("() => rwLog.setSwitch('logDetail', true)")
 
     def refused_file():
         # an old Collections file, given what the file box checks for ("Not a Backup File", then every part Restore

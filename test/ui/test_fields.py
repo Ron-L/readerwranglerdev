@@ -23,7 +23,7 @@ with App() as app:
     app.expect("FIELD-04")   # the planted field is caught on purpose (the end-of-session log check lets it through)
     app.restore(FIXTURE)
     page.evaluate("""() => { localStorage.setItem('readerwrangler-contributor', 'on');
-                             localStorage.removeItem('rw-serialization-selftest'); rwLog.setLevel('debug'); }""")
+                             localStorage.removeItem('rw-serialization-selftest'); rwLog.setSwitch('logDetail', true); }""")
     # one stored book gets a field nothing knows — straight into the book store (a restore would drop it)
     page.evaluate("""(name) => new Promise((resolve, reject) => {
         const r = indexedDB.open('ReaderWranglerDB');
