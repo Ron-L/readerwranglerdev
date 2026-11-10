@@ -106,4 +106,39 @@ with App() as app:
         page.keyboard.press("Escape")
     test("DIAG-007", "\"Full log…\" at the bottom of the 🕐 history opens the same window", from_history)
 
+    # 2026-11-10 (Ron, trying alpha.27): lines from an earlier day show their date, today's don't — and the columns
+    # after the time didn't line up; and a bare ▸ on only some lines read as "missing", not "nothing more to see"
+    def columns_line_up():
+        # the older line goes in BEFORE the page's own scripts on the next load (an edit to the saved log while the page
+        # is open is overwritten by the page's own save as it unloads — measured: the first form of this test passed
+        # without the dated line at all)
+        app.ctx.add_init_script("""try { if (!sessionStorage.getItem('rw-test-older-line')) {
+            const log = JSON.parse(localStorage.getItem('readerwrangler-log') || '[]');
+            log.unshift({ time: Date.now() - 3 * 86400e3, level: 'info', code: 'BOOT', area: 'BOOT', text: 'an older line', count: 1 });
+            localStorage.setItem('readerwrangler-log', JSON.stringify(log)); sessionStorage.setItem('rw-test-older-line', '1'); } } catch (e) {}""")
+        app.reload()
+        plant(app, "info", "MOVE", "a line from today")
+        app.menu("Help", "Diagnostics").click()
+        page.locator(WINDOW).wait_for(timeout=10_000)
+        older = page.locator(ROWS).filter(has_text="an older line")
+        check(older.count() == 1, "the older line isn't in the window — the test didn't set up what it tests")
+        check(re.search(r"[A-Z][a-z]{2} \d", older.first.inner_text()), "the older line shows no date: " + older.first.inner_text())
+        xs = page.evaluate("() => [...document.querySelectorAll('[data-diag-code]')].map(e => Math.round(e.getBoundingClientRect().left))")
+        check(len(xs) >= 2 and len(set(xs)) == 1, f"the code column starts at {sorted(set(xs))} — not one place")
+    test("DIAG-008", "every line's columns line up, whether its time shows a date (an earlier day) or not (today)",
+         columns_line_up)
+
+    def details_label():
+        plant(app, "warning", "PREF-02", "a line with details", {"error": "quota"})
+        row = page.locator(ROWS).filter(has_text="a line with details").first
+        row.wait_for(timeout=5000)
+        check("details ▸" in row.inner_text(), "no visible 'details ▸' on a line that has details: " + row.inner_text())
+        check("details" not in page.locator(ROWS).filter(has_text="a line from today").first.inner_text(),
+              "a line without details shows the label")
+        check(page.locator(WINDOW).get_by_text("show “details ▸”", exact=False).count() == 1,
+              "no line telling the person what 'details ▸' means")
+        page.keyboard.press("Escape")
+    test("DIAG-009", "a line with details says so in words ('details ▸'), with one line explaining it; others don't",
+         details_label)
+
 done()

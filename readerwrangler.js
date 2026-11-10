@@ -144,22 +144,28 @@
                         </div>
                         <div data-select-text data-dialog-body className="overflow-y-auto font-mono text-xs" style={{ minHeight: 160 }}>
                             {shown.length === 0 && <div className="px-4 py-3 text-gray-400 font-sans text-sm">Nothing to show.</div>}
+                            {/* Ron, 2026-11-10: a bare ▸ on only some lines read as "missing" — say what it means, once */}
+                            {shown.some(e => e.data !== undefined) && (
+                                <div className="px-4 py-1 text-gray-500 font-sans text-xs border-b border-gray-100">Lines with more information show “details ▸” — click it to open them.</div>
+                            )}
                             {shown.map((e, i) => {
                                 const id = `${e.time}|${e.code}|${i}`;
                                 const bad = e.level === 'error' || e.level === 'critical';
                                 return (
                                     <div key={id} data-diag-row className={`px-4 py-1 border-b border-gray-100 ${bad ? 'bg-red-50 text-red-800' : e.level === 'warning' ? 'text-amber-800' : 'text-gray-800'}`}>
                                         <div className="flex gap-2 items-baseline">
-                                            <span className="text-gray-400 flex-shrink-0">{when(e.time)}</span>
+                                            {/* a fixed-width time column (Ron, 2026-11-10): an earlier day's date must not push the
+                                                columns after it out of line — "Nov 10 12:00:00 PM" is the longest */}
+                                            <span className="text-gray-400 flex-shrink-0" style={{ width: '19ch' }}>{when(e.time)}</span>
                                             <span className="flex-shrink-0 w-16">{e.level}</span>
-                                            <span className="flex-shrink-0 w-20 font-semibold">{e.code}</span>
+                                            <span data-diag-code className="flex-shrink-0 w-20 font-semibold">{e.code}</span>
                                             {e.test && <span className="flex-shrink-0 px-1 rounded bg-gray-200 text-gray-700">TEST</span>}
                                             <span className="min-w-0" style={{ overflowWrap: 'anywhere' }}>{e.text}{e.count > 1 ? ` (×${e.count})` : ''}</span>
                                             {e.data !== undefined && (
                                                 <button type="button" aria-label="Show details" title="Show details"
                                                     className="ml-auto flex-shrink-0 text-blue-600 hover:underline"
                                                     onClick={() => setOpened(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}>
-                                                    {opened.has(id) ? '▾' : '▸'}</button>
+                                                    {opened.has(id) ? 'details ▾' : 'details ▸'}</button>
                                             )}
                                         </div>
                                         {opened.has(id) && <pre className="mt-1 ml-4 p-2 bg-gray-50 text-gray-700 whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>{JSON.stringify(e.data, null, 2)}</pre>}
@@ -215,7 +221,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.26.0-alpha.27";  // Build version for this file
+        const ORGANIZER_VERSION = "7.26.0-alpha.28";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
