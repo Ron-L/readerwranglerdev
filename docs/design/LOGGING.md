@@ -1,24 +1,35 @@
 # Logging — the module, and the sort of today's console lines
 
-_Design of record for TODO "One logging module: severity, area and ID for every message…" (Ron + Claude, 2026-11-05 —
+_Design of record for TODO "One logging module: level, area and code for every message…" (Ron + Claude, 2026-11-05 —
 Ron's model: a severity code and text per message, a tunable display filter, everything always logged, log readers;
-the same model as Linux syslog / printk / journald). **Section 3 is for Ron's red pen**: change any level, area, ID or
-action in its row; nothing in the code changes until it's agreed._
+the same model as Linux syslog / printk / journald). Section 3 was the sort, for Ron's red pen before any line was
+switched; it stays as the record._
+
+**Status (2026-11-10):** built on `feature/logging` through 7.26.0-alpha.27 — §5 lists each step and what changed
+while building. In short: one call (`rwLog.log`), 17 areas, every console line, toast and dialog through it; two
+switches (the error banner, extra detail) instead of the first design's ladder of levels; the Diagnostics window
+(Help → Diagnostics…, and "Full log…" in the 🕐 history); the screen tests fail on any undeclared error or critical.
+Left: the fetchers' own logging and "Send a test message" (§5 step 5.5); the module as its own folder (TODO "Logging as
+its own module…").
 
 ## 1. Levels
 
 | Level | Means | Shown | Kept | Console |
 |---|---|---|---|---|
-| **critical** | your data may be at risk (a save failed, a store unreadable) | **to every user**, as a plain message; the banner in diagnostics | always | `console.error` |
-| **error** | "this should never happen" — a bug | the banner, in diagnostics mode (`?log=` error or lower) | always | `console.error` |
-| **warning** | can legitimately happen (offline, a damaged setting, an odd file) | — | always | `console.warn` |
+| **critical** | your data may be at risk (a save failed, a store unreadable) | **to every user**, as a plain box (with its own advice when the usual "save a backup now" would be wrong) | always | `console.error` |
+| **error** | "this should never happen" — a bug | the banner, when the **error banner** switch is on | always | `console.error` |
+| **warning** | can legitimately happen (offline, a damaged setting, an odd file, a refused gesture) | — | always | `console.warn` |
 | **info** | a normal event worth a line — including everything the user is told | — | always | `console.info` |
-| **debug** | developer detail | — | only at `?log=debug` | `console.debug` |
+| **debug** | developer detail | — | only with the **extra detail** switch on | `console.debug` |
 
 **Kept** = the always-on log on the device (the last ~500 entries; repeats counted, not stored again; page loads with
-the build and "was this tab discarded?"). **Shown** = the banner (red, stays until clicked, Copy, a "Turn off" link,
-a debugger stop when DevTools is open; never a blocking pause). The browser driver runs at `?log=debug` and fails a test
-on any error or critical.
+the build and "was this tab discarded?"). **Shown** = the banner (red, stays until clicked, Copy, a "Turn off this
+banner" link, a debugger stop when DevTools is open; never a blocking pause). **The console prints exactly what is
+kept.** **The two switches** (§5 step 5.1; they replaced the first design's ladder of levels, `?log=`, on 2026-11-09):
+"Show a banner when something goes wrong" (`errorBanner`) and "Also record extra detail" (`logDetail`) — independent,
+both off for an ordinary user, set in the Diagnostics window, on the address (`?errorBanner=on|off`,
+`?logDetail=on|off`) or the console (`rwLog.setSwitch`). The browser driver runs with both on and fails a test on any
+error or critical it didn't declare (§5 step 6).
 
 ## 2. Areas and IDs
 
@@ -33,11 +44,11 @@ live in test files and reports, never in the log.
 logger made-up messages — in the REAL area, with the REAL code it's exercising if it likes (no reserved numbers: a test
 may plant `IMPORT-12` to test how `IMPORT-12` is handled). What marks them is explicit, never a naming trick:
 1. **A `test: true` field on the entry** — the logger takes it as an argument and keeps it all the way through: the
-   kept log stores it; the Diagnostics view shows a TEST badge and its filter can show or hide test entries; Copy
+   kept log stores it; the Diagnostics window shows a TEST badge and its filter can show or hide test entries; Copy
    diagnostics labels them; the driver's "fail on any error or critical" ignores entries a test planted on purpose (and
    still fails on real ones). Programs read the FIELD, never the text.
 2. **People see a visible marker**, written into every human-facing form of the entry (the console, the Diagnostics
-   view, copied text) by the one function that formats entries: `IMPORT-12-!TEST! · warning · Import skipped…`.
+   window, copied text) by the one function that formats entries: `IMPORT-12-!TEST! · warning · Import skipped…`.
 3. **Defined once:** the marker (`-!TEST!`) — and, if anything ever has to recognize it in text, its pattern — are
    constants in the logging module; everything else imports them. The screen tests read the kept log as structured
    entries, so they need no pattern at all.
@@ -70,17 +81,21 @@ may plant `IMPORT-12` to test how `IMPORT-12` is handled). What marks them is ex
    account) — a flood would burn them; a log on the server would also be information about the user's activity
    ("the server holds nothing readable about you"); and it's end-to-end encrypted, so nobody could read it there anyway.
 2. **So two logs, because a browser keeps storage per site:** the app's (and the phone's, on its own device) on
-   readerwrangler.com; the fetchers' on amazon.com — the same split as the `?log=` setting.
+   readerwrangler.com; the fetchers' on amazon.com — the same split as the two switches (each site remembers its own).
 3. **Repeats are counted in memory, not in storage.** The log is written to the browser's storage **in batches** — at
    most every few seconds, and when the tab is left — so a thousand identical messages cost one local write ("×1000")
    and never a relay write.
 4. **The last fetch's problems ride in its existing upload.** At the end of a fetch the fetcher already sends one upload
    (its mailbox letter); its **warnings and errors from that run** (capped ~50, IDs removed) go inside it — **zero
-   extra relay writes** — and the app's Diagnostics view shows them beside its own log, so one **Copy diagnostics**
-   gives support both halves. The fetcher's full log (its ~430 progress lines included) stays on amazon.com, with a
+   extra relay writes** — and the app's Diagnostics window shows them as their own group, *"From your last fetch
+   (date)"* (2026-11-09: not interleaved by time, so two computers' clocks never need to agree), so one **Copy
+   diagnostics** gives support both halves. The fetcher's full log (its ~430 progress lines included) stays on amazon.com, with a
    **Copy fetch log** in the bookmarklet menu for when the details are needed.
 
 ## 3. The sort — every console line in the app's own code (177, counted 2026-11-05)
+
+_The record of the sort Ron red-penned before any line was switched. All switched in §5 step 4 (alpha.7 … alpha.20);
+where the build departed from a row, the row or §5 step 4 says so. Line numbers are as of 2026-11-05._
 
 Files: readerwrangler.js (123), mobile.js (16), storage.js (18), relay-client.js (19), integrity.js (1); none in
 the other modules or the page's inline scripts. Totals: **critical** 6, **error** 28, **warning** 37, **info** 35, **debug** 44, **remove** 8, **merge** 19 (merge = folded into the line named, so a multi-line message becomes one entry).
@@ -305,7 +320,8 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    The `?log=` answer lives in `logger.js`, not beside the environment answers in readerwrangler.html as TODO decision 4
    said: the logger loads first and needs it before that script runs — still ONE place. The banner and the critical box
    are plain page elements drawn by the logger (they must work when the app has crashed); neither blocks (the critical
-   box says "save a backup now", so File must stay reachable). Wording: Ron, 2026-11-07.
+   box says "save a backup now", so File must stay reachable). Wording: Ron, 2026-11-07. **Later replaced:** the
+   `?log=` gate by the two switches (step 5.1); "Turn off diagnostics" by "Turn off this banner".
 4. ✅ Switch the 177 lines per section 3 (one commit per area); F1–F4 filed or fixed as Ron decides. Done 2026-11-09
    (7.26.0-alpha.7 … alpha.20: INTEG, STORE, SYNC + IMPORT, BACKUP, BOOT, FIELD, MOVE, UNDO, COVER + PREF + UI, PHONE).
    The app, storage.js, relay-client.js and the phone app have no console lines left; the generated table holds every
@@ -314,10 +330,14 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    backup now" is harmful or meaningless there); the failed-drop errors toast; a refused backup file is one code
    (BACKUP-07). **The sort missed reset.js** (the emergency reset page — 7 lines, now STORE, STORE-12 its failure, test
    RESET-006); the scripts on Amazon's pages (the fetchers, the bookmarklet menu) are their own item (§4 note 6).
-   Still to do in this step: the one pass converting `showToast`'s callers (and its commit check), and the dialog
-   routines logging what they showed.
+   Then, in the same step: the one pass converting `showToast`'s callers (and its commit check), and the dialog
+   routines logging what they showed — both below. Found on the way and fixed (Ron's go): the book store's save let go
+   of its write lock as soon as a write started, and a failure starting it skipped its own STORE-07 (`return await`,
+   alpha.22, tests STORE-001/002 — both made to happen first); a damaged library-status note or view settings stopped
+   the whole load (BOOT-02/03, alpha.15); Save Backup refuses while the library hasn't loaded (BACKUP-08).
    - **The toast pass, part 1 ✅ (7.26.0-alpha.21):** the 61 toasts whose subject fits an existing area (MOVE, UNDO,
-     BACKUP, SYNC, IMPORT); the red refusals keep their red as numbered errors (MOVE-06…09, UNDO-04).
+     BACKUP, SYNC, IMPORT); the red refusals kept their red as numbered errors at first (MOVE-06…09, UNDO-04 — warnings
+     since alpha.22, below).
    - **Part 2 ✅ (7.26.0-alpha.23)** — Ron took the four areas (2026-11-09): the last 56 toasts are ORG, EDIT, AUTO,
      SHARE (and three "save results to a Book List" ones MOVE, like the other list adds). The commit check now refuses a
      direct `showToast(` (tools/message_codes.py; MSG-015/016) — the logger's hand-over line excepted. The red refusals
@@ -335,10 +355,10 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
      written literally, so the commit check verifies each dialog call's area instead (MSG-017…019) and `rwLog.dialog`
      checks it again when it runs (UI-05, LOG-029). The boxes themselves are unchanged (thin wrappers around them).
      **Step 4 is complete.**
-   - **A question beside it:** the red refusals ("Inbox cannot be moved", "Can't move a folder into itself") are the
-     person's gesture refused, not the app going wrong — by the levels they're warnings, but a warning's toast isn't
-     red, and as errors they raise the diagnostics banner. Kept as they were (red, errors) until Ron decides.
-5. The Diagnostics view (filter, Copy). **Decided** (Ron + Claude, 2026-11-09 — NOT in Data Status: many messages have
+   - **The red refusals — decided:** "Inbox cannot be moved", "Can't move a folder into itself" are the person's
+     gesture refused, not the app going wrong, so they're **warnings** (not red, no banner) — Ron, 2026-11-09: "None red
+     is fine" (alpha.22).
+5. The Diagnostics window (filter, Copy). **Decided** (Ron + Claude, 2026-11-09 — NOT in Data Status: many messages have
    nothing to do with the data, and the log is "a more formal and complete notification history"). Build list:
    1. **Two switches replace the ladder of levels** (the old `?log=` value did three things at once — the console's
       threshold, whether debug was recorded, whether errors raised the banner; with everything kept and the window
@@ -358,7 +378,7 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
       time, test entries. The two switches at the bottom (tooltips explain them), with **Clear** (like DevTools) and
       **Copy diagnostics** (everything kept, always — not just what the filter shows; with a header: the build, the
       browser, the date). Built on the overlay primitive (`<Dialog>`).
-   4. **The phone: a Copy diagnostics button** on its About panel — no viewer (Ron).
+   4. **The phone: a Copy diagnostics button** in its menu (⋮), under Help & About — no viewer (Ron).
    - **Built:** 1 ✅ 7.26.0-alpha.25 (LOG-016–022/030, LOGUI-001–006); 2 ✅ alpha.26 (LOG-010/027/031); 3 ✅ and 4 ✅
      alpha.27 (the window: DIAG-001–007; the logger's `subscribe`, `clear`, `diagnosticsText`, `levels`: LOG-032–034;
      the phone: PHONE-003). The window's time filter starts at "Everything kept" (not "since this page loaded" — a
@@ -366,11 +386,11 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
    5. **Later, not this release:** the fetch's problems as their own group, *"From your last fetch (date)"* — not
       interleaved by time, so two computers' clocks never need to agree (rides on the fetcher's own logging, §4 note 6);
       a "Send a test message" button (plants TEST-marked entries so support can say "do you see the banner?").
-6. ✅ The browser driver at `?log=debug`, failing a test on any error or critical (2026-11-09, test/ui/rw.py): every
-   session sets the remembered level before the page's scripts (a test that changes it keeps its change; the gate's
-   own tests opt out with `App(log=None)`), and its end fails the file on any `error ·` / `critical ·` line the tests
-   didn't declare with `app.expect('CODE')` — planted lines (marked TEST) excepted. The first run found exactly the
-   four failures the tests cause on purpose, and nothing hidden.
+6. ✅ The browser driver with both switches on, failing a test on any error or critical (2026-11-09, test/ui/rw.py):
+   every session turns both switches on before the page's scripts, once per browser profile (a test that turns one off
+   keeps it off; the switches' own tests opt out with `App(log=None)`), and its end fails the file on any `error ·` /
+   `critical ·` line the tests didn't declare with `app.expect('CODE')` — planted lines (marked TEST) excepted. The
+   first run found exactly the four failures the tests cause on purpose, and nothing hidden.
 
 ## 6. The module's shape (Ron + Claude, 2026-11-07)
 
@@ -380,29 +400,30 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 
    | Destination | Takes |
    |---|---|
-   | the kept log | everything info and up (debug too at `?log=debug`) |
-   | the console | the chosen level and up (info and up for everyone) |
+   | the kept log | everything info and up (debug too with the extra-detail switch on) |
+   | the console | exactly what is kept |
    | **the user (a toast)** | only messages whose call says `toast: true` (or `toast: { x, y }` — near the click); red for error and up; into the 🕐 history unless `hint: true` (a passing hint such as "Nothing to undo") |
-   | the banner / the critical box | error and up in diagnostics mode / critical for every user (step 3) |
+   | the banner / the critical box | error and up when the error-banner switch is on / critical for every user (step 3), with the message's own `advice` when it has one |
 
    One message, one call: a failed restore is `rwLog.log('error', 'BACKUP-04', 'Restore failed: …', data, { toast: true })`
-   — the user sees it, support sees its code, diagnostics raises the banner. The app hands its toast routine to the logger
-   at startup (`rwLog.setToaster(fn)`), so the logger never depends on the app: before the app is up (or after it has
-   crashed) a `toast` message still reaches the log and the console, and a critical one still gets the logger's own box
-   (a critical message shows that box, not a toast). `showToast`'s 122 callers move to `rwLog.log(…, { toast })` in one
-   pass after the console lines are switched (re-sequenced 2026-11-08: one pass, each call given its area, instead of
-   area by area); then a commit check refuses a direct `showToast(` call. **Folder names may enter the log** (Ron,
-   2026-11-09) — the toasts carry them (*"Pasted 3 books into 'Sci-Fi'"*) and support can't follow "moved to a folder";
-   a book's note text and its tags stay out (F4). **A crashed drag-and-drop toasts** *"That move didn't work."* (Ron,
-   2026-11-09; MOVE-01…05 — before, it did nothing, silently). **Dialogs are not messages** (Ron: "different
-   animals") — info boxes, confirmations and the progress box's finish keep their own routines, each logging what it
-   showed (one line inside each), so everything the user saw is in the log.
+   — the user sees it, support sees its code, the error-banner switch raises the banner. The app hands its toast routine
+   to the logger at startup (`rwLog.setToaster(fn)`), so the logger never depends on the app: before the app is up (or
+   after it has crashed) a `toast` message still reaches the log and the console, and a critical one still gets the
+   logger's own box (a critical message shows that box, not a toast). **(as built)** All of `showToast`'s callers went
+   through `rwLog.log(…, { toast })` in one pass (alpha.21/23, each call given its area), and the commit check refuses a
+   direct `showToast(`. **Folder names may enter the log** (Ron, 2026-11-09) — the toasts carry them (*"Pasted 3 books
+   into 'Sci-Fi'"*) and support can't follow "moved to a folder"; a book's note text and its tags stay out (F4). **A
+   crashed drag-and-drop toasts** *"That move didn't work."* (Ron, 2026-11-09; MOVE-01…05 — before, it did nothing,
+   silently). **Dialogs are not messages** (Ron: "different animals") — info boxes, confirmations, choices, inputs and
+   the progress box keep their own routines; **(as built, Ron's option 1)** each call names its area FIRST
+   (`showInfoDialog('BACKUP', title, message)`) and the routine logs what it showed, and the answer, through
+   `rwLog.dialog(area, text)` — so everything the user saw is in the log.
    - **level** — `'debug' | 'info' | 'warning' | 'error' | 'critical'`, written at the call site, where the message is
      written (Ron: "it is easier to define the criticality as you type the msg into the code").
    - **code** — `'IMPORT'` (the bare area: a general line) or `'IMPORT-12'` (one specific message). Warning and above
      must use the numbered form — those are what support asks about.
 2. **The module is agnostic about the messages:** no table of codes or levels in it. It knows only the five levels and
-   the **13 area names**, as a frozen object (JavaScript has no enums; a frozen object is the standard stand-in) — so a
+   the **area names** (13 at first, 17 since the toast pass — §2), as a frozen object (JavaScript has no enums; a frozen object is the standard stand-in) — so a
    typo like `IMPRT` is caught when it happens. A malformed call (an unknown level or area, a badly shaped code, a
    warning without a number) is reported by the module itself as an error, and the message is still logged.
 3. **The rules, checked at every commit** by a scan of the source (`tools/message_codes.py`): every code well-formed;
@@ -415,8 +436,14 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
 5. **Messages a test plants:** the `test` option, shown to people as `IMPORT-!TEST!` / `IMPORT-12-!TEST!` (§2); the
    marker a constant in the module.
 6. **The rest as decided:** the kept log (§1: the last ~500, repeats counted, batched saves, page loads), the scrubber
-   (Channel IDs and the passphrase removed before anything is stored or copied), and "ours only" (our scripts'
+   (before anything is stored or copied: Channel IDs become Relay Setup's short form `41e0e16f...726c` — one function,
+   `shortChannelId`, shared with Relay Setup; the passphrase becomes "[passphrase]"), and "ours only" (our scripts'
    uncaught errors and failed promises logged as errors; extension messages ignored).
-7. **Step 2 builds:** `logger.js` (loaded first in readerwrangler.html), its function tests written first
-   (`test/logger.test.js`), and the scan + table + commit check. Not yet: the `?log=` threshold, the banner, critical
-   shown to users (step 3); switching the 177 lines (step 4); the Diagnostics view (step 5).
+7. **Step 2 built** `logger.js` (loaded first in readerwrangler.html and reset.html), its function tests written first
+   (`test/logger.test.js`), and the scan + table + commit check; the later steps are in §5.
+8. **(as built) The rest of `rwLog`:** `switches()` / `setSwitch(name, on)` (the two switches); `applyAddress(search)`
+   (the address switches); `dialog(area, text)` (the dialogs — its area checked when it runs, UI-05); `subscribe(fn)`,
+   `clear()`, `diagnosticsText(headerLines)`, `levels` (the Diagnostics window); `shortChannelId(id)`; `entries()`,
+   `flush()`, `format(entry)`, `TEST_MARK`, `setToaster(fn)`, `pageLoad()`, `installGlobalHandlers()`. A message can
+   carry its own `advice` for the critical box (`{ advice }`). The commit check also refuses a direct `showToast(` and
+   a dialog call without its area first.

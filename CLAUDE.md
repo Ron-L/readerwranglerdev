@@ -160,7 +160,9 @@ Bypass (Ron's call only): `git commit --no-verify`.
   or the table is staged: every `rwLog.log(level, code, text…)` call has a known level, a code `AREA` or `AREA-NN` from
   logger.js's areas, a numbered code for warning and above, each numbered code at ONE call — and
   `docs/design/MESSAGE-CODES.md` (generated, never edited) matches the code. Fix: `py tools/message_codes.py` and stage
-  the table (2026-11-07; docs/design/LOGGING.md §6).
+  the table (2026-11-07; docs/design/LOGGING.md §6). It also refuses a direct `showToast(` (a toast is
+  `rwLog.log(…, { toast: true })`, so it reaches the log with its area) and a dialog call without its area FIRST
+  (`showInfoDialog('BACKUP', title, message)` — the dialog logs what it showed there) (2026-11-09).
 - **TODO table-of-contents check** (`git-hooks/check-toc.js`), when
   `TODO.md` is staged: refuses a table of contents that doesn't match the headers. The table is built by the VS Code
   extension "Auto Markdown TOC" only on a VS Code save — edits made any other way leave it stale. Fix: Ron saves the

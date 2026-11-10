@@ -3,7 +3,8 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [One logging module: severity, area and ID for every message; a display threshold, an always-on log, a reader](#one-logging-module-severity-area-and-id-for-every-message-a-display-threshold-an-always-on-log-a-reader)
+      - [One logging module: level, area and code for every message; an always-on log, a Diagnostics window](#one-logging-module-level-area-and-code-for-every-message-an-always-on-log-a-diagnostics-window)
+      - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [Generated test libraries: made-up books at any size, with their own covers](#generated-test-libraries-made-up-books-at-any-size-with-their-own-covers)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
@@ -181,12 +182,18 @@ In priority order (Ron re-ranked 2026-10-14). **High priority**, then **Polish**
 
 ### High priority
 
-#### One logging module: severity, area and ID for every message; a display threshold, an always-on log, a reader
+#### One logging module: level, area and code for every message; an always-on log, a Diagnostics window
 <!-- id 20261102-1435; merged 20261014-1030m -->
 
 _Why it matters:_ Today a "this should never happen" in our code is a line in the console that nobody is looking at —
 it is seen only by luck (Ron, 2026-11-02). It should stop the person testing, leave a trace on every device even when
 nobody is, and give support a timeline to read. Built with the browser driver: each makes the other stronger.
+
+**Status (2026-11-10): built** on `feature/logging`, 7.26.0-alpha.27 — design of record and build list:
+docs/design/LOGGING.md (§5). Left for this release: two window fixes (Ron's pick), then release. Later: the fetchers'
+own logging (item 10) and "Send a test message" (LOGGING.md §5 step 5.5); the module as its own folder ("Logging as
+its own module…", just below). The decisions below are kept as decided, with what changed while building marked
+**(as built)**.
 
 **The model** (Ron, 2026-11-05 — from the products he built: a text message plus a severity code, a dynamic,
 user-tunable filter for what's shown, everything always logged, log readers with filtering — the same model as Linux's
@@ -198,37 +205,56 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
    is told), **warning** (can legitimately happen: the relay unreachable, a refused clipboard), **error** ("this should
    never happen" — a bug), **critical** (your data may be at risk: a save failed, a repair that couldn't repair).
    Syslog's Emergency and Alert don't apply — there's no system to bring down.
-2. **Every message:** level + **area** (relay, import, storage, restore, integrity, ui, …) + text; warning and above also
-   carry a **stable ID** — `AREA-NN`, e.g. `IMPORT-12` (Ron, 2026-11-07: no product prefix; the level is a separate
-   field, never part of the code) — support can ask "what codes do you see?", and the help notes can explain each
-   code. Test names keep their own three-digit shape (`IMPORT-004`) and never appear in the log. Debug lines get no ID.
+2. **Every message:** level + **code** + text. The code is the bare **area** (`IMPORT`) for info and debug, or the area
+   plus a stable number (`IMPORT-12`) — required for warning and above, each number at ONE call (Ron, 2026-11-07: no
+   product prefix; the level is a separate field, never part of the code) — support can ask "what codes do you see?",
+   and the help notes can explain each code. **(as built)** 17 areas (logger.js `LOG_AREAS`): BOOT, SYNC, IMPORT,
+   BACKUP, STORE, INTEG, FIELD, MOVE, UNDO, COVER, PREF, PHONE, UI, and — for the toasts none of those fit (Ron,
+   2026-11-09) — ORG, EDIT, AUTO, SHARE. The support table (docs/design/MESSAGE-CODES.md) is generated, never edited.
+   Test names keep their own three-digit shape (`IMPORT-004`) and never appear in the log.
    **Messages a test plants** carry an explicit `test: true` field, kept all the way through (the kept log, the
    Diagnostics badge and filter, Copy, the driver's fail-on-error rule), shown to people as `IMPORT-12-!TEST!`; the
    marker defined once in the module; no reserved numbers (Ron + Claude, 2026-11-07 — LOGGING.md §2).
-3. **Two thresholds — what's shown, and what's kept:**
-   - **Shown:** in **diagnostics mode**, error and above raise the **banner** — red, stays until clicked, the details and
-     a Copy button, a "Turn off" link; if DevTools is open, also a stop in the debugger. **Never a blocking pause**
-     (`alert()`): it would break the 30-second Import timeout and leave a push half sent. **Critical is shown to every
-     user** (Ron, 2026-11-05), diagnostics or not — as a plain message that their data may be at risk and what to do.
-   - **Kept:** info and above, **always** (production included) — the last ~500 entries on the device, with Channel IDs
-     and the Passphrase / key removed; repeats **counted, not stored again** ("…repeated 37 times" — rate limiting, so
-     one bad loop can't flood it). **It also records every page load** — time, build, and the browser's "was this tab
-     discarded and reloaded?" (`document.wasDiscarded`) — so an unexplained loss of in-memory state ("Undo history
-     sometimes empties by itself", Watching) can be traced to a reload.
-4. **The level is the ONE gate, tunable** (Ron 2026-11-02: "that would be the only gate"): `?log=debug|info|warning|
-   error|off` on any page address (remembered; the app then removes the parameter from the address bar so it isn't
-   bookmarked or shared), or a setting in Data Status, or the console — works on any copy (the dev repo or production
-   on localhost, or readerwrangler.com). Read through one answer defined once in `readerwrangler.html` beside the other
-   environment answers; separate from contributor mode on purpose. A user reporting a bug can be asked to open the site
-   with `?log=debug`.
+3. **What's shown, and what's kept:**
+   - **Shown:** with the **error banner** switch on, error and above raise the **banner** — red, stays until clicked,
+     the details and a Copy button, a "Turn off this banner" link; if DevTools is open, also a stop in the debugger.
+     **Never a blocking pause** (`alert()`): it would break the 30-second Import timeout and leave a push half sent.
+     **Critical is shown to every user** (Ron, 2026-11-05), whatever the switches — a plain box: their data may be at
+     risk and what to do. **(as built)** A critical message can carry its own advice in that box (BOOT-01, PHONE-03/06:
+     the usual "save a backup now" would be harmful or meaningless there).
+   - **Kept:** info and above, **always** (production included) — the last ~500 entries on the device; repeats
+     **counted, not stored again** ("…repeated 37 times" — rate limiting, so one bad loop can't flood it). **It also
+     records every page load** — time, build, and the browser's "was this tab discarded and reloaded?"
+     (`document.wasDiscarded`) — so an unexplained loss of in-memory state ("Undo history sometimes empties by itself",
+     Watching) can be traced to a reload. **(as built)** Each app also logs which build of its CODE is running ("Desktop
+     app 7.26.0-alpha.27 running (page 7.25.1)") — the page's version doesn't move during alphas.
+   - **Cleaned before anything is kept or shown:** Channel IDs become Relay Setup's short form `41e0e16f...726c` (first
+     8 … last 4 — one function, logger.js `shortChannelId`, so old and new keys read differently; Ron, 2026-11-09); the
+     passphrase becomes "[passphrase]", none of it shown.
+4. **(as built) Two switches, not a ladder of levels** (Ron, 2026-11-09 — the old single "level" did three things at
+   once: the console's threshold, whether debug was recorded, whether errors raised the banner; with everything kept and
+   a window to filter it, only two matter): **"Show a banner when something goes wrong"** (`errorBanner`) and **"Also
+   record extra detail"** (`logDetail` — debug lines; they fill the ~500-entry log fast, so it's off unless chasing a
+   problem). Independent; both off for an ordinary user. Set in the Diagnostics window, on any page address
+   (`?errorBanner=on|off`, `?logDetail=on|off` — remembered, then removed from the address bar so they aren't bookmarked
+   or shared), or the console (`rwLog.setSwitch`). The console prints exactly what is recorded (its own level filter
+   does the rest). A user reporting a bug can be sent a link with `?errorBanner=on&logDetail=on`. The answer lives in
+   logger.js (it loads first), separate from contributor mode on purpose.
 5. **Two readers:**
    - **the browser's console** — each level goes to `console.debug` / `info` / `warn` / `error`, so DevTools' own level
      filter works for free;
-   - **a Diagnostics view in Data Status** — the kept log, filtered by level, area and time, with **Copy diagnostics**
-     (IDs removed).
+   - **(as built) the Diagnostics window — its own window, NOT in Data Status** (Ron, 2026-11-09: many messages have
+     nothing to do with the data; the log is "a more formal and complete notification history"), opened from **Help →
+     Diagnostics…** and **"Full log…"** at the bottom of the 🕐 history. Newest first; ▸ for an entry's details; errors
+     tinted; TEST entries badged; filtered by level, area, time ("Everything kept" first) and test entries; the two
+     switches, **Clear** (like DevTools) and **Copy diagnostics** (everything kept, whatever the filter shows, under a
+     header with the build and the browser). The phone: a **Copy diagnostics** button in its menu, no viewer.
 6. **Linked to the user's notifications, not merged with them:** the toasts and the 🕐 message history stay as they are;
    everything they tell the user is also logged as info, so the log reads as one timeline — what the user saw and what
-   happened underneath.
+   happened underneath. **(as built)** Every toast goes through `rwLog.log(…, { toast })` with its area (a commit check
+   refuses a direct `showToast(`); every dialog names its area first and logs what it showed and the answer
+   (`rwLog.dialog`, Ron's option 1, 2026-11-09). Folder names may appear in the log (Ron, 2026-11-09); a book's note
+   text and its tags stay out (finding F4).
 7. **Ours only.** Uncaught errors and failed promises on OUR pages are caught globally (logged as error — including a
    crash inside React or another library we load). Browser-extension messages ("Unchecked runtime.lastError…") never
    reach us — not in scope.
@@ -239,18 +265,23 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
    switching any.** The fetchers' ~430 progress logs stay — the step-by-step trail of a fetch support needs — and only
    their warnings and errors are sorted. The integrity check's "auto-fixed during restore" message is the first to
    switch.
-9. **The browser driver** runs with `?log=debug` in its throwaway browser and **fails a test on any error or
-   critical** — every screen test also checks "nothing went wrong underneath".
-10. **The fetchers and the bookmarklet menu** run on Amazon's site, whose stored settings are separate from ours, so they
-   read the same-named level in amazon.com's storage (set from the console, or a toggle in the bookmarklet menu's
-   developer mode). **Two logs, never the relay** (2026-11-05, LOGGING.md §2b): the fetchers keep theirs on amazon.com;
-   a fetch's warnings and errors ride inside its existing upload (zero extra relay writes), so the app's Diagnostics
-   view shows the last fetch's problems beside its own log.
+9. **The browser driver** runs with **both switches on** in its throwaway browser and **fails a test on any error or
+   critical** it didn't declare (`app.expect('BOOT-01')` for one a test causes on purpose) — every screen test also
+   checks "nothing went wrong underneath" **(as built, LOGGING.md §5 step 6)**.
+10. **The fetchers and the bookmarklet menu** (later — its own step) run on Amazon's site, whose stored settings are
+   separate from ours, so they read the same-named switches in amazon.com's storage (set from the console, or a toggle
+   in the bookmarklet menu's developer mode). **Two logs, never the relay** (2026-11-05, LOGGING.md §2b): the fetchers
+   keep theirs on amazon.com; a fetch's warnings and errors ride inside its existing upload (zero extra relay writes),
+   and the app's Diagnostics window shows them as their own group, *"From your last fetch (date)"* — not interleaved by
+   time, so two computers' clocks never need to agree (2026-11-09).
 
 **How (technical)**
-- **One logging module** (the chokepoint) — `log.debug/info/warning/error/critical(area, id, text, data)`, the global
-  `error` / `unhandledrejection` listeners, the kept log, the rate limiting, the banner, the reader; every site is a
-  thin call. The banner and the reader are built on the overlay primitive.
+- **One logging module** (the chokepoint, logger.js, loaded first) — one call, `rwLog.log(level, code, text, data,
+  options)`, every destination from it (the kept log, the console, the toast with `{ toast }`, the banner, the critical
+  box); the global `error` / `unhandledrejection` listeners; the rate limiting. The banner and the critical box are
+  plain page elements drawn by the module (they must work when the app has crashed); the Diagnostics window is a
+  `<Dialog>` (the overlay primitive). The commit check (tools/message_codes.py) enforces the codes and writes the
+  support table.
 - The scrubber that removes IDs and keys is shared with "Bookmarklet: when your key no longer works, say so plainly —
   and never show the Channel ID in an error" (After launch) — one place, with a test; this task builds it first.
 - Its own branch (`feature/logging`), alpha versions, tests first (TESTING.md): the module's function tests, then the
@@ -259,6 +290,35 @@ replaces 2026-11-02's four buckets and on/off switch, which were a crude version
   outside any test — the driver couldn't find the File menu button (30 s) when restoring the test library right after
   BOOT-001. Read it before fixing it (TESTING.md §7): what was on screen (the failure screenshot), whether the menu bar
   was covered or not yet drawn. If it comes back, set it aside the same day rather than re-run past it.
+
+#### Logging as its own module: a self-contained folder, one step from a sub-repo
+<!-- id 20261110-0908 -->
+
+_Why it matters:_ The logging is a clean, general piece — a core with no screen, a browser layer, a window — tangled
+into RW's files. Kept in one self-contained folder, it reads and tests as one thing inside RW, and it's one step from
+its own repo (a git submodule, like pytools) when another project wants it (Ron, 2026-11-10).
+
+**Decided** (Ron + Claude, 2026-11-10)
+1. **After 7.26.0 ships, on its own small branch** — moving files mid-release would put every cache-buster and check
+   on the line at once.
+2. **The folder** (not `logging/` — that's Python's built-in library, which a folder of that name holding Python code
+   would shadow; Claude suggested `logkit/`, Ron's call) holds:
+   1. **the core** — levels, codes, the kept log, the two switches, the cleaner, subscribe / clear / the Copy text; no
+      screen; Node-tested (today: `createLogger` in logger.js);
+   2. **the browser wiring** — storage, the address switches, uncaught errors, the banner and the critical box, in
+      plain page elements (today: the rest of logger.js);
+   3. **the Diagnostics window**, taking the host's dialog frame as a parameter (in RW: `<Dialog>`, so the overlay
+      rules — Esc, stacking, the fence — still hold) (today: `DiagnosticsWindow` in readerwrangler.js);
+   4. **the commit checker** (tools/message_codes.py) and its tests, reading the areas from the host's settings;
+   5. **a README** — what it is, the model, how a host sets it up.
+3. **RW keeps one small settings file** outside the folder: the 17 areas, the storage key names, the product name, the
+   critical box's advice, the secrets to clean (the Cloud Sync passphrase, the Channel ID's shape).
+4. **The tooling learns the folder** — each a silent hole if missed, so the move gets its own site map and a test that
+   each check still fires: the version check's cache-buster pattern (today it can't see a script in a folder), the
+   commit checker's file scan, the test runner's discovery, readerwrangler.html's and reset.html's script paths.
+5. **The sub-repo itself waits for a second user** — two repos to keep in step, and it must be public (RW is served by
+   GitHub Pages, which only fetches public submodules). If the next project is Python, it wants a Python twin of the
+   same model, not this file.
 
 #### Generated test libraries: made-up books at any size, with their own covers
 <!-- id 20261104-1613a -->
