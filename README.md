@@ -126,6 +126,7 @@ ReaderWrangler is the **only tool specifically designed for Amazon Kindle librar
 <!-- SYNC: Keep "Recent Features" in sync with features.html -->
 ## Recent Features
 
+- **See what happened, and restores that put back exactly the backup (7.26)** — **Help → Diagnostics** shows a record of what ReaderWrangler did and what went wrong — read it, filter it, or copy it for us in one click (the phone has Copy diagnostics too). Restore now puts back exactly the backup, and a backup it can't restore says everything that's wrong at once, before anything changes.
 - **Your synced copy, locked to you (7.25)** — Every change to your cloud copy is now signed with a key made from your passphrase, so a stranger who learns your Channel ID can no longer change or delete anything.
 - **Collections into tags, with nothing hidden (7.24)** — Tag from Collections now shows every change before you Apply — one column per collection, a + for each book that gets the tag — and never removes a tag unless you ask. And tag names respect capitals: "Read" and "read" are different tags, and a Caps Lock slip asks before making a twin.
 - **Know when books leave your Amazon library (7.19)** — Returned loans, deleted samples and delisted books no longer sit there unexplained: ReaderWrangler flags them after an import and lets you keep or remove each one, from **Tools → Removed books…**. Plus Select All that acts on just the part of a window you're working in, and an undo that shows what it will do next.

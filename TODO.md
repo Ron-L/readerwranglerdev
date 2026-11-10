@@ -66,7 +66,6 @@
       - [Removing a recent search should offer Undo](#removing-a-recent-search-should-offer-undo)
       - ["Bake this order into Manual" for a folder's books and a Book List, from the Sort menu](#bake-this-order-into-manual-for-a-folders-books-and-a-book-list-from-the-sort-menu)
       - [Small fixes](#small-fixes)
-        - [✅ Import files new books once, before the integrity check — and only books in no folder](#import-files-new-books-once-before-the-integrity-check--and-only-books-in-no-folder)
         - [What a reset clears: four resets, four different lists](#what-a-reset-clears-four-resets-four-different-lists)
         - [Tidy up the notes](#tidy-up-the-notes)
         - [Leave the affiliate tag off Amazon links on the test rig](#leave-the-affiliate-tag-off-amazon-links-on-the-test-rig)
@@ -2175,86 +2174,6 @@ Position dialog — see "Series positions…").
 
 #### Small fixes
 
-##### ✅ Import files new books once, before the integrity check — and only books in no folder
-<!-- id 20261031-1639; merged 20260904-0000e -->
-
-_Why it matters:_ Two problems in the same few lines of Import's filing step (readerwrangler.js ~5603): every
-Import with new books reports a "repair" that's really the normal path, and an Import into an emptied book store
-once copied the whole library into the Inbox. Merged 2026-11-04 in the TODO scan (one change, one test).
-
-**Part 1 — file new books first, so the integrity check reports only real repairs** (was "Import: new books are
-filed before the integrity check…", 2026-10-31)
-
-_Why it matters:_ Every Import from Relay with new books logs "🔧 Integrity auto-fixed … N books with no folder —
-placed in Inbox" — a normal path reported as a repair (Ron noticed it 2026-10-31). An alarm that fires on every
-normal import trains you to ignore it, and a GENUINE orphan arriving during an import would be filed and reported in
-the same breath as the new books.
-
-**What happens today** (checked 2026-10-31)
-1. `loadLibrary` restores the organization and runs the integrity check (readerwrangler.js ~6775) while the new books
-   are in the library but not yet in any folder → it "repairs" them into the Inbox.
-2. Then the import's own step (~5603–5614) adds the same books to the Inbox, finds them there, and skips them.
-3. Harm today: none visible — no duplicates (that step ignores books already there), and this path only logs to the
-   console (no toast, nothing saved to Data Status). The order among the new books may differ from the import's
-   intent (newest first) — both put them at the top.
-
-**Decided** (Ron + Claude, 2026-10-31)
-- The import files its new books into the Inbox FIRST, in one place, then the integrity check runs — so the check
-  sees only genuine problems. The later duplicate step goes away (one placement path, not two). Its own alpha, kept
-  out of the 7.25.0 security release.
-
-**Part 2 — only books in no folder go to the Inbox** (was "Relay Import: only books in no folder should go to the
-Inbox", 2026-09-04 — a backstop; independent of the ownership batch)
-
-_Why it matters:_ A restore once copied the whole library into the Inbox.
-
-**A backstop** (Ron asked, 2026-10-20: "what is an example of a book that is new but already in a folder?"). In normal
-use the two rules agree — a book a fetch brings is new AND in no folder. They differ only when your books and your
-folders get out of step: the app keeps them in two separate browser stores (books in one, folders and lists in
-another), so if the books store is emptied or lost while the folders survive, every book looks "new" to Import. That's
-a recovery moment — exactly when a mess in the Inbox hurts most.
-
-**What happened** (diagnosed 2026-09-04)
-- On Sep 3, Import from Relay ran as a restore against an emptied book store. Every book looked "new", so all 3,076
-  were copied into the Inbox — even though your folders still held them.
-- Cleaned up the same day: you restored the 9/3 13:05 backup; only 4 genuinely double-filed books needed hand-fixing.
-
-**Decided** (tidied 2026-10-20: its "Left", "The fix" and "To do" said the same two things three times)
-1. **"Goes to the Inbox" = in no folder (and not deleted)** — not "new to the book store". Deleted books are already
-   left out (readerwrangler.js ~6638); the folder check is what's missing (still true 2026-10-20: Import adds every book
-   new to the store, ~5603).
-2. **Add "Import into an empty book store → the Inbox is unchanged" to the pre-launch tests** (PRELAUNCH-TEST-GATE.md
-   suite 4 — it covers a cold start with no books, not this Import case).
-3. **Test safely:** the automated test is the main check. A by-hand retest ("empty the book store, Import from Relay →
-   the Inbox count is unchanged") starts with **File → Save** (a backup) and runs only when no fetch is waiting to be
-   imported — it works on your real library.
-4. **Independent of the batch's foundation** ("Fetch should update books it already knows") — it's about where Import
-   puts books, not what kind they are; build it whenever convenient.
-5. **Say it's a backstop, in the code and when it fires** (Ron, 2026-10-20): a comment at the check explaining why it
-   exists (books and folders kept in two stores can get out of step — the Sep 3 case), and a console message when it
-   actually keeps books out of the Inbox, e.g. *"Inbox backstop: 3,076 books new to the book store are already in
-   folders — not added to the Inbox"* — so a real out-of-step event is visible, not silent.
-
-**How (technical)**
-- Filter the Import's `newBookIds` (readerwrangler.js ~5603) to books in no folder. The `getAllBookIdsInFolders()`
-  named when this was filed no longer exists (checked 2026-10-20) — build the set from the folders at that point.
-
-**Built — 7.26.0-alpha.3** (2026-11-05, branch `feature/logging`): one placement path, `fileNewBooksInInbox`
-(readerwrangler.js, above `loadLibrary`) — an Import files its new books BEFORE the integrity check, only books in no
-folder, and says so in the console when the backstop holds books back (*"Inbox backstop: N books new to the book store
-are already in folders — not added to the Inbox"*); a backup Restore keeps its folders exactly as they are. Import's
-later duplicate step is gone.
-
-**Tests** (`test/ui/test_import_from_relay.py` — a local relay on Ron's PC, never the dev relay)
-- `IMPORT-001`–`005`: Restore sends its copy to the relay; a fetch's 3 new books arrive through File → Import from
-  Relay ("3 new") and land in All Books and the Inbox; **`IMPORT-004`** no repair reported for a normal Import (part 1 —
-  failed first); nothing unexpected in the console, no request to a real relay or Amazon.
-- **`IMPORT-007`** an emptied book store with its folders kept (the Sep 3 case): the Inbox stays as it was (part 2 —
-  failed first: 5 → 25). **`IMPORT-008`** a fresh app's first Import: every book in the Inbox, no repair (failed
-  first). `IMPORT-009` / `010` the placement's other two call sites (a saved organization with no folders; none at all)
-  — shown to fail with the fix's lines removed. `IMPORT-007` is the pre-launch test Decided item 2 asks for (the
-  pre-launch gate is now part of docs/design/TESTING.md).
-
 ##### What a reset clears: four resets, four different lists
 <!-- id 20261106-1715 -->
 
@@ -3936,7 +3855,7 @@ _Why it matters:_ Rare reports of books in no folder at all; watch whether it st
 **Next step**
 - **Watch** for the event after releases before spending a session on it.
 - **First, the Import-order fix** (2026-11-04, Ron + Claude): "Import files new books once, before the integrity
-  check…" (Small fixes) — ✅ built in 7.26.0-alpha.3: an Import now files its new books before the check, so any
+  check…" (✅ done in 7.26.0, removed from this list at release): an Import now files its new books before the check, so any
   homeless book reported after it is a real one — and "One logging module…" makes it noticeable (the "auto-fixed during
   restore" message becomes an error). Watch from 7.26.0 on.
 

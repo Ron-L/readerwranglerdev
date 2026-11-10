@@ -8,7 +8,12 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-06 (through release 7.25.1)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-10 (through release 7.26.0)** — all sections human-reviewed (§1–21).
+7.26.0: Diagnostics (Help → Diagnostics…, the 🕐's Full log…, Copy diagnostics, the two switches, the banner and the
+"hit a problem" box) — §19 new Q + two rows, §13 pointer, §17 phone Q; Restore puts back exactly the backup, refuses
+an unusable file with every reason, Save Backup waits for the load — §15 items 5–7. Comb for "Restore", "Import
+Error", "Load credentials", "Library repair", "console", "🕐", "Help →", "Channel ID": no other wording changed (the
+credentials button now says "backup file"; the KB never quoted it).
 7.25.0: signed relay changes — §2's credentials answer (the passphrase also signs every change) and §14 item 6 (the
 three new refusals); comb for "relay", "revoked", "credentials", "Channel ID", "passphrase": no other wording changed.
 7.24.0: Tag from Collections redesigned + exact-text tag names + undo removes a created tag — §9 rewritten (new Qs:
@@ -524,7 +529,9 @@ confirm things with nothing to undo (clipboard copies, file saves, refusals).
 or **Ctrl+Y** to redo.) **7.19.0:** its top line names what undo would do next — "Next undo: Clear
 price goal for 7 books" — with an **Undo** link (or "Nothing to undo"). Undo is a stack, so only
 that one action is next. **Ctrl+Z with nothing to undo says "Nothing to undo"** (it used to be
-silent); those "nothing happened" hints show briefly but aren't kept in the log.
+silent); those "nothing happened" hints show briefly but aren't kept in the log. **7.26.0:** **Full log…** at the
+bottom of the 🕐 list opens **Diagnostics** — the complete record (see §19, "Something went wrong — how do I tell you
+exactly what?").
 
 **Undo in dialogs is scoped.** While any dialog is open, Ctrl+Z reaches only what happened
 since it opened (rename a tag in Manage Tags, undo it right there); otherwise the app says
@@ -655,6 +662,15 @@ developer checks; setup is in CONTRIBUTING.md.
    channels match, it just adopts the backup's silently (that's the device-migration case). (7.14.3)
 4. **File → Save Spreadsheet (CSV)…** exports one row per book — tags, folder paths, and Book
    Lists included — and opens directly in Excel. Book ids are ASINs.
+5. **Restore puts back exactly the backup (7.26.0).** Everything in the backup replaces what's here — books, folders,
+   Book Lists, Searches, tags. A part the backup doesn't have comes back as *none* (a backup with no Book Lists leaves
+   you with none; with no folders, every book lands in the Inbox) — never "keep what's here". The exceptions: your sync
+   credentials (item 3) and your view settings (item 2).
+6. **"This backup can't be restored: …" (7.26.0)** names everything wrong with the file at once — e.g. "it's missing
+   its list of books, and its folders aren't readable" — and **nothing was changed**. Choose a backup made with
+   File → Save Backup. (A backup the app saved is never refused; a hand-edited one can be.)
+7. **"Your library isn't loaded, so there's nothing safe to save yet" (7.26.0)** — Save Backup waits until your
+   library has finished loading: a backup made before then would be missing your folders. Reload the page.
 
 ## 16. Price goals
 
@@ -723,6 +739,11 @@ reach the relay shortly after you make them.
 read the lists on the phone ("Book Lists as mobile filters", WORKFLOW-PATTERNS). Sorting
 within a shelf cycles like the desktop's sorts; hidden-book counts can be tapped to reveal.
 
+**Something's wrong on the phone — how do I tell you?** (7.26.0) Menu (⋮) → under Help & About, **Copy
+diagnostics** — it copies the phone's own record of what happened; paste it into your message. If the phone can't
+load your library it now says so ("Your library couldn't be loaded on this phone") instead of staying empty: close the
+app and open it again — your library on the computer isn't affected.
+
 ## 18. Keyboard shortcuts & mouse tricks
 
 ReaderWrangler uses the **standard shortcuts your operating system already knows** — the same
@@ -751,8 +772,20 @@ row — the menus are where the power hides.
 
 ## 19. Troubleshooting (symptom → explanation → fix)
 
+**Something went wrong — how do I tell you exactly what?** (7.26.0) **Help → Diagnostics…** (or **Full log…** at the
+bottom of the 🕐 list) shows ReaderWrangler's record of what it did and what went wrong — the last ~500 lines, kept in
+your browser, newest first. Filter it by kind, area and time; lines with more information show **details ▸**.
+**Copy diagnostics** copies the whole record — paste it into your message to us (Feedback, at the bottom of the
+window). Nothing in it leaves your computer unless you copy it; your Passphrase is never in it, and Channel IDs appear
+only shortened (as Relay Setup shows them). **Chasing a problem?** At the bottom of Diagnostics: **Clear** to start
+fresh, then turn on **Show a banner when something goes wrong** (a red bar at the top of the page the moment anything
+fails, with Copy) and, if we ask, **Also record extra detail** (many more lines — it fills the record fast, so turn
+it off afterwards). We may send you a link that turns both on (`?errorBanner=on&logDetail=on`).
+
 | Symptom | Explanation | Fix |
 |---|---|---|
+| A red bar at the top of the page with a code ("error · MOVE-03 · …") (7.26.0) | **Show a banner when something goes wrong** is on (Help → Diagnostics), and something failed | **Copy** it and send it to us; **Turn off this banner** if you don't want them |
+| A box: "ReaderWrangler hit a problem that may affect your library" (7.26.0) | Something that may put your data at risk — a save failed, the library couldn't be read; shown to everyone | Do what the box says (usually: save a backup, then reload; when the library didn't load: *don't* save a backup — reload). **Copy details** and send them to us |
 | Deleted book reappeared after a fetch | It's owned/sampled — Amazon still lists it; revive-on-sighting is by design | Hide it (owned), or delete the sample at Amazon first (truth path) |
 | New purchase missing after import | Import raced the fetch — give the Relay ~1 min to catch up, or it was an *upgrade* of a tracked book (didn't count as "new", stayed in its folder) | Re-import and check the **Inbox** (where new purchases land); an upgrade of a tracked book stays in its folder — find it via All Books sorted by Date Added |
 | Found a book (via search or All Books) but don't know where it's filed | Column and cover views don't show a book's folder/list membership | **Hover its cover** — the "Found in" folders and "On Book Lists" are clickable; click one to jump there |
