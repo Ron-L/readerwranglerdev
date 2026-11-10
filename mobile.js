@@ -1,6 +1,6 @@
 // mobile.js — ReaderWrangler Mobile Viewer
 // MOBILE_VERSION tracks mobile-specific iterations
-const MOBILE_VERSION = '1.11.0-alpha.26'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
+const MOBILE_VERSION = '1.11.0-alpha.27'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
 rwLog.log('info', 'BOOT', `Phone app ${MOBILE_VERSION} running (page ${APP_VERSION})`);
 
 // v1.7.0 - Which server is this copy talking to? Derived from the page's own address, so an
@@ -895,6 +895,15 @@ function AppMenu({ themePreference, viewMode, showDealsOnly, showHidden, onApply
     const themeLabels = { auto: 'Auto', light: 'Light', dark: 'Dark' };
     const nextTheme = { auto: 'light', light: 'dark', dark: 'auto' };
     const [showCreds, setShowCreds] = useState(false);
+    // 7.26.0 (LOGGING.md §5 step 5.4 — Ron: just a Copy button on the phone, no viewer) - the phone's log, for a message to us
+    const [diagCopied, setDiagCopied] = useState(null);   // null | 'copied' | 'failed'
+    const copyDiagnostics = () => {
+        const text = rwLog.diagnosticsText([`Phone app ${MOBILE_VERSION} (page ${APP_VERSION})`]);
+        Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(text)).then(
+            () => setDiagCopied('copied'),
+            () => { rwLog.log('warning', 'PHONE-07', "Diagnostics couldn't be copied (the browser refused the clipboard)"); setDiagCopied('failed'); });
+        setTimeout(() => setDiagCopied(null), 2000);
+    };
 
     return (
         <div className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-y-auto"
@@ -1048,6 +1057,11 @@ function AppMenu({ themePreference, viewMode, showDealsOnly, showHidden, onApply
                     <p>Server: {SERVER_ENV.label}</p>
                     {RELAY_IS_DEV && <p>Relay: Dev relay worker + storage</p>}
                     {libraryAsOf && <p>Library as of {new Date(libraryAsOf).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}{(() => { try { const g = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').deviceStateGen; return g ? ` (copy …${String(g).slice(-4)})` : ''; } catch (e) { return ''; } })()}</p>}
+                    <button type="button" data-copy-diagnostics onClick={copyDiagnostics}
+                        className="mt-2 py-1 px-3 rounded text-xs"
+                        style={{ border: '1px solid var(--border-default, #e2e8f0)', color: 'var(--text-primary, #1e293b)', touchAction: 'manipulation' }}>
+                        {diagCopied === 'copied' ? 'Copied' : diagCopied === 'failed' ? "Couldn't copy" : 'Copy diagnostics'}
+                    </button>
                 </div>
             </div>
         </div>

@@ -28,6 +28,19 @@ with App(relay=True, size=(390, 844)) as app:
               "no line naming the phone app's build — did the phone app load?")
     test("PHONE-001", "a phone-width window runs the phone app, and it says which build", build_line)
 
+    def copy_diagnostics():
+        # LOGGING.md §5 step 5.4 (Ron): the phone gets a Copy diagnostics button, no viewer
+        page.evaluate("() => { window._copied = null; navigator.clipboard.writeText = (t) => { window._copied = t; return Promise.resolve(); }; }")
+        page.get_by_role("button", name="Menu").first.click()
+        page.locator("[data-copy-diagnostics]").click()
+        page.wait_for_function("() => window._copied !== null", timeout=5000)
+        text = page.evaluate("() => window._copied")
+        check(text.startswith("ReaderWrangler diagnostics — "), text[:80])
+        check(re.search(r"Phone app \d+\.\d+\.\d+(-alpha\.\d+)? \(page ", text), "no phone build line in the header")
+        check("Phone app" in text and "running" in text, "the phone's own log lines aren't in the copy")
+        page.locator("[data-copy-diagnostics]").get_by_text("Copied").wait_for(timeout=3000)
+    test("PHONE-003", "the phone's menu has Copy diagnostics: the phone's log, under a header with its build", copy_diagnostics)
+
     def library_unreadable():
         app.expect("PHONE-03")   # caused on purpose
         app.ctx.add_init_script("""indexedDB.open = function () {

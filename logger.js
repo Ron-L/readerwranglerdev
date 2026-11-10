@@ -109,6 +109,9 @@ function createLogger(opts = {}) {
     })();
     let saveScheduled = false;
     let toaster = null;    // the app's toast routine, handed over at startup (setToaster) — the logger never depends on the app
+    // The Diagnostics window listens (subscribe) so it updates live; a listener's failure never breaks logging.
+    const listeners = new Set();
+    const notify = () => { for (const fn of listeners) { try { fn(); } catch (e) { /* the window's problem */ } } };
 
     const save = () => {
         saveScheduled = false;
@@ -155,6 +158,7 @@ function createLogger(opts = {}) {
             if (entries.length > cap) entries.splice(0, entries.length - cap);
         }
         scheduleSave();
+        notify();
     };
 
     // The one call. Checks the call's shape and reports a slip as UI-02 — the message itself is always kept.
@@ -185,8 +189,27 @@ function createLogger(opts = {}) {
         log,
         format,
         TEST_MARK,
+        levels: LOG_LEVELS,   // the order, lowest first — the Diagnostics window's level filter reads it (never a copy)
         entries: () => entries.map(e => ({ ...e })),
         flush: save,
+        // The Diagnostics window (LOGGING.md §5 step 5.3): told of every kept entry; returns the unsubscribe.
+        subscribe: (fn) => { if (typeof fn === 'function') listeners.add(fn); return () => listeners.delete(fn); },
+        // Clear (like DevTools): the kept log empties and is saved at once, so a reload can't bring it back.
+        clear: () => { entries = []; save(); notify(); },
+        // Copy diagnostics: a header (the time, the caller's lines — the app's build —, the browser, the switches), then
+        // EVERY kept entry, oldest first, each entry's details on the line below it. Already cleaned (scrub) when recorded.
+        diagnosticsText: (headerLines) => {
+            const browser = typeof navigator !== 'undefined' && navigator.userAgent ? navigator.userAgent : 'unknown';
+            const lines = [`ReaderWrangler diagnostics — ${new Date(now()).toISOString()}`, ...(headerLines || []),
+                `Browser: ${browser}`,
+                `Switches: error banner ${switches.errorBanner ? 'on' : 'off'}, extra detail ${switches.logDetail ? 'on' : 'off'}`,
+                `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} kept`, ''];
+            for (const e of entries) {
+                lines.push(`${new Date(e.time).toISOString()}  ${format(e)}`);
+                if (e.data !== undefined) { try { lines.push(`    ${JSON.stringify(e.data)}`); } catch (x) { lines.push('    (details not shown)'); } }
+            }
+            return lines.join('\n');
+        },
         shortChannelId,
         switches: () => ({ ...switches }),
         setSwitch,

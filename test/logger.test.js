@@ -288,6 +288,48 @@ test('LOG-031', 'one short form for a Channel ID — first 8 … last 4, as Rela
     assert.strictEqual(L.shortChannelId(null), '');
 });
 
+// ---- For the Diagnostics window (LOGGING.md §5 step 5.3): live updates, Clear, Copy diagnostics ----
+test('LOG-032', 'subscribe(fn): told when an entry is kept or a repeat counted — not for one that isn\'t kept; unsubscribe', () => {
+    const w = world();
+    let calls = 0;
+    const off = w.log.subscribe(() => { calls++; });
+    w.log.log('info', 'BOOT', 'one');
+    w.log.log('info', 'BOOT', 'one');       // a repeat, counted
+    w.log.log('debug', 'STORE', 'detail');  // not kept (extra detail off)
+    assert.strictEqual(calls, 2);
+    off();
+    w.log.log('info', 'BOOT', 'two');
+    assert.strictEqual(calls, 2, 'unsubscribed');
+});
+
+test('LOG-033', 'clear(): the kept log empties now (saved at once), and the window is told', () => {
+    const w = world();
+    let calls = 0;
+    w.log.subscribe(() => { calls++; });
+    w.log.log('info', 'BOOT', 'one');
+    w.log.clear();
+    assert.deepStrictEqual(w.log.entries(), []);
+    assert.strictEqual(w.store.get('readerwrangler-log'), '[]', 'saved at once — a reload must not bring it back');
+    assert.strictEqual(calls, 2);
+});
+
+test('LOG-034', 'diagnosticsText: a header (time, the caller\'s lines, the switches), then EVERY kept entry, oldest first, with details', () => {
+    const w = world();
+    w.log.setSwitch('errorBanner', true);
+    w.log.log('info', 'BOOT', 'first');
+    w.log.log('warning', 'PREF-02', 'second', { error: 'quota' });
+    w.log.log('info', 'MOVE', 'planted', null, { test: true });
+    const text = w.log.diagnosticsText(['Desktop app 7.26.0-alpha.27 (page 7.25.1)']);
+    const lines = text.split('\n');
+    assert.ok(lines[0].startsWith('ReaderWrangler diagnostics — '), lines[0]);
+    assert.ok(text.includes('Desktop app 7.26.0-alpha.27 (page 7.25.1)'), 'the caller\'s header line');
+    assert.ok(text.includes('Switches: error banner on, extra detail off'), 'the switches');
+    const first = lines.findIndex(l => l.includes('info · BOOT · first')), second = lines.findIndex(l => l.includes('PREF-02 · second'));
+    assert.ok(first > 0 && second > first, 'oldest first');
+    assert.ok(lines[second + 1].includes('"error":"quota"'), 'the details on the next line: ' + lines[second + 1]);
+    assert.ok(text.includes('MOVE-!TEST! · planted'), 'a planted entry keeps its TEST marker');
+});
+
 test('LOG-030', 'an old remembered level (the ladder, before 2026-11-09) becomes the switches once, then is gone', () => {
     const store = new Map([['readerwrangler-log-level', 'debug']]);
     const storage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)),

@@ -359,6 +359,10 @@ the other modules or the page's inline scripts. Totals: **critical** 6, **error*
       **Copy diagnostics** (everything kept, always — not just what the filter shows; with a header: the build, the
       browser, the date). Built on the overlay primitive (`<Dialog>`).
    4. **The phone: a Copy diagnostics button** on its About panel — no viewer (Ron).
+   - **Built:** 1 ✅ 7.26.0-alpha.25 (LOG-016–022/030, LOGUI-001–006); 2 ✅ alpha.26 (LOG-010/027/031); 3 ✅ and 4 ✅
+     alpha.27 (the window: DIAG-001–007; the logger's `subscribe`, `clear`, `diagnosticsText`, `levels`: LOG-032–034;
+     the phone: PHONE-003). The window's time filter starts at "Everything kept" (not "since this page loaded" — a
+     problem from before a reload is exactly what support asks about).
    5. **Later, not this release:** the fetch's problems as their own group, *"From your last fetch (date)"* — not
       interleaved by time, so two computers' clocks never need to agree (rides on the fetcher's own logging, §4 note 6);
       a "Send a test message" button (plants TEST-marked entries so support can say "do you see the banner?").
