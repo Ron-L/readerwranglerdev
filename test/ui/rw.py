@@ -28,6 +28,7 @@ The local relay (LocalRelay, 2026-11-05) is Cloudflare's own emulator (`wrangler
 on this PC with an empty store made for the run and deleted after — never the dev or production relay, which the
 request detector still catches. Its process tree is stopped by its exact id (Law 5).
 """
+import base64
 import gzip
 import json
 import os
@@ -215,6 +216,11 @@ class App:
                                             device_scale_factor=self.zoom)
         self.ctx.route(lambda u: "goatcounter" in u or "gc.zgo.at" in u,
                        lambda r: r.fulfill(status=204, body=""))
+        # Ron's rule — screen tests never touch Amazon or a real relay — is ENFORCED here, not just recorded
+        # (2026-11-10: a real library's cover addresses were fetched from Amazon's image server during load timing).
+        # A cover gets a small stand-in image (so the cover cache fills as it does for a person); anything else to those
+        # hosts is refused. The request is still recorded (violations), so a test that asserts "no requests" still sees it.
+        self.ctx.route(lambda u: bool(FORBIDDEN_HOSTS.search(u.split("/")[2] if "://" in u else "")), self._block)
         if self.log_switches:
             self.ctx.add_init_script("""try { if (!localStorage.getItem('rw-test-log-switches-set')) {
                 localStorage.setItem('readerwrangler-log-banner', 'on'); localStorage.setItem('readerwrangler-log-detail', 'on');
@@ -274,6 +280,18 @@ class App:
         # failure says which request it was.
         url = (m.location or {}).get("url", "") if m.text.startswith("Failed to load resource") else ""
         self.console.append((m.type, m.text + (f" [{url.split('?')[0]}]" if url else "")))
+
+    STAND_IN_COVER = base64.b64decode(   # a 1x1 grey PNG
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN89+7dfwAJ0wPaTqk7wQAAAABJRU5ErkJggg==")
+
+    @staticmethod
+    def _block(route):
+        url = route.request.url.split("?")[0].lower()
+        if route.request.resource_type == "image" or url.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+            route.fulfill(status=200, content_type="image/png", body=App.STAND_IN_COVER,
+                          headers={"Access-Control-Allow-Origin": "*"})
+        else:
+            route.abort()
 
     def _watch_request(self, req):
         host = req.url.split("/")[2] if "://" in req.url else ""
