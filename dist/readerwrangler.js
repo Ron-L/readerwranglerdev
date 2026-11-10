@@ -221,7 +221,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.27.0-alpha.1"; // Build version for this file
+var ORGANIZER_VERSION = "7.27.0-alpha.2"; // Build version for this file
 // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
 // compiled) and the page's APP_VERSION doesn't move during alphas
 rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -4909,10 +4909,11 @@ function ReaderWrangler() {
 
           await saveBooksToIndexedDB(loadedBooks);
 
-          // v4.13.0: cover cache
-          var urlMap = await buildCoverUrlMap(loadedBooks);
-          setCoverUrlMap(urlMap);
-          populateCoverCache(loadedBooks); // background
+          // 7.27.0-alpha.2 - EXPERIMENT (Ron, 2026-11-10): the boot-time cover map is skipped. Since 5.0.0
+          // the desktop grid and list draw covers from their normal address (the browser's own cache);
+          // the map served only the book details window, yet reading all 3,270 cached covers one by one
+          // held the folders back by seconds on every load. (The phone keeps its map — its own path.)
+          //   was: setCoverUrlMap(await buildCoverUrlMap(loadedBooks)); populateCoverCache(loadedBooks);
         }
 
         setFolders(loadedFolders);
