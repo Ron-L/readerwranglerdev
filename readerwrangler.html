@@ -136,25 +136,25 @@
     <!-- Shared modules (pure JS, no Babel needed) -->
     <!-- 7.26.0 - THE logging module (window.rwLog; docs/design/LOGGING.md §6) — first of our scripts, so its handlers
          catch an error in anything after it -->
-    <script src="logger.js?v=7.26.0-alpha.27"></script>
+    <script src="logger.js?v=7.26.0"></script>
     <script src="uiHelpers.js?v=7.21.2"></script>
     <!-- v7.17.0 - The ONE book-field table (merge classes + wire mapping) + serialize/deserialize; node-unit-tested; loads before bookMerge/storage -->
     <script src="bookFields.js?v=7.19.0"></script>
     <!-- v7.17.0 - Book-merge implementation (reads the table above); node-unit-tested; loads before storage.js -->
     <script src="bookMerge.js?v=7.19.0"></script>
-    <script src="storage.js?v=7.26.0-alpha.22"></script>
+    <script src="storage.js?v=7.26.0"></script>
     <!-- v7.18.0 - Overlay layer registry (pure JS; the ordered dialog/popover stack); node-unit-tested; loads before the app script -->
     <script src="overlayRegistry.js?v=7.19.0"></script>
     <!-- v6.3.0 - Data integrity checks -->
-    <script src="integrity.js?v=7.26.0-alpha.7"></script>
+    <script src="integrity.js?v=7.26.0"></script>
     <!-- 7.26.0 - What Restore needs from a backup file, checked all at once (pure; node-unit-tested) -->
-    <script src="backupCheck.js?v=7.26.0-alpha.14"></script>
+    <script src="backupCheck.js?v=7.26.0"></script>
     <!-- v6.13.0-alpha.1 - Pure Auto-Organize engine (shared by the wizard + the right-click; node-unit-tested) -->
     <script src="organizeEngine.js?v=6.13.0"></script>
     <!-- v6.0.0 - Relay modules (encrypt, compress, client) -->
     <script src="relay-crypto.js?v=7.0.0"></script>
     <script src="relay-compress.js?v=7.0.0"></script>
-    <script src="relay-client.js?v=7.26.0-alpha.11"></script>
+    <script src="relay-client.js?v=7.26.0"></script>
     <!-- v7.4.0 - Capture the first load error so the emergency screen can SHOW it on localhost
          (a dev's 'Something went wrong' is usually a syntax error, not corrupted data) -->
     <script>
@@ -174,7 +174,7 @@
     <script>
         // APP_VERSION - Single source of truth for cache busting
         // Update this on each release to force browsers to fetch new code
-        const APP_VERSION = "7.25.1";
+        const APP_VERSION = "7.26.0";
 
         // v7.21.2 - Every year the code actually changed, listed — About shows "Copyright © ‹this›". A list, not a range:
         // a year with no changes is skipped (a range like 2025–2030 would claim the gap years too), and nothing is
