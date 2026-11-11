@@ -3,7 +3,8 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [🚧 Faster loading: build the app ahead of time (35 seconds → 1)](#faster-loading-build-the-app-ahead-of-time-35-seconds--1)
+      - [Old words, quick win: the reset messages and the collections fetcher's finish message](#old-words-quick-win-the-reset-messages-and-the-collections-fetchers-finish-message)
+      - [✅ Faster loading: build the app ahead of time (35 seconds → 1)](#faster-loading-build-the-app-ahead-of-time-35-seconds--1)
       - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
@@ -177,8 +178,46 @@ drifted). To change the order, move the task.
 
 ### High priority
 
-#### 🚧 Faster loading: build the app ahead of time (35 seconds → 1)
+#### Old words, quick win: the reset messages and the collections fetcher's finish message
+<!-- id 20261111-0903 -->
+
+_Why it matters:_ Four reset messages and one fetcher message still describe the app before Cloud Sync — files on disk,
+an Export button that doesn't exist, a library file nobody has now. Someone resetting is often already having a bad
+day; wrong directions make it worse. All text, so a small branch right after 7.27.0 (Ron, 2026-11-11).
+
+**The places** (found 2026-11-11, the amazon-library.json sweep; wording as of 7.27.0)
+1. **Tools → Reset App** (readerwrangler.js ~12066–12077): "This will: Unload library and collections · Remove all
+   folders and organization · Reset all filters"; "Your library/collections files on disk will NOT be deleted. You can
+   reload them anytime."; **"💡 Tip: Use the Export button first to save your organization before resetting."** —
+   there is no Export button (it's File → Save Backup), and there are no library/collections files to reload.
+2. **The emergency screen** (readerwrangler.html ~349, shown when the app can't start): "ReaderWrangler failed to load.
+   This may be caused by corrupted data. You can reset the app to fix this. Your files on disk are safe."
+3. **The emergency reset's confirmation** (readerwrangler.html ~369): "This clears all ReaderWrangler data from this
+   browser. Your files on disk are safe — import your backup file after the reset to restore everything." ("import" is
+   the retired word: Restore.)
+4. **The reset page's confirmation box** (reset.js ~93): "Your files on disk are safe. To recover: • Restore backup
+   file → Books + organization" (fixed in 7.26.0 — the words to match).
+5. **The reset page's own panel** (reset.html ~58): "Good news: This only clears data from your browser. Your files on
+   disk are safe." — its bullet and tip were fixed on 7.27.0's branch ("Restore backup file", "File → Save Backup").
+6. **The collections fetcher's finish message** (amazon-collections-fetcher.js ~866): *"Updated amazon-library.json with
+   N books' collections"* — it uploads to the relay (its console says so); its header comment's steps 4–7 describe the
+   old file. A fetcher: goes to dev and prod together (it's the same for all three bookmarklets).
+7. Clean-up beside it: the wishlist and series fetchers' unused `LIBRARY_FILENAME = 'amazon-library.json'`.
+
+**The words** (decided 2026-10-30 in "Reset App: one honest message…", Before launch): what's cleared (everything
+ReaderWrangler keeps in this browser); what's kept (files you saved — backups, spreadsheets — and your copy in the
+cloud); how to come back: **Restore backup file** — the one way offered until "Restore from Cloud Sync…" exists (Ron,
+2026-11-09). Verify first whether Tools → Reset App clears the stored Cloud Sync Key (the emergency reset doesn't).
+
+**Claude's recommendation (Ron's call when the branch starts):** do that task's decision 1 here too — **one message,
+defined once**, used by places 1–5 (a small shared file both pages load) — because these copies drifted exactly as
+copies do: 7.26.0 fixed one of four. Then the Cloud Sync rename changes one place. Places 6–7 are separate (the fetcher).
+
+#### ✅ Faster loading: build the app ahead of time (35 seconds → 1)
 <!-- id 20261014-1030s -->
+
+**Done in 7.27.0** (2026-11-11): both steps built and tested by Ron; decided item 3 (drop the const → var conversion)
+moved to "With a filter on, the right pane still shows subfolders…" (its item 5), which it waits on.
 
 **Status (2026-11-10, branch `feature/faster-loading`, 7.27.0-alpha.4):** step 1 built — the app compiled ahead of time
 (tools/build.py → dist/; serve.py rebuilds on demand; commit check step 9): ~50 s → 0.5 s to the app. Ron then counted
@@ -2405,6 +2444,9 @@ time").
    really hides empty folders, a new folder hides there too.
 4. Test step: turn on a filter, open a folder with subfolders — only subfolders with matching books (or "show all
    folders") appear.
+5. **Then drop the `const` / `let` → `var` conversion in the build** (moved here from "Faster loading", decided item 3,
+   when 7.27.0 shipped it): `@babel/plugin-transform-block-scoping` in tools/build/compile.js — once item 2's check is
+   clean, so the next such bug is a visible crash, not a silent "undefined".
 - Tool survey 2026-11-03 (docs/design/TOOL-SURVEY.md): ESLint's `no-use-before-define` (+ `eslint-plugin-react-hooks`) in a commit check is
   the ready-made form of item 2 — expect tuning, since it also flags reads inside functions that only run later.
 
