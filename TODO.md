@@ -909,6 +909,11 @@ _Why it matters:_ Small fetcher fixes that are each too minor to stand alone.
       say so in the fetch summary or console ("paced N requests to the safe rate").
    4. **Re-measure the floor** in one normal full fetch and write where the number came from beside the constant.
    5. It's also where the human-check stop lives ("Stop cleanly when Amazon asks for a human check mid-fetch").
+4. **The collections fetcher's finish message names a file it no longer writes** (found 2026-11-11 by a sweep for
+   amazon-library.json): it uploads to the relay (its console says so), then shows *"Updated amazon-library.json with N
+   books' collections"* (amazon-collections-fetcher.js ~866, its `FILENAME` constant; the header comment's steps
+   describe the old file too). Say what happened: the collections were sent to Cloud Sync. The wishlist and series
+   fetchers only define the old name (`LIBRARY_FILENAME`, never used) — remove it ("Remove code left over…").
 
 **Decided** (Ron + UX, 2026-10-22): items 1–2 as listed (the "772%" ratio can't exceed 100% — fix the formula; the
 elapsed time redraws on a one-second tick while a fetch runs). **Item 3 comes first in "Fetcher work, in build
@@ -3091,6 +3096,11 @@ Someone resetting is often already having a bad day (Ron, 2026-10-30, noticed th
    the emergency reset does NOT clear the stored Cloud Sync Key (item 4). Until "Restore from Cloud Sync…" (Before launch
    → Safety and data protection) is built, the one way back offered is the backup file (Ron); once it is, offer that as
    the second.
+7. **Update (2026-11-11, Ron found it):** item 6's fix reached only place 2 (reset.js's confirmation box) — place 4,
+   the reset page's own panel, still offered "Import amazon-library.json" and "File → Export Backup" (fixed in
+   7.27.0's branch: "Restore backup file → Books + organization", "File → Save Backup"). A sweep for
+   amazon-library.json found nothing else a person sees in the app. Still open here: place 1 ("files on disk… reload
+   them anytime", "Use the Export button") and place 3 ("Your files on disk are safe"), and the one shared message.
 
 ### Safety and data protection
 
