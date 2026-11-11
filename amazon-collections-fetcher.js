@@ -6,20 +6,16 @@
 // - Uses File System Access API to write back to same file (Chrome/Edge)
 // - Fallback to download for Firefox/Safari (with warning about file naming)
 //
-// Instructions:
-// 1. Go to https://www.amazon.com/hz/mycd/digital-console/contentlist/booksAll/dateDsc/
-// 2. Open DevTools Console (F12 → Console tab)
-// 3. Paste this ENTIRE script and press Enter
-// 4. When prompted, select your amazon-library.json file
-// 5. Wait for completion (will take several minutes for large libraries)
-// 6. Downloads updated amazon-library.json with collections data
-// 7. Upload to organizer!
+// How it runs (7.27.1 — the steps below used to describe the old library file, gone since Cloud Sync in 6.0):
+// 1. On Amazon's "Manage Your Content" page, click the ReaderWrangler bookmarklet → 📚 Download Collections
+// 2. Wait for completion (several minutes for large libraries) — your collections and read status go to the Relay
+// 3. In ReaderWrangler: File → Import from Relay
 //
 // Re-run: After pasting once, you can re-run anytime in the same console session
 //         by pressing Up Arrow (to recall the function call) or typing: fetchAmazonCollections()
 
 async function fetchAmazonCollections() {
-    const FETCHER_VERSION = 'v3.0.1';
+    const FETCHER_VERSION = 'v3.0.2';
     // Minimum latency floor between Amazon API calls (adopted from the 2026-08 external
     // review, item 4): today's politeness is EMERGENT — it comes from Amazon's backend
     // RTT (~400ms), which is their engineering decision and can change without notice.
@@ -49,7 +45,6 @@ async function fetchAmazonCollections() {
     const ENDPOINT = 'https://www.amazon.com/hz/mycd/digital-console/ajax';
     const BATCH_SIZE = 200;  // Tested via diag-01-collections-rate-limit.js - 200 works
     const FETCH_DELAY_MS = 0; // 0ms - network RTT (~400ms) provides natural throttling
-    const FILENAME = 'amazon-library.json';
 
     // Demo whitelist — filter to specific ASINs for tutorial video recording
     let whitelistASINs = null;
@@ -863,7 +858,8 @@ async function fetchAmazonCollections() {
     console.log('Your library data (with collections) has been uploaded to the relay.\n');
 
     // Show completion in progress UI
-    progressUI.showComplete(`Updated ${FILENAME} with ${processedBooks.length} books' collections`);
+    // 7.27.1 - it named "amazon-library.json", a file it no longer writes (it uploads to the Relay, as the console says)
+    progressUI.showComplete(`Your collections were sent to the Relay (${processedBooks.length} books). In ReaderWrangler: File → Import from Relay.`);
 
 }
 

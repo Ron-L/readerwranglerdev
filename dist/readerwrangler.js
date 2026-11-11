@@ -221,7 +221,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.27.0"; // Build version for this file
+var ORGANIZER_VERSION = "7.27.1-alpha.1"; // Build version for this file
 // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
 // compiled) and the page's APP_VERSION doesn't move during alphas
 rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -12063,18 +12063,21 @@ function ReaderWrangler() {
     React.createElement("div", { "data-select-text": true, "data-dialog-body": true, className: "p-6 space-y-4" }, /*#__PURE__*/
     React.createElement("p", { className: "text-gray-800 font-semibold" }, "This will completely reset the app to its initial unused state."), /*#__PURE__*/
     React.createElement("div", { className: "text-gray-700" }, /*#__PURE__*/
-    React.createElement("p", { className: "font-semibold mb-2" }, "This will:"), /*#__PURE__*/
+    React.createElement("p", { className: "font-semibold mb-2" }, "This will remove from this browser:"), /*#__PURE__*/
     React.createElement("ul", { className: "list-disc list-inside space-y-1 ml-2" }, /*#__PURE__*/
-    React.createElement("li", null, "Unload library and collections"), /*#__PURE__*/
-    React.createElement("li", null, "Remove all folders and organization"), /*#__PURE__*/
-    React.createElement("li", null, "Reset all filters")
+    React.createElement("li", null, "your books"), /*#__PURE__*/
+    React.createElement("li", null, "your folders, Book Lists and tags"), /*#__PURE__*/
+    React.createElement("li", null, "your filters")
     )
     ), /*#__PURE__*/
+
+
     React.createElement("div", { className: "bg-blue-50 border border-blue-200 rounded p-3 text-sm text-gray-700" }, /*#__PURE__*/
-    React.createElement("p", { className: "mb-2" }, "Your library/collections files on disk will NOT be deleted. You can reload them anytime.")
+    React.createElement("p", { className: "mb-2" }, "Your saved backup files and your copy in the cloud are not touched."), /*#__PURE__*/
+    React.createElement("p", null, "To get everything back afterwards: File \u2192 Restore Backup\u2026 with your backup file.")
     ), /*#__PURE__*/
     React.createElement("div", { className: "bg-yellow-50 border border-yellow-300 rounded p-3 text-sm" }, /*#__PURE__*/
-    React.createElement("p", { className: "font-semibold text-gray-800" }, "\uD83D\uDCA1 Tip: Use the Export button first to save your organization before resetting.")
+    React.createElement("p", { className: "font-semibold text-gray-800" }, "\uD83D\uDCA1 Before you reset, save a backup: File \u2192 Save Backup.")
     ), /*#__PURE__*/
     React.createElement("div", { className: "flex gap-3 justify-end pt-2" }, /*#__PURE__*/
     React.createElement("button", {

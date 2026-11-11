@@ -90,9 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
     resetButton.addEventListener('click', () => {
         // Browser confirmation dialog
         const confirmed = confirm(
-            '⚠️ This will clear all ReaderWrangler data from your browser.\n\n' +
-            'Your files on disk are safe. To recover:\n' +
-            '• Restore backup file → Books + organization\n\n' +
+            // 7.27.1 - the reset messages' shared sentences, word for word (test/test_reset_words.py — change them there first)
+            '⚠️ This will clear your books, folders and settings from this browser.\n\n' +
+            'Your saved backup files and your copy in the cloud are not touched.\n' +
+            'To get everything back afterwards: File → Restore Backup… with your backup file.\n\n' +
             'Continue with reset?'
         );
 

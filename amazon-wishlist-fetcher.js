@@ -26,9 +26,8 @@
 async function addToWishlist() {
     'use strict';
 
-    const FETCHER_VERSION = 'v2.1.0';
+    const FETCHER_VERSION = 'v2.1.1';
     const SCHEMA_VERSION = '2.1';
-    const LIBRARY_FILENAME = 'amazon-library.json';
 
     // v2.0.2 (onWishlist retirement, item 0) - wishlist truth = ownershipType only; this fetcher
     // still WRITES `onWishlist: true` in its book literals for old readers (deliberate, kept),

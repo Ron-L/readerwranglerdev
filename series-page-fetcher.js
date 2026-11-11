@@ -9,9 +9,9 @@
 // 2. Fetch all books via API (pageSize=200)
 // 3. Parse HTML response to extract book data
 // 4. Detect gaps in series numbering
-// 5. Read existing amazon-library.json
+// 5. Read the books you already have from the Relay (7.27.1: was "read amazon-library.json", gone since Cloud Sync)
 // 6. Add new books (skip owned, skip duplicates)
-// 7. Write file back
+// 7. Send them to the Relay as wishlist entries
 // 8. Show summary with gap report
 //
 // Re-run: After pasting once, you can re-run with: importSeries()
@@ -19,7 +19,7 @@
 async function importSeries() {
     'use strict';
 
-    const FETCHER_VERSION = 'v2.0.2';
+    const FETCHER_VERSION = 'v2.0.3';
     // Minimum latency floor between Amazon API calls (adopted from the 2026-08 external
     // review, item 4): today's politeness is EMERGENT — it comes from Amazon's backend
     // RTT (~400ms), which is their engineering decision and can change without notice.
@@ -37,7 +37,6 @@ async function importSeries() {
     }
 
     const SCHEMA_VERSION = '2.1';
-    const LIBRARY_FILENAME = 'amazon-library.json';
 
     // Use top-level document/window to handle iframe context
     const doc = top.document;
