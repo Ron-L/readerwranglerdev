@@ -126,6 +126,7 @@ ReaderWrangler is the **only tool specifically designed for Amazon Kindle librar
 <!-- SYNC: Keep "Recent Features" in sync with features.html -->
 ## Recent Features
 
+- **Opens in a second (7.27)** — ReaderWrangler no longer prepares its code in your browser on every visit: the app appears in about half a second, and a 3,000-book library is on screen in about two.
 - **See what happened, and restores that put back exactly the backup (7.26)** — **Help → Diagnostics** shows a record of what ReaderWrangler did and what went wrong — read it, filter it, or copy it for us in one click (the phone has Copy diagnostics too). Restore now puts back exactly the backup, and a backup it can't restore says everything that's wrong at once, before anything changes.
 - **Your synced copy, locked to you (7.25)** — Every change to your cloud copy is now signed with a key made from your passphrase, so a stranger who learns your Channel ID can no longer change or delete anything.
 - **Collections into tags, with nothing hidden (7.24)** — Tag from Collections now shows every change before you Apply — one column per collection, a + for each book that gets the tag — and never removes a tag unless you ask. And tag names respect capitals: "Read" and "read" are different tags, and a Caps Lock slip asks before making a twin.
@@ -147,7 +148,6 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 <!-- SYNC: Keep "Coming Soon" / "Future Features" in sync with features.html -->
 ## Coming Soon!
 
-- **Opens in a second** — ReaderWrangler starts almost instantly instead of making you wait
 - **Move any window aside** — Drag any window out of the way to see what's behind it
 - **A calmer book editor** — In edit mode, nothing changes until you press Save — and one undo reverses the whole save
 - **Fetch & import reports that tell the whole story** — "3 wishlist books now owned, 1 became a sample," in the dialog and the toast history

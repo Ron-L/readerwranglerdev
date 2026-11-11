@@ -8,7 +8,12 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-10 (through release 7.26.0)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-11 (through release 7.27.0)** — all sections human-reviewed (§1–21).
+7.27.0: the app opens in about a second (built ahead of time) — §19's "Loading feels stuck" row rewritten (a long load now
+means something's wrong); the reset page's recovery panel and the security page's note reworded. Comb for "slow",
+"seconds", "unresponsive", "compil", "loading", "cover", "cache", "Export Backup", "amazon-library", "Reset App",
+"security": no other entry changed (cover/list views still show covers as before; the reset messages' remaining old
+words are TODO "Old words, quick win").
 7.26.0: Diagnostics (Help → Diagnostics…, the 🕐's Full log…, Copy diagnostics, the two switches, the banner and the
 "hit a problem" box) — §19 new Q + two rows, §13 pointer, §17 phone Q; Restore puts back exactly the backup, refuses
 an unusable file with every reason, Save Backup waits for the load — §15 items 5–7. Comb for "Restore", "Import
@@ -796,7 +801,7 @@ it off afterwards). We may send you a link that turns both on (`?errorBanner=on&
 | App shows an old version after update | Browser cache | Hard refresh (Ctrl+Shift+R); verify in Help → About |
 | "Open in Gmail (web)" shows ERR_TOO_MANY_REDIRECTS | A browser boundary: navigating to Gmail from another site withholds some Google auth cookies, so Gmail loops trying to re-auth (can't be fixed from a link) | Best on Windows: use **Share… → Gmail** (the OS share sheet's Gmail tile opens cleanly). Or, in the looping tab, click the address bar and press **Enter** — a top-level navigation composes cleanly. Or use **Open in email app** / **Copy to clipboard**. |
 | Share "email a friend" doesn't open my mail app | No default mail app / mailto handler set (or it points at the browser) | Set your default mail app: Windows Settings → Apps → Default apps → MAILTO → choose your client (e.g. Outlook); then "Open in email app" opens it prefilled |
-| Loading feels stuck / "Page Unresponsive" | The app compiles in your browser on every load (~15–25s); the loading screen says so | Wait it out — don't reset |
+| Loading takes more than a few seconds | Since 7.27.0 the app opens in about a second — a long wait means something went wrong | Reload (Ctrl+Shift+R); if it happens again, open Help → Diagnostics and press Copy diagnostics for us |
 | "Sync data check failed / checksum mismatch" | A Relay write was interrupted (rare since v7's sealed-packet sync) | Follow the dialog: full fetch rebuilds, then import — local data is intact |
 | Slow first "Checking pending additions" | First fetch after new relay data does extra accounting | Let it run; later fetches are quick |
 | "ReaderWrangler was reset in another tab. This tab's contents are out of date." (7.25.1) | Reset App ran in another tab of the same browser; this tab still shows the library from before, and stopped saving so it can't bring that library back | Press **Reload** |

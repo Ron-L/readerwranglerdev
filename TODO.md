@@ -4,7 +4,6 @@
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
       - [Old words, quick win: the reset messages and the collections fetcher's finish message](#old-words-quick-win-the-reset-messages-and-the-collections-fetchers-finish-message)
-      - [✅ Faster loading: build the app ahead of time (35 seconds → 1)](#faster-loading-build-the-app-ahead-of-time-35-seconds--1)
       - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
@@ -81,7 +80,6 @@
         - [Right-click: add "Copy ASINs" below Copy Titles / Copy Authors](#right-click-add-copy-asins-below-copy-titles--copy-authors)
         - [Bulk Edit hints that read like "you can type several values"](#bulk-edit-hints-that-read-like-you-can-type-several-values)
         - [With a filter on, the right pane still shows subfolders with no matching books](#with-a-filter-on-the-right-pane-still-shows-subfolders-with-no-matching-books)
-        - [✅ Every load saves the whole library back to storage, even when nothing changed](#every-load-saves-the-whole-library-back-to-storage-even-when-nothing-changed)
         - [A missing book description: one quiet line, on the computer and the phone](#a-missing-book-description-one-quiet-line-on-the-computer-and-the-phone)
         - [Remove the old version 4 app from the site — it shares your library's storage](#remove-the-old-version-4-app-from-the-site--it-shares-your-librarys-storage)
         - [Every edit rewrites the whole library in storage](#every-edit-rewrites-the-whole-library-in-storage)
@@ -212,52 +210,6 @@ cloud); how to come back: **Restore backup file** — the one way offered until 
 **Claude's recommendation (Ron's call when the branch starts):** do that task's decision 1 here too — **one message,
 defined once**, used by places 1–5 (a small shared file both pages load) — because these copies drifted exactly as
 copies do: 7.26.0 fixed one of four. Then the Cloud Sync rename changes one place. Places 6–7 are separate (the fetcher).
-
-#### ✅ Faster loading: build the app ahead of time (35 seconds → 1)
-<!-- id 20261014-1030s -->
-
-**Done in 7.27.0** (2026-11-11): both steps built and tested by Ron; decided item 3 (drop the const → var conversion)
-moved to "With a filter on, the right pane still shows subfolders…" (its item 5), which it waits on.
-
-**Status (2026-11-10, branch `feature/faster-loading`, 7.27.0-alpha.4):** step 1 built — the app compiled ahead of time
-(tools/build.py → dist/; serve.py rebuilds on demand; commit check step 9): ~50 s → 0.5 s to the app. Ron then counted
-~7 s to his books: the desktop read every cover copy one by one before the folders (removed — the desktop hasn't drawn
-from them since 5.0.0) and rewrote every book (now only when changed). Measured with tools/time_load.py (your library,
-full cover cache): folders on screen 4.4 → 1.8 s; Ron counted ~3 s to folders, ~4 s to every cover on alpha.2. Next:
-step 2, the styles. Then the decided item 3 (drop the const → var conversion) when its filter task is clean.
-
-_Why it matters:_ Opening ReaderWrangler takes **about 35 seconds** on Ron's PC — 32 of them the browser compiling the
-app's code, on every load. Built ahead of time, the app appeared in **1.0 second**. It's the first thing a newcomer
-meets, and it slows every load Ron does after a code change too.
-
-**Measured 2026-11-03** (Ron's PC, 3,270 books; untracked test pages, timed from page start to the app replacing the
-splash): today's page **35.8 s** average of 3 (the browser's compiler alone: 32.1 s); precompiled **1.0 s** average of
-5 — same books, same messages, same behavior. The compile itself, on the PC: **1.3–2.1 s** (desktop), 0.3–0.6 s
-(phone). The August figure in the spec (~14 s) has more than doubled as the code grew.
-
-**Decided** (Ron + Claude, 2026-11-03, in the TODO review — moved up from After launch → Technical clean-up)
-1. **Before launch, and early** (Ron: "I don't see why… we would not go ahead and do this sooner") — beside the
-   outside-libraries pinning task, which it also durably fixes (no in-browser compiler or style builder loaded at all).
-2. **An invisible build — two chokepoints, nothing to remember:**
-   - **serve.py builds on demand:** if a source file is newer than its built file, it rebuilds before serving — Ron's
-     loop stays edit → refresh (and gets faster: ~2 s on the PC instead of ~32 s in the browser).
-   - **A commit check refuses stale built files.** The built files are committed, so GitHub Pages serves them with no
-     build job on GitHub to maintain.
-3. **Match the browser's compile at first** (turning `const` / `let` into `var`, as the browser's compiler does — the
-   test crashed without it). The modern output exposed a real bug ("With a filter on, the right pane still shows
-   subfolders with no matching books", Small fixes); once that task's commit check comes back clean, drop the
-   conversion so the next such bug is a visible crash, not a silent "undefined".
-4. **Step 2: the styles** (the other 1–3 s, and the "not for production" warning) — the spec's Tailwind step; test it
-   the same way.
-5. The existing checks keep working on the source (name check, version guard); the cache-buster moves with the built
-   file — one more line in the version guard. What's served stays readable; the source is public on GitHub.
-
-**Spec:** docs/design/PRECOMPILE.md (written before these measurements and this build plan).
-**Tool survey 2026-11-03** (docs/design/TOOL-SURVEY.md): Chrome DevTools' tool server can time loads and run Lighthouse — only with
-`--no-usage-statistics --no-performance-crux` (it reports to Google by default).
-**First step: measure again** — the code has grown since 11-03 (7.26.0 shipped in between); the browser driver times
-the load, before and after. About one session. Moved to the top of High priority 2026-11-10 (Ron) — every later load,
-Ron's and the screen tests', gets about 30 times faster, so it comes before the work those tests check.
 
 #### Logging as its own module: a self-contained folder, one step from a sub-repo
 <!-- id 20261110-0908 -->
@@ -2449,25 +2401,6 @@ time").
    clean, so the next such bug is a visible crash, not a silent "undefined".
 - Tool survey 2026-11-03 (docs/design/TOOL-SURVEY.md): ESLint's `no-use-before-define` (+ `eslint-plugin-react-hooks`) in a commit check is
   the ready-made form of item 2 — expect tuning, since it also flags reads inside functions that only run later.
-
-##### ✅ Every load saves the whole library back to storage, even when nothing changed
-<!-- id 20261103-1702 -->
-
-**Done in 7.27.0-alpha.4** (with "Faster loading"): the load saves only when what it would save differs from what it
-read (`saveBooksIfChanged`, storage.js) — any clean-up's change counts, no list kept. The save cost 863 ms of
-Ron's load. Tests STORE-003/004.
-
-_Why it matters:_ Each time the app opens it rewrites all of your books (3,270 for Ron) right after reading them — work
-on every load, and a full write of the library each time is a needless chance for something to go wrong. Seen
-2026-11-03 in the precompile load test's console ("Saving 3270 books to IndexedDB…" on every load).
-
-**What to look into**
-1. The load path saves unconditionally after the integrity check (readerwrangler.js ~4602, `saveBooksToIndexedDB(
-   loadedBooks)`). It may be deliberate — keeping the integrity check's repairs — so read why it's there first.
-2. Likely fix: **save only when something changed** — the integrity check repaired a book, or the shared book
-   clean-up (`normalizeBook`) changed one. Mind "Retire two leftover book fields…" (Polish): it strips old fields in
-   that clean-up "on every load", so a stripped field must still count as a change and get saved.
-3. Measure the save's time on load (the browser driver) — it tells whether this is a speed fix or only hygiene.
 
 ##### A missing book description: one quiet line, on the computer and the phone
 <!-- id 20261014-1030ap -->

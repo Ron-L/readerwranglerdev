@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.27.0] - 2026-11-11
+
+### Changed
+- **ReaderWrangler opens in about a second.** It used to prepare its own code in your browser every time you opened it
+  — about 15 to 50 seconds, sometimes with your browser asking whether to keep waiting. That work is now done once,
+  before the app reaches you: the app appears in about half a second, and a 3,000-book library is on screen in about two.
+- **Your folders appear sooner too.** Opening the app no longer reads every book cover into memory, or saves your whole
+  library again, before showing your folders.
+- **Covers on the computer come straight from the browser's own cache**, as the cover view and list already did. The
+  extra copies this browser kept are removed once, freeing space. (The phone keeps its own.)
+
+### Fixed
+- **The emergency reset page** no longer suggests "Import amazon-library.json", and its tip points to **File → Save
+  Backup** (it named a menu item that no longer exists).
+- **The security page's** note about outside code is up to date.
+
 ## [7.26.0] - 2026-11-10
 
 ### Added
