@@ -14,14 +14,14 @@ RULE — for each STAGED code file, its version stamp must ALSO change in the sa
   readerwrangler.js   -> ORGANIZER_VERSION  (internal const, same file)
   mobile.js           -> MOBILE_VERSION      (internal const, same file)
   relay/relay-worker.js -> WORKER_VERSION    (internal const, same file — shown in the relay's emails)
-  <module>.js         -> its  <module>.js?v=  cache-buster line in readerwrangler.html
-  readerwrangler.css  -> its  readerwrangler.css?v=  cache-buster line in readerwrangler.html
+  any file a page loads with a literal stamp (src="X?v=…" / href="X?v=…": modules, readerwrangler.css,
+  dist/tailwind.css) -> that stamp in EVERY page that loads it (2026-11-11: the pages are read, not listed — the
+                         reset page's stamps were never checked while only readerwrangler.html was)
   APP_VERSION change  -> docs/design/SUPPORT-KB.md's stamp says "through release <that version>" (a release must
                          sweep the help notes; 2026-10-20)
 
-<module>.js are the local scripts readerwrangler.html loads with a ?v= buster. readerwrangler.js
-and mobile.js are the exceptions: their HTML buster is APP_VERSION (frozen during alpha testing),
-so they carry an INTERNAL const that bumps every alpha instead.
+readerwrangler.js and mobile.js are the exceptions: they're loaded with APP_VERSION as their stamp (frozen during
+alpha testing), so they carry an INTERNAL const that bumps every alpha instead.
 
 Deliberate exception (Ron's call only, per CLAUDE.md): git commit --no-verify.
 """
@@ -33,20 +33,33 @@ import re
 HTML = "readerwrangler.html"
 
 
-def html_modules():
-    """The local module scripts readerwrangler.html loads with a ?v= cache-buster — DERIVED from the page (2026-11-08), so
-    a new module is covered without anyone editing this file. The hand-kept list it replaces had missed logger.js, whose
-    buster then never moved. (readerwrangler.js and mobile.js load another way and keep their own version rules.)"""
-    staged = subprocess.run(["git", "show", ":" + HTML], capture_output=True)
-    if staged.returncode == 0:
-        text = staged.stdout.decode("utf-8", "replace")
-    else:
-        try:
-            with open(HTML, encoding="utf-8") as f:
-                text = f.read()
-        except OSError:
-            return []
-    return sorted(set(re.findall(r'<script src="([A-Za-z0-9_.-]+)\.js\?v=', text)))
+# A page's local, stamped reference: src="storage.js?v=…", href="dist/tailwind.css?v=…" (an outside address has a ":").
+STAMPED_REF = re.compile(r'(?:src|href)="([A-Za-z0-9_./-]+)\?v=')
+
+
+def pages():
+    """{page: its staged text} for every page at the repo root — the pages are READ, never listed (2026-11-11: a list of
+    one page, readerwrangler.html, left the reset page's stamps unchecked; 2026-11-08: a hand-kept module list had
+    missed logger.js)."""
+    out = subprocess.run(["git", "ls-files", "--", "*.html"], capture_output=True, text=True).stdout or ""
+    result = {}
+    for page in (p for p in out.split() if "/" not in p):
+        r = subprocess.run(["git", "show", ":" + page], capture_output=True)
+        if r.returncode == 0:
+            result[page] = r.stdout.decode("utf-8", "replace")
+    return result
+
+
+def stamp_problems(staged, page_texts, added):
+    """Every staged file must have its `file?v=` stamp moved in EVERY page that loads it with one. staged: repo-relative
+    paths; page_texts: {page: text}; added(page): that page's added lines. (readerwrangler.js and mobile.js are stamped
+    by APP_VERSION at run time — no literal stamp — and keep their own rule below.)"""
+    problems = []
+    for page, text in sorted(page_texts.items()):
+        for ref in sorted(set(STAMPED_REF.findall(text))):
+            if ref in staged and not any(re.search(re.escape(ref) + r"\?v=", ln) for ln in added(page)):
+                problems.append(f"{ref} is staged but its `{ref}?v=` cache-stamp in {page} was not moved.")
+    return problems
 
 
 def staged_files():
@@ -69,12 +82,6 @@ def added_lines(path):
 def const_bumped(path, const_name):
     pat = re.compile(re.escape(const_name) + r"\s*=")
     return any(pat.search(ln) for ln in added_lines(path))
-
-
-def html_buster_bumped(basename):
-    """A '+' line in the staged HTML diff that sets  basename?v=..."""
-    pat = re.compile(re.escape(basename) + r"\?v=")
-    return any(pat.search(ln) for ln in added_lines(HTML))
 
 
 NOT_SHIPPED_DIRS = ("git-hooks/", "test/", "docs/", "v4/", "tools/", ".claude/", "pytools/", "post-mortems/")  # tools/ (dev tools, incl. the demo library prep) replaced tutorials/ 2026-11-02
@@ -132,13 +139,8 @@ def main():
     if "relay-worker.js" in names and not const_bumped("relay/relay-worker.js", "WORKER_VERSION"):
         errors.append("relay/relay-worker.js is staged but WORKER_VERSION was not bumped.")
 
-    for m in html_modules():
-        fn = m + ".js"
-        if fn in names and not (html_staged and html_buster_bumped(fn)):
-            errors.append(f"{fn} is staged but its `{fn}?v=` cache-buster in {HTML} was not bumped.")
-
-    if "readerwrangler.css" in names and not (html_staged and html_buster_bumped("readerwrangler.css")):
-        errors.append(f"readerwrangler.css is staged but its `readerwrangler.css?v=` cache-buster in {HTML} was not bumped.")
+    # every page that loads a staged file with a literal stamp — modules, stylesheets, the built styles (2026-11-11)
+    errors += stamp_problems(files, pages(), added_lines)
 
     # v7.21.2 (Ron, 2026-10-16) - COPYRIGHT_YEARS (readerwrangler.html) lists every year the code changed ("2025, 2026");
     # About shows it as is. A list, not a range: skipped years aren't claimed. The first commit of shipped code in a new
