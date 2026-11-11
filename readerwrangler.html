@@ -348,7 +348,7 @@
                         'You can reset the app to fix this. ' +
                         // 7.27.1 - a shared reset sentence, word for word (test/test_reset_words.py); no "save a backup
                         // first" tip here: a backup can't be saved from a library that didn't load
-                        'Your saved backup files and your copy in the cloud are not touched.' +
+                        'Your saved backup files are not touched.' +
                     '</div>' +
                     (isLocalServer() && window._lastLoadError /* v7.21.0 - any local server: a self-hoster debugging a broken page needs it too */
                         ? '<pre style="text-align:left; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; font-size:0.78em; color:#991b1b; white-space:pre-wrap; word-break:break-word; margin-bottom:20px;">' +
@@ -367,7 +367,7 @@
                 ov.innerHTML =
                     '<div style="background:var(--bg-surface,#fff);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:24px 28px;max-width:400px;width:90%;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">' +
                         '<div style="font-size:1.1em;font-weight:700;color:var(--text-primary,#1e293b);margin-bottom:10px;">Reset ReaderWrangler?</div>' +
-                        '<div id="emergencyMsg" style="font-size:.9em;line-height:1.6;color:var(--text-muted,#64748b);margin-bottom:20px;">This clears your books, folders and settings from this browser.<br><br>Your saved backup files and your copy in the cloud are not touched.<br><br>To get everything back afterwards: File → Restore Backup… with your backup file.</div>' +
+                        '<div id="emergencyMsg" style="font-size:.9em;line-height:1.6;color:var(--text-muted,#64748b);margin-bottom:20px;">This clears your books, folders and settings from this browser.<br><br>Your saved backup files are not touched.<br><br>To get everything back afterwards: File → Restore Backup… with your backup file.</div>' +
                         '<div style="text-align:right;">' +
                             '<button id="emergencyCancelBtn" style="padding:9px 18px;background:var(--bg-surface,#fff);color:var(--text-primary,#334155);border:1px solid var(--border-default,#cbd5e1);border-radius:8px;font-size:.9em;font-weight:600;cursor:pointer;margin-right:8px;">Cancel</button>' +
                             '<button id="emergencyEraseBtn" style="padding:9px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:.9em;font-weight:600;cursor:pointer;">Erase and Reset</button>' +

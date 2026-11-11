@@ -3315,6 +3315,24 @@ nothing on the computer reads it back; Import from Relay merges only the books t
    otherwise straight to the file box (Claude's UX verdict; Ron to confirm when it's built).
 - How current: as of the last send (seconds); a change made in the moments before a crash may be missing — say so in
   the "restore?" box ("your cloud copy from 2 minutes ago").
+6. **After a reset: one choice, and the cloud copy held until it's made** (Ron + Claude, 2026-11-11, building
+   7.27.1's reset words). What happens today, checked in the code: the reset itself sends nothing, and nothing is sent
+   while the library is empty (the device-state push skips `books.length === 0`) — but as soon as books are back (a
+   fetch + Import from Relay, which brings books without folders) any change sends a **full** copy (no deltas: every
+   push is a whole new generation) that replaces the cloud's copy with the folders; the relay keeps two, so one more
+   push and the old organization is gone from the cloud. Decided:
+   - **The first time the app opens after ANY reset** (Tools → Reset App, the emergency screen, the reset page, the
+     phone — each sets one "just reset" mark), it asks once: *"You've reset ReaderWrangler. Bring your library back?
+     [Restore from Cloud Sync] [Restore backup file…] [Start fresh]"* — the natural moment ("what next?"), part of the
+     person's own action; "Start fresh" covers the early-days restart.
+   - **Until a choice is made, nothing is sent to the cloud** — so the cloud copy is guaranteed intact when they choose
+     to restore from it. Closing the box keeps the hold and asks again next time.
+   - **Ships with this task**, not before (Ron): until a restore from the cloud exists, the cloud copy isn't a way back,
+     so there's nothing to hold for — and a hold with no cloud restore to offer is a confusing mode. (The
+     backup-file-only version of the choice could ship earlier on its own — Ron: wait; logged here.)
+   - **Turned down:** a "last chance" prompt at the first push that would overwrite the cloud (it interrupts 60 s after
+     an unrelated change or on leaving the tab — "a stopping prompt is still a block", Law 18 — and asks about a reset
+     that may be an hour old).
 
 #### Restore checks every book, folder and list inside a backup — skip a bad one and say so
 <!-- id 20261108-1800a -->

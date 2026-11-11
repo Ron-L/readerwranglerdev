@@ -18,7 +18,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "test", "ui"))
 from harness import check, done, test   # noqa: E402
 
-KEPT = "Your saved backup files and your copy in the cloud are not touched."
+# (Ron, 2026-11-11: "and your copy in the cloud" was dropped — true at the moment of the reset, but once books are back
+# any change sends a full copy that replaces it, and it isn't a way back until "Restore from Cloud Sync…" exists)
+KEPT = "Your saved backup files are not touched."
 BACK = "To get everything back afterwards: File → Restore Backup… with your backup file."
 TIP = "Before you reset, save a backup: File → Save Backup."
 
@@ -33,7 +35,7 @@ EXPECTED = {
 }
 # Words from before Cloud Sync that must not come back in these files.
 OLD = ["files on disk", "amazon-library.json", "Export button", "Export Backup", "Unload library and collections",
-       "import your backup file", "reload them anytime"]
+       "import your backup file", "reload them anytime", "copy in the cloud are not touched"]
 
 
 def text_of(name):

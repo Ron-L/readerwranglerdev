@@ -221,7 +221,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.27.1-alpha.1";  // Build version for this file
+        const ORGANIZER_VERSION = "7.27.1-alpha.2";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -12073,7 +12073,7 @@
                                     {/* 7.27.1 - the reset messages' shared sentences, word for word in all five places (test/test_reset_words.py
                                         holds them — change them there first) */}
                                     <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-gray-700">
-                                        <p className="mb-2">Your saved backup files and your copy in the cloud are not touched.</p>
+                                        <p className="mb-2">Your saved backup files are not touched.</p>
                                         <p>To get everything back afterwards: File → Restore Backup… with your backup file.</p>
                                     </div>
                                     <div className="bg-yellow-50 border border-yellow-300 rounded p-3 text-sm">
