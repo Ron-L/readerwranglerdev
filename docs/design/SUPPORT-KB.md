@@ -8,7 +8,10 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-11 (through release 7.27.0)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-11 (through release 7.27.1)** — all sections human-reviewed (§1–21).
+7.27.1: the reset messages reworded (none quoted here) — §19 gains "I reset the app — is my copy in the cloud safe?"
+(checked in the code: the first change after books are back replaces the cloud copy). Comb for "reset", "files on disk",
+"Export", "amazon-library", "Download Collections", "Import from Relay": nothing else quoted the changed words.
 7.27.0: the app opens in about a second (built ahead of time) — §19's "Loading feels stuck" row rewritten (a long load now
 means something's wrong); the reset page's recovery panel and the security page's note reworded. Comb for "slow",
 "seconds", "unresponsive", "compil", "loading", "cover", "cache", "Export Backup", "amazon-library", "Reset App",
@@ -806,6 +809,7 @@ it off afterwards). We may send you a link that turns both on (`?errorBanner=on&
 | Slow first "Checking pending additions" | First fetch after new relay data does extra accounting | Let it run; later fetches are quick |
 | "ReaderWrangler was reset in another tab. This tab's contents are out of date." (7.25.1) | Reset App ran in another tab of the same browser; this tab still shows the library from before, and stopped saving so it can't bring that library back | Press **Reload** |
 | Reset App says "Close your other ReaderWrangler tabs to finish the reset" (7.25.1) | Another tab still holds the library open (usually one running an older version) | Close the other ReaderWrangler tabs — the reset finishes by itself |
+| "I reset the app — is my copy in the cloud safe?" (7.27.1) | The reset itself doesn't change it, and nothing is sent while the library is empty. But once books are back (for example via File → Import from Relay, which brings books without folders), your first change sends the reduced library and replaces the cloud copy | Restore your backup file **before** changing anything after a reset (File → Restore Backup…) |
 | Bookmarklet fetches the wrong library / mismatch warning | Bookmarklet carries older credentials than the app | Recreate the bookmarklet from Relay Setup |
 | Import from Relay says "Nothing is on the relay for these credentials yet" (7.26.0) | Either nothing has been sent yet, or the app and the bookmarklet use different credentials — the Relay can't tell the two apart (a mistyped Channel ID is simply an empty channel) | New: on the Amazon library page, bookmarklet → **Download Library** (then **Download Collections**), then Import. Already sent: File → Relay Setup — check the credentials, then update the bookmarklet |
 

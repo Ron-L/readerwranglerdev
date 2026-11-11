@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.27.1] - 2026-11-11
+
+### Fixed
+- **The reset messages tell the truth.** Tools → Reset App, the "Something went wrong" screen and the emergency reset
+  page no longer mention "files on disk", "Import amazon-library.json", or an Export button that doesn't exist. They now
+  say what each reset removes, that your saved backup files are not touched, and how to get everything back: **File →
+  Restore Backup…** with your backup file.
+- **Download Collections' finish message** says your collections were sent to the Relay, and to choose **File → Import
+  from Relay**. It named a library file it no longer writes.
+
 ## [7.27.0] - 2026-11-11
 
 ### Changed
