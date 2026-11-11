@@ -1,0 +1,5 @@
+/* tools/build/tailwind.input.css — what the in-browser builder put on every page: the base reset, the components and
+   the utilities the pages and scripts use. Built into dist/tailwind.css by tools/build.py. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

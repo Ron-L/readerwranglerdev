@@ -98,4 +98,50 @@ def rebuild_only_when_stale():
 test("BUILD-004", "serve.py's rebuild on demand builds only when the copy is missing or older than its source",
      rebuild_only_when_stale)
 
+
+# Step 2 (2026-11-11): the styles. Three pages loaded Tailwind's in-browser builder (cdn.tailwindcss.com → 3.4.17), which
+# wrote the styles on every load; now tools/build.py builds dist/tailwind.css with the same Tailwind.
+def styles_for_the_classes_used():
+    with tempfile.TemporaryDirectory() as tmp:
+        page = os.path.join(tmp, "page.html")
+        open(page, "w").write('<div class="p-4 text-blue-600 hover:underline md:flex">x</div>')
+        script = os.path.join(tmp, "app.js")
+        open(script, "w").write("const c = isOpen ? 'bg-red-50' : 'rounded-lg';")
+        css = b.compile_css([page, script])
+    for rule in (".p-4", ".text-blue-600", ".hover\\:underline:hover", ".bg-red-50", ".rounded-lg", ".md\\:flex"):
+        check(rule in css, f"the styles for {rule} are built")
+    check(".p-5" not in css and ".text-green-700" not in css, "and no styles for classes nothing uses")
+    check("box-sizing:border-box" in css.replace(" ", ""), "with the base reset the in-browser builder put first")
+test("BUILD-005", "the stylesheet has the styles for the classes the pages and scripts use, and no others",
+     styles_for_the_classes_used)
+
+
+def reads_root_pages_and_scripts():
+    tracked = ["readerwrangler.html", "reset.html", "storage.js", "dist/readerwrangler.js", "test/ui/rw.py",
+               "v4/readerwrangler.html", "docs/x.md", "readerwrangler.css", "tools/build.py"]
+    got = b.style_sources(tracked)
+    check(got == ["readerwrangler.html", "reset.html", "storage.js"],
+          f"only the pages and scripts at the project root (never the built copies, never other folders): {got}")
+test("BUILD-006", "the stylesheet is built from the tracked pages and scripts at the project root, nothing else",
+     reads_root_pages_and_scripts)
+
+
+def stale_stylesheet_refused():
+    files = {"readerwrangler.html": '<div class="p-4">x</div>', "storage.js": "",
+             "dist/tailwind.css": None}
+    files["dist/tailwind.css"] = b.compile_css_texts({k: v for k, v in files.items() if not k.startswith("dist/")})
+    real = b._staged, b._tracked, b._staged_paths
+    try:
+        b._staged = lambda p: files.get(p)
+        b._tracked = lambda: [k for k in files if files[k] is not None]
+        b._staged_paths = lambda: {"readerwrangler.html"}
+        check(b.staged_style_problems() == [], f"the stylesheet IS the build: no problem — {b.staged_style_problems()}")
+        files["readerwrangler.html"] = '<div class="p-4 text-red-700">x</div>'   # a new class, stylesheet not rebuilt
+        p = b.staged_style_problems()
+        check(len(p) == 1 and "tailwind.css" in p[0], f"an out-of-date stylesheet is refused: {p}")
+    finally:
+        b._staged, b._tracked, b._staged_paths = real
+test("BUILD-007", "the commit check refuses a dist/tailwind.css that isn't the build of the staged pages and scripts",
+     stale_stylesheet_refused)
+
 done()

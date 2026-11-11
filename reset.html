@@ -11,9 +11,6 @@
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- Google Fonts - Libre Baskerville for title -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +24,10 @@
             font-family: 'Libre Baskerville', serif;
         }
     </style>
+    <!-- 7.27.0 - the styles built ahead of time (tools/build.py; was the in-browser builder cdn.tailwindcss.com, whose
+         styles landed here, last in the head — measured 2026-11-11). One less outside service for the emergency page
+         to depend on. -->
+    <link rel="stylesheet" href="dist/tailwind.css?v=7.27.0-alpha.5">
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8">

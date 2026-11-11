@@ -32,6 +32,26 @@ with App() as app:
         check(page.evaluate("typeof window.Babel") == "undefined", "no Babel on the page")
     test("LOAD-001", "the page runs the built copy from dist/ — no in-browser compiler", built_copy_no_compiler)
 
+    # step 2 (2026-11-11): the styles, built ahead of time — three pages loaded Tailwind's in-browser builder
+    # (cdn.tailwindcss.com) and wrote them on every load. A comparison of every element's computed style, with the
+    # builder and with the built stylesheet, found no difference (8 app screens, the phone, the reset and security pages).
+    def built_styles_no_builder():
+        for pg in ("readerwrangler.html", "reset.html", "security.html"):
+            asked.clear()
+            if pg == "readerwrangler.html":
+                app.reload()
+            else:
+                page.goto(f"http://localhost:{app.port}/{pg}")
+                page.wait_for_load_state("load")
+            check(any("/dist/tailwind.css" in u for u in asked), f"{pg} loads the built stylesheet (dist/tailwind.css)")
+            builder = [u for u in asked if "tailwindcss.com" in u]
+            check(not builder, f"{pg} fetches no in-browser style builder: {builder}")
+            check(page.evaluate("typeof window.tailwind") == "undefined", f"{pg}: no Tailwind builder on the page")
+            check(page.evaluate("getComputedStyle(document.body).margin") == "0px",
+                  f"{pg}: the built stylesheet is applied (its base reset sets the body's margin to 0)")
+    test("LOAD-003", "the app, the reset page and the security page use the built stylesheet — no in-browser builder",
+         built_styles_no_builder)
+
     def opens_fast():
         check(seconds < 10, f"the app opened in {seconds:.1f} s — compiling in the browser took ~50 s (the bound is 10 s, "
                             "far above today's ~0.5 s, so a slow moment can't fail it)")

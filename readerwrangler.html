@@ -130,7 +130,10 @@
     <!-- 7.27.0 - No in-browser compiler: the app is built ahead of time into dist/ (tools/build.py, Babel 7.29.7 pinned
          in tools/build/ — the version this page used to load here) and loaded below as a plain script. Compiling here
          took ~50 s on every load (TODO "Faster loading"). -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 7.27.0 - the styles built ahead of time (tools/build.py → dist/tailwind.css, Tailwind 3.4.17 — what the in-browser
+         builder cdn.tailwindcss.com served). Here, as the builder's styles were: after every style in the head, and the
+         splash above paints first. -->
+    <link rel="stylesheet" href="dist/tailwind.css?v=7.27.0-alpha.5">
 
     <!-- Shared modules (pure JS, no Babel needed) -->
     <!-- 7.26.0 - THE logging module (window.rwLog; docs/design/LOGGING.md §6) — first of our scripts, so its handlers

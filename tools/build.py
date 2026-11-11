@@ -20,6 +20,7 @@ Tested by test/test_build.py.
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,12 +53,7 @@ def compile_text(text, name):
 def build(name):
     """Compile one source into dist/ (written whole, then swapped in — never half a file)."""
     with open(os.path.join(ROOT, name), encoding="utf-8") as f:
-        built = compile_text(f.read(), name)
-    os.makedirs(os.path.join(ROOT, OUT_DIR), exist_ok=True)
-    tmp = out_path(name) + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        f.write(built)
-    os.replace(tmp, out_path(name))
+        _write(out_path(name), compile_text(f.read(), name))
 
 
 def build_if_stale(name):
@@ -68,6 +64,97 @@ def build_if_stale(name):
             return False
         build(name)
         return True
+
+
+# ----- step 2 (2026-11-11): the styles. Three pages loaded Tailwind's in-browser builder (cdn.tailwindcss.com, 3.4.17),
+# which wrote the styles on every load. Now: dist/tailwind.css, built here with the same Tailwind (tools/build/).
+STYLES = "tailwind.css"
+TW = os.path.join(ROOT, "tools", "build")
+STYLE_INPUTS = (os.path.join(TW, "tailwind.config.js"), os.path.join(TW, "tailwind.input.css"))
+
+
+def style_sources(paths):
+    """The files the styles are read from: every page and script at the project root (never dist/, never other folders)."""
+    return sorted(p for p in paths if "/" not in p and p.endswith((".html", ".js")))
+
+
+def _tracked(including_new=False):
+    """git's list of files (what's staged); including_new adds files not yet added but not ignored (a new module)."""
+    args = ["git", "ls-files", "--cached"] + (["--others", "--exclude-standard"] if including_new else [])
+    return subprocess.run(args, cwd=ROOT, capture_output=True, text=True).stdout.split()
+
+
+def compile_css(paths):
+    """The stylesheet for these files' class names (Tailwind 3.4.17, default settings, minified)."""
+    if not os.path.isdir(os.path.join(TW, "node_modules", "tailwindcss")):
+        raise BuildError("the build tools aren't installed. Once, in the project folder:  cd tools/build && npm ci")
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, STYLES)
+        env = dict(os.environ, RW_TW_FILES="\n".join(os.path.abspath(p).replace("\\", "/") for p in paths))
+        r = subprocess.run(["node", os.path.join(TW, "node_modules", "tailwindcss", "lib", "cli.js"),
+                            "-c", STYLE_INPUTS[0], "-i", STYLE_INPUTS[1], "-o", out, "--minify"],
+                           cwd=TW, env=env, capture_output=True, text=True, encoding="utf-8")
+        if r.returncode != 0 or not os.path.exists(out):
+            raise BuildError(f"{STYLES}: {r.stderr.strip()}")
+        with open(out, encoding="utf-8") as f:
+            return f.read()
+
+
+def compile_css_texts(texts):
+    """compile_css for {name: text} — the commit check's staged copies, written to a scratch folder first."""
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = []
+        for name, text in texts.items():
+            paths.append(os.path.join(tmp, name))
+            with open(paths[-1], "w", encoding="utf-8", newline="\n") as f:
+                f.write(text or "")
+        return compile_css(paths)
+
+
+def build_styles():
+    _write(out_path(STYLES), compile_css([os.path.join(ROOT, p) for p in style_sources(_tracked(including_new=True))]))
+
+
+def styles_if_stale():
+    """serve.py's rebuild on demand for the stylesheet: when it's missing or older than any page, script or setting."""
+    with _lock:
+        out = out_path(STYLES)
+        srcs = [os.path.join(ROOT, p) for p in style_sources(_tracked(including_new=True))] + list(STYLE_INPUTS)
+        if os.path.exists(out) and os.path.getmtime(out) >= max(os.path.getmtime(p) for p in srcs if os.path.exists(p)):
+            return False
+        build_styles()
+        return True
+
+
+def _write(path, text):
+    """Written whole, then swapped in — never half a file."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    os.replace(path + ".tmp", path)
+
+
+def _staged_paths():
+    r = subprocess.run(["git", "diff", "--cached", "--name-only"], cwd=ROOT, capture_output=True, text=True)
+    return set(r.stdout.split())
+
+
+def staged_style_problems():
+    """For the commit check: when a page, a script, the stylesheet or its settings is staged, the staged stylesheet must
+    be exactly the build of the staged pages and scripts."""
+    sources = style_sources(_tracked())
+    touched = _staged_paths() & (set(sources) | {f"{OUT_DIR}/{STYLES}", "tools/build/tailwind.config.js",
+                                                 "tools/build/tailwind.input.css"})
+    if not touched:
+        return []
+    try:
+        want = compile_css_texts({p: _staged(p) for p in sources})
+    except BuildError as e:
+        return [f"  the stylesheet doesn't build: {e}"]
+    have = _staged(f"{OUT_DIR}/{STYLES}")
+    if have is None:
+        return [f"  {OUT_DIR}/{STYLES} isn't in this commit"]
+    return [] if have == want else [f"  {OUT_DIR}/{STYLES} isn't the build of the pages and scripts being committed"]
 
 
 def _staged(path):
@@ -99,7 +186,7 @@ def staged_problems():
 
 def main():
     if "--check-staged" in sys.argv:
-        problems = staged_problems()
+        problems = staged_problems() + staged_style_problems()
         if problems:
             sys.stderr.reconfigure(encoding="utf-8", errors="replace")
             print("build: the built copy doesn't match its source:\n" + "\n".join(problems) +
@@ -109,6 +196,8 @@ def main():
     for name in SOURCES:
         build(name)
         print(f"built {OUT_DIR}/{name}")
+    build_styles()
+    print(f"built {OUT_DIR}/{STYLES}")
     return 0
 
 

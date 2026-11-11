@@ -45,6 +45,7 @@ _spec = importlib.util.spec_from_file_location("rw_build", os.path.join(ROOT, "t
 build = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(build)
 BUILT = {f"{build.OUT_DIR}/{name}": name for name in build.SOURCES}
+STYLES = f"{build.OUT_DIR}/{build.STYLES}"
 
 
 def git_available():
@@ -101,7 +102,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self.log_message("built %s (its source changed)", rel)
             except build.BuildError as e:
                 return self.send_script_error(f"ReaderWrangler build failed - {e}")
+        elif rel == STYLES:           # 2026-11-11: the styles, rebuilt when any page or script changed
+            try:
+                if build.styles_if_stale():
+                    self.log_message("built %s (a page or script changed)", rel)
+            except build.BuildError as e:
+                return self.send_style_error(f"ReaderWrangler style build failed - {e}")
         return super().send_head()
+
+    def send_style_error(self, message):
+        """The styles don't build: serve a stylesheet that shows the message in a red line across the top of the page."""
+        self.log_message("BUILD FAILED %s", message.replace("\n", " | ")[:300])
+        body = ("html::before { content: %s; display: block; padding: 8px; background: #b91c1c; color: #fff; "
+                "font: 14px sans-serif; white-space: pre-wrap; }\n" % json.dumps(message[:500])).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/css; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        return io.BytesIO(body)
 
     def send_script_error(self, message):
         """A source that doesn't compile: serve a one-line script that throws the compiler's message, so the page's

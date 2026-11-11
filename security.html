@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Security & Privacy - ReaderWrangler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
     <!-- v7.9.0 - Theme support: pre-paint detection (same stored setting as the app) + a compact
          override sheet restyling this page's Tailwind utilities under [data-theme]. -->
@@ -36,6 +35,9 @@
         .theme-select { margin-left: 12px; padding: 3px 8px; font-size: 0.85em; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; cursor: pointer; }
         [data-theme="dark"] .theme-select, [data-theme="hc-dark"] .theme-select { background: #1e293b; color: #cbd5e1; border-color: #475569; }
     </style>
+    <!-- 7.27.0 - the styles built ahead of time (tools/build.py; was the in-browser builder cdn.tailwindcss.com, whose
+         styles landed here, last in the head) -->
+    <link rel="stylesheet" href="dist/tailwind.css?v=7.27.0-alpha.5">
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- 2026-09-09 - Consistent site nav; themed via the override sheet above -->
