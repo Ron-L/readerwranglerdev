@@ -2472,6 +2472,13 @@ for something to go wrong. Found 2026-11-10 while fixing the load's save ("Faste
 2. Likely shape: one save that writes only the books that changed (the store keys books by id) — the same "compare
    with what's stored" idea as the load's `saveBooksIfChanged`, or the callers say which books they changed.
 3. Keep the write lock and the one-transaction safety (no moment where a reader sees half a library).
+4. **Discussed 2026-11-10 (Ron + Claude):** the save finds the delta itself — a changed book is a new copy (the app
+   doesn't edit books in place), so "not the same copy as last saved" costs ~1 ms for 3,270; only those are written,
+   removed ones deleted, in one transaction. Ron: **also change the 60 places once to call one common function** —
+   most repeat the same pattern (`setBooks(prev => { const updated = …; saveBooksToIndexedDB(updated); return
+   updated; })`), so one `updateBooks(change)` (the state update + the save, the delta inside it) is the chokepoint,
+   and a new call site can't forget the save. Claude agrees: both together. First the site map (does every site make
+   new copies?), a contributor-mode guard that compares by content now and then, and a test that edits and reloads.
 
 ##### The phone's cover copies: still worth it? And why wasn't the browser's own cache enough?
 <!-- id 20261110-1734a -->
