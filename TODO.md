@@ -6,6 +6,9 @@
       - [Old words, quick win: the reset messages and the collections fetcher's finish message](#old-words-quick-win-the-reset-messages-and-the-collections-fetchers-finish-message)
       - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
+      - [Reset App: a Save Backup… button where the box says to save a backup](#reset-app-a-save-backup-button-where-the-box-says-to-save-a-backup)
+      - [When the app can't open: Copy diagnostics and Report this problem, right there](#when-the-app-cant-open-copy-diagnostics-and-report-this-problem-right-there)
+      - [Help → Report a problem… and Known problems (the GitHub issues)](#help--report-a-problem-and-known-problems-the-github-issues)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
       - [Relay worker: one release of changes (backup alerter, clearer daily email, strict ID check)](#relay-worker-one-release-of-changes-backup-alerter-clearer-daily-email-strict-id-check)
       - [Outside reviews before building: launch risks, security, data safety, a newcomer's first look](#outside-reviews-before-building-launch-risks-security-data-safety-a-newcomers-first-look)
@@ -284,6 +287,52 @@ selection before and after.
 - Today: `if (e.key === 'Delete' && !isSpecialFolder && getSelectedBookIds().length === 0) await deleteFolder(currentFolder)`
   — uses the current folder instead of `getSelectedFolderIds()`. Single via `deleteFolder`; several via a batch
   confirm and one compound undo — the new `deleteFolders(folders)`. Surfaced during the operations refactor.
+
+#### Reset App: a Save Backup… button where the box says to save a backup
+<!-- id 20261111-1104 -->
+
+_Why it matters:_ The Reset App box says "Before you reset, save a backup: File → Save Backup." — something the person
+can do that instant, so it should be a button there (Law 20: hand them the action, not directions — Ron, 2026-11-11).
+
+**Decided** (Ron + Claude, 2026-11-11)
+1. A **Save Backup…** button in the Reset App box's tip — the same save File → Save Backup runs; the box stays open so
+   they can then reset (or cancel).
+2. "To get everything back afterwards: File → Restore Backup…" stays as directions: it can't be done from this box (a
+   restore now would replace the library, and the box is gone after the reset). Its button belongs to the after-reset
+   choice ("Restore from Cloud Sync…", item 6).
+3. Keep test/test_reset_words.py passing (the shared sentence stays word for word).
+
+#### When the app can't open: Copy diagnostics and Report this problem, right there
+<!-- id 20261111-1104a -->
+
+_Why it matters:_ A person whose app won't start sees "Something went wrong" and a Reset App button — nothing about
+telling us. The red banner with Copy shows only with "Show a banner when something goes wrong" turned on, and the
+error text only on a local server, so on readerwrangler.com they get neither (Ron, 2026-11-11; Law 20).
+
+**Decided** (Ron + Claude, 2026-11-11)
+1. **The emergency screen** ("Something went wrong") gets a **Copy diagnostics** button and a **Report this problem**
+   link (GitHub issues, as the status bar's Feedback link). The Diagnostics window can't open there — it's part of the
+   app that failed — but the logging module loads first and survives, so Copy works (`rwLog.diagnosticsText`).
+2. **Not on its "Erase and Reset" confirmation** — one place, offered before anyone reaches the reset.
+3. **The reset page** (reset.html) gets the same two — it loads the logging module too, and it's where people land when
+   the app won't open at all.
+4. Checked 2026-11-11: **no reset clears the kept log** (its key is in none of the four resets' lists, nothing clears
+   all storage) — so a copy made after a reset still has the record; offering it before is still the right moment.
+5. A screen test with the load made to fail on purpose (the driver serves a broken copy of the app's code — how
+   7.27.1's screenshots were taken): the button copies a text with the build line and the error.
+
+#### Help → Report a problem… and Known problems (the GitHub issues)
+<!-- id 20261111-1104b -->
+
+_Why it matters:_ The Help menu has nothing for reporting a problem or seeing known ones; only the status bar's small
+"Feedback" link reaches GitHub issues (Ron, 2026-11-11).
+
+**Decided** (Ron + Claude, 2026-11-11)
+1. **Help → Report a problem…** copies the diagnostics (as Diagnostics' Copy does), then opens a new GitHub issue —
+   telling the person the diagnostics are on the clipboard to paste in.
+2. **Help → Known problems** opens the issue list.
+3. **Open question (Ron, when built):** GitHub needs an account to report, and many readers won't have one — also
+   offer email (contact@readerwrangler.com), or GitHub only?
 
 #### One table for every move, copy, paste and delete: what each gesture does in each place
 <!-- id 20261106-1237 -->

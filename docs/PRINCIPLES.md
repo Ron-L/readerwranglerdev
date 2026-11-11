@@ -461,6 +461,19 @@ nothing covers a scroll area or its scrollbar, at two zooms, with the status bar
 Sync icon makes it). The driver shows scrollbars: Playwright hides them in a hidden browser by default, which hid
 this very bug.
 
+### 20. Hand them the action, not directions (Ron's idea)
+When a message tells the person to do something they can do **right now**, it gives them the button or link that does
+it — not a path to find it ("File → Save Backup"). Directions are only for what can't be done from where they are,
+and then they're a path that works from anywhere. (Ron, 2026-11-11, reviewing 7.27.1's reset words: the Reset App box
+said "Before you reset, save a backup: File → Save Backup" — a thing doable that instant, so a **Save Backup…** button
+belongs there; its "to get everything back afterwards" can't be done from that box, so it stays directions until the
+after-reset choice offers the button at the right moment. And the "Something went wrong" screen said nothing about
+reporting it: a **Copy diagnostics** button works there even when the app didn't start.) Pairs with Law 16: the
+control announces itself where the need arises; this law says the message *is* the control.
+**Enforcement**: the review question for every message and every help text — "is there a step here the person could
+do right now? then it's a button, not a sentence." First users (TODO, after the Delete key): the Reset App box's Save
+Backup… button; Copy diagnostics + Report on the emergency screen and the reset page; Help → Report a problem.
+
 ---
 
 ## SECOND TIER — by theme (the best of the rest)
