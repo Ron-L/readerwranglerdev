@@ -79,10 +79,8 @@
     <div id="root">
         <!-- v5.5.11 - Splash screen (replaced when React mounts) -->
         <div id="splash" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:var(--bg-page, #ffffff);">
-            <!-- v6.11.7 - Reassurance banner: positioned ~25vh down so Chrome's "Page Unresponsive" dialog (which appears near the top) doesn't cover it -->
-            <div style="position:absolute; top:25vh; left:50%; transform:translateX(-50%); max-width:480px; padding:0 20px; text-align:center; color:var(--text-muted, #64748b); font-size:0.85em; line-height:1.5;">
-                A lot of book-wrangling code is loading right now. If your browser asks whether to wait, please do &mdash; we're busy compiling, not stuck.
-            </div>
+            <!-- 7.27.0 - (v6.11.7's "please wait, we're busy compiling, not stuck" banner removed: the app is built ahead of
+                 time now and this screen shows for about half a second — Ron, 2026-11-11) -->
             <img src="icons/logo-transparent.png" alt="" style="width:80px; height:80px; margin-bottom:20px;">
             <div style="font-family:'Libre Baskerville',Georgia,serif; font-size:1.8em; font-weight:700; color:var(--text-primary, #1e293b); margin-bottom:8px;">ReaderWrangler&#8482;</div>
             <!-- v6.3.0 - CSS-animated rotating messages, randomly selected each visit -->
@@ -133,18 +131,18 @@
     <!-- 7.27.0 - the styles built ahead of time (tools/build.py → dist/tailwind.css, Tailwind 3.4.17 — what the in-browser
          builder cdn.tailwindcss.com served). Here, as the builder's styles were: after every style in the head, and the
          splash above paints first. -->
-    <link rel="stylesheet" href="dist/tailwind.css?v=7.27.0-alpha.5">
+    <link rel="stylesheet" href="dist/tailwind.css?v=7.27.0">
 
     <!-- Shared modules (pure JS, no Babel needed) -->
     <!-- 7.26.0 - THE logging module (window.rwLog; docs/design/LOGGING.md §6) — first of our scripts, so its handlers
          catch an error in anything after it -->
     <script src="logger.js?v=7.26.0"></script>
-    <script src="uiHelpers.js?v=7.27.0-alpha.3"></script>
+    <script src="uiHelpers.js?v=7.27.0"></script>
     <!-- v7.17.0 - The ONE book-field table (merge classes + wire mapping) + serialize/deserialize; node-unit-tested; loads before bookMerge/storage -->
     <script src="bookFields.js?v=7.19.0"></script>
     <!-- v7.17.0 - Book-merge implementation (reads the table above); node-unit-tested; loads before storage.js -->
     <script src="bookMerge.js?v=7.19.0"></script>
-    <script src="storage.js?v=7.27.0-alpha.4"></script>
+    <script src="storage.js?v=7.27.0"></script>
     <!-- v7.18.0 - Overlay layer registry (pure JS; the ordered dialog/popover stack); node-unit-tested; loads before the app script -->
     <script src="overlayRegistry.js?v=7.19.0"></script>
     <!-- v6.3.0 - Data integrity checks -->
@@ -176,7 +174,7 @@
     <script>
         // APP_VERSION - Single source of truth for cache busting
         // Update this on each release to force browsers to fetch new code
-        const APP_VERSION = "7.26.0";
+        const APP_VERSION = "7.27.0";
 
         // v7.21.2 - Every year the code actually changed, listed — About shows "Copyright © ‹this›". A list, not a range:
         // a year with no changes is skipped (a range like 2025–2030 would claim the gap years too), and nothing is
