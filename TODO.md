@@ -3,7 +3,7 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [Old words, quick win: the reset messages and the collections fetcher's finish message](#old-words-quick-win-the-reset-messages-and-the-collections-fetchers-finish-message)
+      - [✅ Old words, quick win: the reset messages and the collections fetcher's finish message](#old-words-quick-win-the-reset-messages-and-the-collections-fetchers-finish-message)
       - [Logging as its own module: a self-contained folder, one step from a sub-repo](#logging-as-its-own-module-a-self-contained-folder-one-step-from-a-sub-repo)
       - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
       - [Reset App: a Save Backup… button where the box says to save a backup](#reset-app-a-save-backup-button-where-the-box-says-to-save-a-backup)
@@ -179,7 +179,7 @@ drifted). To change the order, move the task.
 
 ### High priority
 
-#### Old words, quick win: the reset messages and the collections fetcher's finish message
+#### ✅ Old words, quick win: the reset messages and the collections fetcher's finish message
 <!-- id 20261111-0903 -->
 
 _Why it matters:_ Four reset messages and one fetcher message still describe the app before Cloud Sync — files on disk,
