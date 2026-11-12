@@ -46,7 +46,7 @@ underneath".
 |---|---|---|---|
 | **1** | Function tests + the commit checks (names, parse, versions, private values, TOC…) | **Every commit, automatically** — only the tests covering the staged files | seconds (≤ ~10 s) |
 | **2** | Screen tests | **Before every alpha Claude hands Ron** — Ron is never the first to find a regression | a few minutes (≤ ~5 min) |
-| **3** | Relay tests (a local relay; dev only as a final check) | When relay code changes; before any worker deploy | ~1 min |
+| **3** | Relay tests — against a local relay **the runner starts and stops itself** (dev only as a final check, by `--relay-url`) | When relay code changes; before any worker deploy | ~1½ min |
 | **all** | Every tier | **Before every release** (release checklist step) | |
 
 Plus a short **manual list per release** (§8) for what can't be automated.
@@ -65,6 +65,13 @@ Plus a short **manual list per release** (§8) for what can't be automated.
 - **The runner — one command, in Python** (`tools/run_tests.py`; Ron's scripts rule): `--tier 1|2|3|all`,
   `--tag <area>`, `--id <ID>`, `--changed` (the tests covering what changed). One summary at the end; a screen test's
   failure saves a screenshot and the console to Claude's scratch folder. The commit hook calls it with `--changed`.
+- **Tier 3 brings its own relay** (`tools/local_relay.py`, 2026-11-12): with no `--relay-url`, the runner starts
+  relay-worker.js in wrangler's local emulator (`wrangler dev --env dev --local`) on a free port with an empty,
+  throwaway store, waits for its "Ready on" line (60 s, else it fails with the end of wrangler's output), runs the relay
+  files against it, then stops every process it started **by exact id** (the whole tree) and **checks**: each one gone,
+  both its ports no longer listening. Anything left fails the run, named by id — and is left running, since the runner
+  can't show it started it. `--relay-url <address>` runs against a relay you started instead (no start, no stop). Never
+  the dev or production relay by default.
 - **The project's own Python for screen tests** (Ron, 2026-11-04): Playwright lives in a venv at the repo root
   (`.venv/`, ignored by git), pinned in `requirements-dev.txt` — set up once with `py -m venv .venv` then
   `.venv\Scripts\pip install -r requirements-dev.txt`. The runner starts tier-2 files with that Python and fails loud
@@ -121,7 +128,8 @@ fixture, never anything sensitive on screen.
 A test that fails sometimes teaches everyone to ignore failures (Law 12: an alarm on the normal path is noise). So:
 - **fixed data** (§5.1) and **a fixed clock** where dates matter (the "today / yesterday" labels);
 - **wait for conditions, never fixed sleeps** ("the toast appeared", not "wait 2 seconds");
-- **a fresh browser profile** for each run; stop what a test started by its exact process id (Law 5);
+- **a fresh browser profile** for each run; stop what a test started by its exact process id (Law 5) — **and check it
+  stopped** (each process gone, its port free: Law 12, 7.28.0);
 - **a flaky test is fixed — or set aside, with a TODO — the same day.** Never tolerated, never "just re-run it".
 - **A failing test is read first, not fixed first** (Law 3, 7.25.0): it may be the protection working.
 
@@ -162,4 +170,10 @@ A test that fails sometimes teaches everyone to ignore failures (Law 12: an alar
   `app.import_from_relay()` runs File → Import from Relay. First use: `IMPORT-001`–`005`
   (`test/ui/test_import_from_relay.py`), whose `IMPORT-004` reproduces the Import's false "repair" (LOGGING.md F5)
   before its fix. Adds ~5 s to a run. Known noise gained one entry: a new, empty channel's two "not found" answers.
+- **Built 2026-11-12 (branch `tooling/relay-tests-own-relay`):** tier 3 starts and stops its own local relay
+  (`tools/local_relay.py`; §4) — no more skipping without `--relay-url`, and no more hand-stopped relays: on 2026-11-11
+  ending the shell that started one left workerd and three node processes serving its port (7.28.0 post-mortem).
+  `RUN-016`–`021` prove it with a stand-in relay: the files get its address; the relay AND its child are gone after and
+  the port free; one that never says "ready" fails loud and is stopped; a child that escaped the tree and still holds
+  the port is named by id; `--relay-url` still starts nothing; the real command is wrangler's local emulator.
 - From then on, every task follows §6.

@@ -5,7 +5,7 @@ run_tests.py — the one test runner (docs/design/TESTING.md §4; Ron + Claude, 
 Finds every test file, reads its header, picks the ones asked for, runs each, and prints one summary.
 
     py tools/run_tests.py                     tier 1 (the default): the fast function tests
-    py tools/run_tests.py --tier all          everything that can run here (tier 3 needs --relay-url)
+    py tools/run_tests.py --tier all          everything (tier 3 starts its own local relay — see below)
     py tools/run_tests.py --tag merge         by area
     py tools/run_tests.py --id MERGE-012      the file(s) holding that test ID
     py tools/run_tests.py --changed           the tests covering what changed (staged + unstaged) — the commit hook
@@ -15,8 +15,12 @@ Test files and their tiers:
     test/*.test.js        function tests (Node; test/harness.js)          tier from the header (normally 1)
     test/test_*.py        function tests in Python                         tier from the header (normally 1)
     test/ui/test_*.py     screen tests (the browser driver)                tier 2
-    relay/test-*.mjs      relay tests                                      tier 3 — ONLY with --relay-url (one of
-                          them defaults to the dev relay otherwise, which spends the account's shared daily writes)
+    relay/test-*.mjs      relay tests                                      tier 3
+
+Tier 3 starts its OWN local relay (tools/local_relay.py, 2026-11-12): relay-worker.js in wrangler's local emulator on a
+free port with an empty, throwaway store; the relay files run against it; then every process it started is stopped by
+exact id and CHECKED gone, and its ports checked free — anything left fails the run, named by id. Never the dev or
+production relay. --relay-url <address> uses a relay you started instead (no start, no stop).
 
 Every test file declares, in its first lines:   tags: <areas>, tier N     and     covers: <source files it tests>
 A file without them is a failure ("headers are required") — the covers: lines are the one source for --changed.
@@ -31,12 +35,16 @@ import shutil
 import subprocess
 import sys
 
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import local_relay  # noqa: E402 — tools/local_relay.py, next to this file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Screen tests (tier 2) need Playwright, which lives in the project's venv (requirements-dev.txt) — never the system
 # Python. Everything else runs with the Python that runs this script (the commit hook needs no venv).
 VENV_PY = os.path.join(ROOT, ".venv", "Scripts" if os.name == "nt" else "bin", "python.exe" if os.name == "nt" else "python")
 VENV_SETUP = "py -m venv .venv   then   .venv\\Scripts\\pip install -r requirements-dev.txt   (in the project folder)"
-PATTERNS =["test/*.test.js", "test/test_*.py", "test/ui/test_*.py", "relay/test-*.mjs"]
+PATTERNS = ["test/*.test.js", "test/test_*.py", "test/ui/test_*.py", "relay/test-*.mjs"]
 HEADER_LINES = 15
 
 
@@ -139,7 +147,9 @@ def changed_files():
     return sorted(names)
 
 
-def main(argv=None):
+def main(argv=None, files=None, relay=None):
+    """files: the test files to choose from (None = every one in the repo); relay: makes the local relay for tier 3
+    (None = the real one) — both for the runner's own tests (test/test_run_tests.py)."""
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -150,13 +160,13 @@ def main(argv=None):
     ap.add_argument("--id", action="append", default=[])
     ap.add_argument("--changed", action="store_true", help="only tests covering what changed (staged + unstaged)")
     ap.add_argument("--relay-url", default=os.environ.get("RELAY_URL"),
-                    help="a LOCAL relay for tier 3 (cd relay && npx wrangler dev --env dev --local)")
+                    help="a relay you started, for tier 3 (default: the runner starts and stops its own local relay)")
     ap.add_argument("--list", action="store_true", help="show what would run, run nothing")
     ap.add_argument("--quiet", action="store_true", help="print only failures and the summary (the commit hook)")
     a = ap.parse_args(argv)
 
     tier = "all" if a.tier == "all" else int(a.tier)
-    files = discover()
+    files = discover() if files is None else files
     broken = [f for f in files if f.problem]
     chosen = select([f for f in files if not f.problem], tier=tier, tags=a.tag or None, ids=a.id or None,
                     changed=changed_files() if a.changed else None)
@@ -169,35 +179,57 @@ def main(argv=None):
         print(f"{len(chosen)} file(s) would run")
         return 0
 
-    passed = failed = skipped = 0
+    count = {"passed": 0, "failed": 0}
     for f in broken:
-        failed += 1
+        count["failed"] += 1
         print(f"✗ {f.rel()}: {f.problem}")
     if not chosen and not broken:
         if not a.quiet:   # the commit hook stays silent when no test covers the change (Law 12: no noise on the normal path)
             print("No tests cover these changes." if a.changed else "No tests match.")
         return 0
-    for f in chosen:
-        if f.tier == 3 and not a.relay_url:
-            skipped += 1
-            if not a.quiet:
-                print(f"- {f.rel()}: skipped — relay tests need --relay-url (a LOCAL relay: cd relay && npx wrangler dev "
-                      f"--env dev --local), never the dev relay by default")
-            continue
-        ok, out = run_file(f, relay_url=a.relay_url)
+
+    def run_and_report(f, relay_url):
+        ok, out = run_file(f, relay_url=relay_url)
         summary = next((ln for ln in reversed(out.splitlines()) if re.search(r"\bpassed\b", ln)), "")
         if ok:
-            passed += 1
+            count["passed"] += 1
             if not a.quiet:
                 print(f"✓ {f.rel()}  {summary.strip()}")
         else:
-            failed += 1
+            count["failed"] += 1
             print(f"✗ {f.rel()}  {summary.strip()}")
             for ln in out.splitlines():
-                if "✗" in ln or "Error" in ln or ln.startswith("      "):
+                if "✗" in ln or "Error" in ln or "FAIL" in ln or ln.startswith("      "):
                     print("    " + ln)
-    print(f"Tests: {passed} file(s) passed, {failed} failed" + (f", {skipped} skipped" if skipped else ""))
-    return 1 if failed else 0
+
+    # Tier 3 with no --relay-url: the runner starts its OWN local relay around the relay files, then stops it and checks
+    # everything it started is gone and its ports are free (local_relay.py). A given --relay-url is used as is.
+    own_relay = [f for f in chosen if f.tier == 3] if not a.relay_url else []
+    for f in chosen:
+        if f not in own_relay:
+            run_and_report(f, a.relay_url)
+    if own_relay:
+        r = (relay or local_relay.LocalRelay)()
+        if not a.quiet:
+            print("· starting a local relay for the relay tests (wrangler dev --local, on a free port)…")
+        try:
+            url = r.start()
+        except local_relay.RelayError as e:
+            count["failed"] += 1
+            print(f"✗ local relay: {e}\n    not run: " + ", ".join(f.rel() for f in own_relay))
+        else:
+            try:
+                for f in own_relay:
+                    run_and_report(f, url)
+            finally:
+                left = r.stop()
+            if left:
+                count["failed"] += 1
+                print("✗ local relay: not everything it started was stopped —\n    " + "\n    ".join(left))
+            elif not a.quiet:
+                print(f"✓ local relay stopped — every process it started is gone, ports {', '.join(map(str, r.ports))} free")
+    print(f"Tests: {count['passed']} file(s) passed, {count['failed']} failed")
+    return 1 if count["failed"] else 0
 
 
 if __name__ == "__main__":
