@@ -44,6 +44,7 @@ Guide's glossary is built from this list. Words users never see (IndexedDB, JSON
 | **View on Amazon** | Opens the book's Amazon page. | The app's label (checked 2026-11-02) |
 | **Read in Kindle** | Opens the book to read (Kindle app on Android; Cloud Reader elsewhere). | Decided 2026-11-02 (not built) |
 | **bookmarklet** | The button you drag to your bookmarks bar that fetches from Amazon's pages. Kept — no plainer word. | Decided |
+| **update your library from Amazon** | Running the bookmarklet on Amazon's page to bring your books in — the act, in messages ("…the next time you update your library from Amazon"). Replaces "run the fetcher" — first used in 7.28.1's owned-book boxes (Ron, 2026-11-12, review queue Q-033). The rest of the app, the help pages and the User Guide still say "the fetcher" / "fetch": the decision on the tool's and the act's names, then one sweep — review queue Q-034. | Proposed 2026-11-12 |
 
 ## Words users never see
 

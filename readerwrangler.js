@@ -123,7 +123,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.28.1-alpha.2";  // Build version for this file
+        const ORGANIZER_VERSION = "7.28.1";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -664,8 +664,8 @@
                 const messageEl = document.createElement('div');
                 messageEl.style.cssText = `margin-bottom: 24px; font-size: 14px; line-height: 1.6; color: var(--text-secondary);`;
                 messageEl.textContent = purchasedCount === 1
-                    ? 'This book is owned and likely still in your Amazon library. It will reappear the next time you run the fetcher. Consider using Hide instead.'
-                    : `${purchasedCount} of these books are owned and likely still in your Amazon library. They will reappear the next time you run the fetcher. Consider using Hide instead.`;
+                    ? 'This book is owned and likely still in your Amazon library. It will reappear the next time you update your library from Amazon. Consider using Hide instead.'
+                    : `${purchasedCount} of these books are owned and likely still in your Amazon library. They will reappear the next time you update your library from Amazon. Consider using Hide instead.`;
 
                 markDialogText(titleEl, messageEl); // v7.19.0-alpha.4
                 const btnRow = document.createElement('div');
@@ -3121,7 +3121,7 @@
                 }
                 if (hideInsteadIds.size > 0) msgs.push(`Hid ${bookCountLabel(Array.from(hideInsteadIds))}${hideInsteadIds.size === 1 ? ' (purchased — hides instead of deleting)' : ' (purchased books hide instead of deleting)'}`); // v7.10.1 - named + teaching kept
                 const removedFromFolder = booksToRemoveFromFolder.length - actualBooksToTrash.length;
-                if (removedFromFolder > 0) msgs.push(`Removed ${removedFromFolder === booksToRemoveFromFolder.length ? bookCountLabel(booksToRemoveFromFolder) : removedFromFolder + ' book' + (removedFromFolder !== 1 ? 's' : '')} from folder`); // v7.10.1
+                if (removedFromFolder > 0) msgs.push(`Removed ${removedFromFolder === booksToRemoveFromFolder.length ? bookCountLabel(booksToRemoveFromFolder) : removedFromFolder + ' book' + (removedFromFolder !== 1 ? 's' : '')} from ${(() => { const f = folderList.find(x => x.id === fromFolderId); return f ? `"${f.name}"` : 'the folder'; })()}`); // v7.10.1; 7.28.1 - names the folder (Ron, Q-033)
                 return { updatedFolders, actions, msgs };
             };
 
@@ -4077,7 +4077,7 @@
                     : nTrash === nBooks ? `${nBooks === 1 ? 'The book is' : 'The books are'} in no other folder, so ${nBooks === 1 ? 'it goes' : 'they go'} to the Trash.`
                     : `${nTrash} of the books ${nTrash === 1 ? 'is' : 'are'} in no other folder and go${nTrash === 1 ? 'es' : ''} to the Trash; ${nBooks - nTrash === 1 ? 'the other stays in its' : 'the others stay in their'} other folders.`;
                 const ownedNote = nOwned === 0 ? ''
-                    : `\n\n${nOwned === 1 ? `${bookCountLabel(bp.ownedToTrash)} is` : `${nOwned} of them are`} owned and likely still in your Amazon library: in the Trash, ${nOwned === 1 ? 'it comes' : 'they come'} back the next time you run the fetcher. Hide Instead keeps ${nOwned === 1 ? 'it' : 'them'} in ${nOwned === 1 ? 'its' : 'their'} folders, hidden.`;
+                    : `\n\n${nOwned === 1 ? `${bookCountLabel(bp.ownedToTrash)} is` : `${nOwned} of them are`} owned and likely still in your Amazon library: in the Trash, ${nOwned === 1 ? 'it comes' : 'they come'} back the next time you update your library from Amazon. Hide Instead keeps ${nOwned === 1 ? 'it' : 'them'} in ${nOwned === 1 ? 'its' : 'their'} folders, hidden.`;
                 const folderBooksGo = fp.booksGo(fp.plans.length === 1 ? "The folder's" : "The folders'");
                 const title = `Delete ${nBooks === 1 ? 'Book' : 'Books'} and ${fp.plans.length === 1 ? 'Folder' : 'Folders'}`;
                 const message = `Delete ${plural(nBooks, 'book')} and ${plural(fp.plans.length, 'folder')} from ${hereName}?\n`

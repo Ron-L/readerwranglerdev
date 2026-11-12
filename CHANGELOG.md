@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.28.1] - 2026-11-12
+
+### Fixed
+- **The Delete key now deletes what you selected — never the folder you're in.** Several folders: one question listing
+  them, one Undo. Books and folders selected together: both go, with one question and one Undo. With nothing selected,
+  Delete does nothing. The right-click Delete acts on all the selected folders.
+- **Undo after deleting a folder puts things back exactly as they were** — and Redo after an Undo does exactly that
+  delete again.
+- **A message that follows another quickly no longer disappears early.**
+
 ## [7.28.0] - 2026-11-11
 
 ### Added

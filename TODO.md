@@ -3,8 +3,6 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [The Delete key deletes the folder you're in — not the folders you selected](#the-delete-key-deletes-the-folder-youre-in--not-the-folders-you-selected)
-      - [Every project ignores Claude Code's "don't ask again" file in its own .gitignore](#every-project-ignores-claude-codes-dont-ask-again-file-in-its-own-gitignore)
       - [Reset App: a Save Backup… button where the box says to save a backup](#reset-app-a-save-backup-button-where-the-box-says-to-save-a-backup)
       - [When the app can't open: Copy diagnostics and Report this problem, right there](#when-the-app-cant-open-copy-diagnostics-and-report-this-problem-right-there)
       - [Help → Report a problem… and Known problems (the GitHub issues)](#help--report-a-problem-and-known-problems-the-github-issues)
@@ -180,64 +178,6 @@ tasks themselves sit in that order; the numbered "order of work" list that used 
 drifted). To change the order, move the task.
 
 ### High priority
-
-#### The Delete key deletes the folder you're in — not the folders you selected
-<!-- id 20261014-1030ay -->
-
-_Why it matters:_ Delete aimed at what you selected hits a different folder — and an empty one goes with no question.
-**First code fix in line** (Ron, 2026-10-22: moved from Polish — "Yes, undo should fix it but still!"). Since
-2026-10-31 the browser driver (the task above) comes first, so this fix is reproduced and tested with real keys and
-selection before and after.
-
-**What you see** (checked in code 2026-10-22, readerwrangler.js ~5517)
-- With no **books** selected, Delete deletes **the folder you're inside**, whatever else is selected. Select two
-  subfolders in the right pane and press Delete → it targets their **parent**. If the parent has contents, the
-  confirmation names it ("Delete 'Parent' and its 2 subfolders?") — but **an empty folder is deleted with no question**
-  (empty folders skip the confirm). Undo restores it; the target is still wrong.
-
-**Decided** (Ron + UX, 2026-10-22)
-1. **Delete acts on what's selected where you're working — never on "the folder you're in" by default:** selected
-   books; else selected folders in the right pane; else, only when the left pane has your focus, the folder
-   highlighted there. **With nothing selected, Delete does nothing** (Finder / Explorer never delete the folder you're
-   looking into).
-2. **Several folders → one confirmation listing them, and one undo for the lot** (a genuinely destructive act — the
-   Prime Directive's exception).
-3. **Don't ship single-only** — that's more confusing than neither.
-4. **One operation for every way in:** the key and the folder right-click menu's Delete both use one
-   `deleteFolders(…)` operation, so they can't disagree.
-5. **Delete's rules go in the one table** (Ron + Claude, 2026-11-06 — "One table for every move, copy, paste and delete…", just below):
-   what Del does depends on what's selected and where you are, the same kind of rows as move / copy. This fix is the
-   table's **first user**: its design doc (the whole matrix, for Ron's red pen) is written first, then the Delete rows
-   are built and tested; move / copy / paste follow in their own task.
-
-**How (technical)**
-- Today: `if (e.key === 'Delete' && !isSpecialFolder && getSelectedBookIds().length === 0) await deleteFolder(currentFolder)`
-  — uses the current folder instead of `getSelectedFolderIds()`. Single via `deleteFolder`; several via a batch
-  confirm and one compound undo — the new `deleteFolders(folders)`. Surfaced during the operations refactor.
-
-#### Every project ignores Claude Code's "don't ask again" file in its own .gitignore
-<!-- id 20261112-0757 -->
-
-_Why it matters:_ Claude Code saves each "Yes, and don't ask again" approval — the whole command, any password in it
-included — in `.claude/settings.local.json` inside the project. Apiiro (2026-11-05) found 1,122 public copies on GitHub
-holding real passwords and keys. Our sweep (2026-11-11) found nothing leaked anywhere, but two projects are protected
-only by this PC's own ignore file, which doesn't travel with a project (Ron, 2026-11-12).
-
-**What the sweep found** (all 18 repositories under Projects, read-only; nothing printed)
-1. No secret in any Claude settings file, on disk or ever committed; nothing under `.claude/` committed anywhere but
-   ReaderWrangler's shared hooks and settings (on purpose, clean in every version); no transcripts in any repository.
-2. **Investments and Random** don't list the file in their own `.gitignore` — only the PC-wide ignore file
-   (`~/.config/git/ignore`, written by Claude Code) keeps it out. Its first line has a backslash typo and does nothing.
-   DAR and ReaderWrangler list it in their own `.gitignore`.
-
-**To do**
-1. Add one line, `.claude/settings.local.json`, to the `.gitignore` of EVERY repository under Projects (the Projects
-   root included) — not `.claude/` as a whole (ReaderWrangler saves its shared hooks there on purpose). One small commit
-   per repository; each repo's own push rules apply.
-2. Check it with `git check-ignore -v .claude/settings.local.json` in each — the answer must name the project's own
-   `.gitignore`.
-3. Optional (Ron's call): list which repositories are public on GitHub (read-only, `gh repo list`) — a leak only matters
-   on a public one.
 
 #### Reset App: a Save Backup… button where the box says to save a backup
 <!-- id 20261111-1104 -->

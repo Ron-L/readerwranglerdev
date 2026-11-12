@@ -8,7 +8,11 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-11 (through release 7.28.0)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-12 (through release 7.28.1)** — all sections human-reviewed (§1–21).
+7.28.1: the Delete key acts on what you selected — §12 gains "The Delete key acts on what you selected" (folders, books
+and folders together, nothing selected, the Inbox, the right-click Delete Folders (2), "it used to delete the folder I
+was in"). Comb for "Delete", "DEL", "Undo", "Redo", "Inbox", "folder": the book-delete paragraph, the Book List DEL line,
+the Trash DEL line and the shortcut table's "context-aware" DEL row still hold.
 7.28.0: Diagnostics gains **Send a test message** — §19's Diagnostics answer says how to use it, and a new row explains
 a line or bar marked TEST (UI-07). The logging moved into its own kit behind the scenes: nothing a person sees changed
 but one code (Copy diagnostics' "couldn't be copied" warning is UI-06, was SHARE-01 — the KB never quoted it). Comb for
@@ -487,8 +491,18 @@ from the dialog without hiding the book.
 it only goes to Trash if that was its last home (copies elsewhere live on). Deleting from
 **All Books** or **a Search** means "delete the book": it's removed from every folder
 and trashed. In a **Book List**, DEL just removes the books from that list. Deleting an
-**owned** book gets a warning first — "it will reappear next fetch; consider Hide instead"
+**owned** book gets a warning first — "it will reappear the next time you update your library from Amazon; consider
+Hide instead"
 (Hide Instead / Delete Anyway / Cancel).
+
+**The Delete key acts on what you selected** (7.28.1). Selected **books** go as above. Selected **folders** are deleted
+— one folder with books or subfolders asks first; **several** always get one question listing them; their books return
+to each folder's parent (the Inbox for a top-level folder); **one Ctrl+Z** puts everything back exactly. **Books and
+folders together:** both go, in one question and one Undo. **Nothing selected:** Delete does nothing — except when you
+last clicked in the left pane, where it deletes the folder highlighted there. The **Inbox** can't be deleted (it says
+so). Right-click **Delete Folders (2)** acts on all the selected folders. _"I pressed Delete and nothing happened"_ —
+nothing was selected: click the folder (or Ctrl+click several) first. _"It used to delete the folder I was in"_ — it
+did, by mistake, before 7.28.1: Delete now never deletes the folder you're in unless you're working in the left pane.
 
 **Trash view.** Deleted books wait here, recoverable. Hover one to see **"Was in (before
 Trash)"** — its former homes. **Restore** (right-click) returns it to all its former folders,
