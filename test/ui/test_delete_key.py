@@ -9,6 +9,8 @@
 # nothing at all. Decided (Ron + UX, 2026-10-22): selected books; else the folders selected in the right pane; else — only
 # when the left pane has your focus — the folder highlighted there; with nothing selected, nothing. Several folders: one
 # confirmation listing them, one undo for the lot. The key and the right-click Delete use one operation.
+# 7.28.1-alpha.2 (Ron, 2026-11-12, review queue Q-013): books AND folders selected → Delete takes both, in one confirmation
+# and one undo, as File Explorer does (was: the books only) — DELKEY-009, 012–015.
 # Real keys and real clicks throughout; every row that deletes is undone with Ctrl+Z and checked back.
 # The fixture (test/fixtures/make-small-fixture.js): Science Fiction (3 books) ⊃ Space Opera (no books) ⊃ Old Favorites
 # (2 books); Fantasy ⊃ The Test Saga; Every Ownership Kind; An Empty Folder; the Inbox (2 books).
@@ -85,6 +87,29 @@ def undo(app):
 def right_rows(app):
     rows = app.page.locator("tbody tr")
     return [rows.nth(i).inner_text() for i in range(rows.count())]
+
+
+def state(app):
+    """The library's exact state, read from the app (window.folders / window.books): each folder's books in order, its
+    parent, the folders' order, and which books are in the Trash or hidden — for "back exactly as it was" checks."""
+    return app.page.evaluate("""() => ({
+        order: window.folders.map(f => f.id),
+        folders: Object.fromEntries(window.folders.map(f => [f.id, { parent: f.parentId || null, books: [...(f.bookIds || [])] }])),
+        trashed: window.books.filter(b => b.isDeleted).map(b => b.id).sort(),
+        hidden: window.books.filter(b => b.isHidden).map(b => b.id).sort(),
+    })""")
+
+
+def differences(a, b):
+    """What differs between two state() readings, in words (empty = the same)."""
+    out = []
+    for k in ("order", "trashed", "hidden"):
+        if a[k] != b[k]:
+            out.append(f"{k}: {a[k]} → {b[k]}")
+    for fid in sorted(set(a["folders"]) | set(b["folders"])):
+        if a["folders"].get(fid) != b["folders"].get(fid):
+            out.append(f"{fid}: {a['folders'].get(fid)} → {b['folders'].get(fid)}")
+    return out
 
 
 def calm(app):
@@ -252,23 +277,26 @@ with App() as app:
     test("DELKEY-007", "the right-click Delete on one of several selected folders acts on all of them, through the same "
          "confirmation as the key (one operation for every way in)", menu_delete)
 
+    def restore_variant():
+        """A variant of the fixture where "A Book With No Description" (TST0000018) is in Space Opera too — it is already
+        in Science Fiction, Space Opera's parent. (Restored from a file: a copy-paste would also trip the second keyboard
+        handler's folder clipboard — TODO "One table…", the survey's 2026-11-06 finding.)"""
+        data = json.load(open(FIXTURE, encoding="utf-8"))
+        space = next(f for f in data["organization"]["folders"] if f["id"] == "f-space")
+        space["bookIds"] = ["TST0000018"]
+        folder = tempfile.mkdtemp(prefix="rw-delkey-")
+        variant = os.path.join(folder, "delkey-variant.json")
+        with open(variant, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        try:
+            app.restore(variant)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+        app.menu("View", "List View").click()
+
     def undo_keeps_parent_books():
         try:
-            # A variant of the fixture where "A Book With No Description" is in Space Opera too — it is already in Science
-            # Fiction, Space Opera's parent. (Restored from a file: a copy-paste would also trip the second keyboard
-            # handler's folder clipboard — TODO "One table…", the survey's 2026-11-06 finding.)
-            data = json.load(open(FIXTURE, encoding="utf-8"))
-            space = next(f for f in data["organization"]["folders"] if f["id"] == "f-space")
-            space["bookIds"] = ["TST0000018"]
-            folder = tempfile.mkdtemp(prefix="rw-delkey-")
-            variant = os.path.join(folder, "delkey-variant.json")
-            with open(variant, "w", encoding="utf-8") as fh:
-                json.dump(data, fh)
-            try:
-                app.restore(variant)
-            finally:
-                shutil.rmtree(folder, ignore_errors=True)
-            app.menu("View", "List View").click()
+            restore_variant()
             baseline()
             open_left(app, "Space Opera")
             check(any("A Book With No Description" in r for r in right_rows(app)), "setup: the book in Space Opera")
@@ -290,23 +318,145 @@ with App() as app:
     test("DELKEY-008", "Ctrl+Z after deleting a subfolder leaves the folder you're in as it was — a book that was in "
          "both stays", undo_keeps_parent_books)
 
-    def books_first():
+    def back_to_fixture(before):
+        """After a books-and-folders row: if anything is left changed, restore the plain fixture for the rows after."""
+        calm(app)
+        if differences(before, state(app)):
+            app.restore(FIXTURE)
+            app.menu("View", "List View").click()
+
+    # "Written Together" (TST0000005) is in Fantasy too, so leaving Science Fiction isn't its last folder (no Trash, no
+    # owned-book question). Space Opera holds a subfolder (Old Favorites, 2 books).
+    def books_and_folders():
+        before = state(app)
         try:
             baseline()
             open_left(app, "Science Fiction")
-            # "Written Together" is in Fantasy too, so leaving Science Fiction isn't its last folder (no Trash, no box)
             select(app, "Space Opera", "Written Together")
             press_delete(app)
-            check(box(app) is None, f"a box came up: {box(app)!r}")
-            check(exists(app, "Space Opera"), "the folder went too — with books selected, Delete acts on the books")
-            check(not any("Written Together" in r for r in right_rows(app)),
-                  "the selected book didn't leave the folder")
+            words = box(app)
+            check(words is not None, "no confirmation came up — with books AND folders selected, Delete should ask once, "
+                                     "naming both (was: the books went, the folder stayed)")
+            check("Space Opera" in words and "Written Together" in words,
+                  f"the confirmation should name the folder and the book: {words!r}")
+            answer(app, "Delete")
+            check(not exists(app, "Space Opera"), "the selected folder is still there after Delete")
+            rows = right_rows(app)
+            check(not any("Written Together" in r for r in rows), "the selected book didn't leave the folder")
+            check(any("Deep in the Folders" in r for r in rows),
+                  "Old Favorites' books should have returned to Science Fiction (the folder you're in)")
+            said = toast(app)
+            check("Space Opera" in said and "Written Together" in said, f"the receipt should say both went: {said!r}")
+        finally:
+            back_to_fixture(before)
+    test("DELKEY-009", "books and folders selected in a folder: ONE confirmation naming both, Delete removes both "
+         "(the folder's books return to the folder you're in), the receipt says both (was: the books only)",
+         books_and_folders)
+
+    def books_and_folders_cancel():
+        before = state(app)
+        try:
+            baseline()
+            open_left(app, "Science Fiction")
+            select(app, "Space Opera", "Written Together")
+            press_delete(app)
+            check(box(app) is not None, "no confirmation came up for books and folders selected together")
+            answer(app, "Cancel")
+            changed = differences(before, state(app))
+            check(not changed, f"Cancel changed the library: {changed}")
+        finally:
+            back_to_fixture(before)
+    test("DELKEY-012", "books and folders selected: Cancel at the confirmation changes nothing", books_and_folders_cancel)
+
+    def books_and_folders_undo():
+        before = state(app)
+        try:
+            baseline()
+            open_left(app, "Science Fiction")
+            select(app, "Space Opera", "Written Together")
+            press_delete(app)
+            check(box(app) is not None, "no confirmation came up for books and folders selected together")
+            answer(app, "Delete")
+            after = state(app)
+            check("f-space" not in after["folders"] and "f-old" not in after["folders"],
+                  "Space Opera and its subfolder should be gone")
+            check("TST0000005" not in after["folders"]["f-scifi"]["books"], "Written Together is still in Science Fiction")
+            undo(app)                              # ONE Ctrl+Z for the lot
+            changed = differences(before, state(app))
+            check(not changed, f"one Ctrl+Z should put everything back exactly — still different: {changed}")
+            app.page.keyboard.press("Control+y")   # and Ctrl+Y does it all again — the book leaves THIS folder only
+            app.page.wait_for_timeout(600)
+            redone = differences(after, state(app))
+            check(not redone, f"Ctrl+Y should redo the delete exactly as it was done — different: {redone}")
             undo(app)
-            check(any("Written Together" in r for r in right_rows(app)), "Ctrl+Z didn't put the book back")
+            changed = differences(before, state(app))
+            check(not changed, f"after Ctrl+Y, one more Ctrl+Z should put everything back — still different: {changed}")
+        finally:
+            back_to_fixture(before)
+    test("DELKEY-013", "books and folders deleted: ONE Ctrl+Z puts everything back exactly (the book where it was, the "
+         "folders with their books, nothing extra); Ctrl+Y redoes exactly the same", books_and_folders_undo)
+
+    def book_inside_the_folder(choice):
+        try:
+            restore_variant()
+            baseline()
+            before = state(app)
+            open_left(app, "Science Fiction")
+            select(app, "Space Opera", "A Book With No Description")
+            press_delete(app)
+            words = box(app)
+            check(words is not None, "no confirmation came up for books and folders selected together")
+            check("Space Opera" in words and "A Book With No Description" in words, f"the confirmation: {words!r}")
+            check("Amazon library" in words,
+                  f"the book goes to the Trash and is owned: the one confirmation should say it comes back from Amazon "
+                  f"and offer to hide it instead: {words!r}")
+            answer(app, choice)
+            after = state(app)
+            check("f-space" not in after["folders"], "Space Opera is still there")
+            in_folders = [fid for fid, f in after["folders"].items() if "TST0000018" in f["books"]]
+            if choice == "Delete":
+                # The folders go first, then the book: in no other folder now, it goes to the Trash. (Books first, the
+                # folder's delete would have put it straight back into Science Fiction.)
+                check("TST0000018" in after["trashed"] and not in_folders,
+                      f"the book should be in the Trash and in no folder — trashed: {'TST0000018' in after['trashed']}, "
+                      f"in folders: {in_folders}")
+            else:
+                check("TST0000018" in after["hidden"] and "TST0000018" not in after["trashed"] and in_folders == ["f-scifi"],
+                      f"Hide Instead: the book should be hidden and stay in Science Fiction — hidden: "
+                      f"{'TST0000018' in after['hidden']}, trashed: {'TST0000018' in after['trashed']}, in: {in_folders}")
+            undo(app)
+            changed = differences(before, state(app))
+            check(not changed, f"one Ctrl+Z should put everything back exactly — still different: {changed}")
         finally:
             calm(app)
-    test("DELKEY-009", "books and folders selected: Delete acts on the books (decided order: books first), the folders "
-         "stay", books_first)
+            app.restore(FIXTURE)                   # back to the plain fixture for the rows after
+            app.menu("View", "List View").click()
+    test("DELKEY-014", "a selected book that is ALSO inside the selected folder, and in no other folder: the folder goes, "
+         "the book goes to the Trash (the one confirmation says it's owned); one Ctrl+Z puts both back exactly",
+         lambda: book_inside_the_folder("Delete"))
+    test("DELKEY-015", "the same, answered Hide Instead: the folder goes, the owned book is hidden and stays in the folder "
+         "you're in; one Ctrl+Z puts both back exactly", lambda: book_inside_the_folder("Hide Instead"))
+
+    def book_redo():
+        before = state(app)
+        try:
+            baseline()
+            open_left(app, "Science Fiction")
+            select(app, "Written Together")       # in Fantasy too: Delete takes it out of Science Fiction only
+            press_delete(app)
+            after = state(app)
+            check("TST0000005" not in after["folders"]["f-scifi"]["books"]
+                  and "TST0000005" in after["folders"]["f-fantasy"]["books"],
+                  "setup: Delete should take Written Together out of Science Fiction and leave it in Fantasy")
+            undo(app)
+            app.page.keyboard.press("Control+y")
+            app.page.wait_for_timeout(600)
+            redone = differences(after, state(app))
+            check(not redone, f"Ctrl+Y should redo the delete exactly as it was done — different: {redone}")
+        finally:
+            back_to_fixture(before)
+    test("DELKEY-016", "a book deleted from one folder, Ctrl+Z, Ctrl+Y: it leaves that folder again — and only that one "
+         "(was: Ctrl+Y took it out of every folder)", book_redo)
 
     def book_list():
         try:

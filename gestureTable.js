@@ -1,12 +1,14 @@
 // gestureTable.js — "the one table": what each gesture does in each place (docs/design/ONE-TABLE.md).
 // 7.28.1: its FIRST rows — the Delete key (TODO "The Delete key deletes the folder you're in — not the folders you
-// selected", id 20261014-1030ay). The move / copy / paste rows are designed in ONE-TABLE.md and follow in their own task
-// (TODO "One table for every move, copy, paste and delete…", id 20261106-1237).
+// selected", id 20261014-1030ay). 7.28.1-alpha.2: books AND folders selected → both go, in one confirmation and one undo
+// (Ron, 2026-11-12, review queue Q-013 — as File Explorer does; was: the books only). The move / copy / paste rows are
+// designed in ONE-TABLE.md and follow in their own task (TODO "One table for every move, copy, paste and delete…",
+// id 20261106-1237).
 //
 // Pure — no React, no DOM, no app state — so the rules are function-tested (test/gestureTable.test.js) and every
 // combination must have a row. Loaded as a classic script before readerwrangler.js (browser); required by the test
 // (Node). The table DECIDES; the app's existing operations DO (softDeleteBooks, permanentlyDeleteBooks, the Book List
-// removal, deleteFolders).
+// removal, deleteFolders, deleteBooksAndFolders).
 
 (() => {
 // Every kind of place the right pane can show — the one map from a place's id to its kind.
@@ -25,9 +27,10 @@ const placeKind = (placeId) => {
     return 'folder';
 };
 
-// What Delete can act on, in the decided order (Ron + UX, 2026-10-22): selected books; else the folders selected in the
-// right pane; else — only when the left pane has your focus — the entry highlighted there; with nothing, nothing.
-const DELETE_WHATS = ['books', 'folders', 'nothing'];
+// What Delete can act on (Ron + UX, 2026-10-22; 'both' Ron 2026-11-12): what's selected in the right pane — books and
+// folders both, books, or folders; with nothing selected, only when the left pane has your focus, the entry highlighted
+// there; otherwise nothing.
+const DELETE_WHATS = ['both', 'books', 'folders', 'nothing'];
 const FOCUSES = ['right', 'left'];
 
 // The words the Delete rows say (one home; the app shows them as written).
@@ -44,12 +47,34 @@ const DELETE_WORDS = {
 //   delete-folders      — the selected folders (deleteFolders: one folder as before; several = one confirmation listing
 //                         them, one undo; the Inbox is never deleted — it stays, and the words say so)
 //   delete-highlighted  — the folder highlighted in the left pane (deleteFolders with that one folder)
+//   delete-books-and-folders — the selected folders AND the selected books: one confirmation naming both, one undo step.
+//                         `books` names the book half — always the place's own books row (TABLE-010), so the books go
+//                         exactly as Delete on books alone sends them. The folders go first, then the books from what's
+//                         left: a selected book that was also inside a selected folder then really leaves (books first,
+//                         the folder's delete would put it straight back into this folder).
 //   say                 — nothing changes; the row's words say why (Law 16: a key never fails silently when the person
 //                         clearly aimed it at something)
 //   nothing             — nothing changes, nothing said (nothing was aimed at — Finder / File Explorer do the same)
 // `why` on a 'nothing' row: the reason the cell can't be reached or does nothing (for the design doc and the tests).
 const NO_BOOKS_SHOWN = 'no books are shown there';
+const NO_FOLDERS_SHOWN = 'no folders are shown there, so none can be selected with the books';
 const DELETE_ROWS = {
+    // Books and folders selected together (Ron, 2026-11-12, Q-013). Both can be shown — and so selected — only in a
+    // folder and the Inbox; the other cells can't be reached, and each says what it would do if one ever were.
+    both: {
+        'folder': { act: 'delete-books-and-folders', books: 'remove-from-folder' },
+        'inbox': { act: 'delete-books-and-folders', books: 'remove-from-folder' },
+        'all-books': { act: 'delete-books-and-folders', books: 'trash' },
+        'search': { act: 'delete-books-and-folders', books: 'trash' },
+        // no books are shown in the three headers: what's selected there is folders — the folders row
+        'folders-view': { act: 'delete-folders' },
+        'searches-view': { act: 'delete-folders' },
+        'book-lists-view': { act: 'delete-folders' },
+        // the books only: a Book List and the Trash show no folders; and the Trash deletes books forever, which can't
+        // share an undo step with a folder delete
+        'book-list': { act: 'remove-from-list', why: NO_FOLDERS_SHOWN },
+        'trash': { act: 'delete-forever', why: NO_FOLDERS_SHOWN + "; and a delete forever can't be undone, so it can't share one undo with a folder delete" },
+    },
     books: {
         'folder': { act: 'remove-from-folder' },
         'inbox': { act: 'remove-from-folder' },
@@ -81,8 +106,8 @@ const DELETE_ROWS = {
     },
 };
 
-// decide(gesture, what, from) → { act, words?, why? }. Only 'delete' has rows today.
-//   what: 'books' | 'folders' | 'nothing'
+// decide(gesture, what, from) → { act, books?, words?, why? }. Only 'delete' has rows today.
+//   what: 'both' | 'books' | 'folders' | 'nothing'
 //   from: { placeId, focus: 'right' | 'left' }
 const decide = (gesture, what, from) => {
     if (gesture !== 'delete') throw new Error(`gestureTable: no rows for the gesture "${gesture}" yet`);
@@ -93,9 +118,10 @@ const decide = (gesture, what, from) => {
     return row;
 };
 
-// What Delete acts on, given the selection — the decided order, in one place. bookCount / folderCount: how many of each
-// are selected in the right pane.
-const deleteWhat = (bookCount, folderCount) => (bookCount > 0 ? 'books' : folderCount > 0 ? 'folders' : 'nothing');
+// What Delete acts on, given the selection — in one place. bookCount / folderCount: how many of each are selected in the
+// right pane. (Until 7.28.1-alpha.2, books and folders together meant the books only.)
+const deleteWhat = (bookCount, folderCount) =>
+    (bookCount > 0 && folderCount > 0 ? 'both' : bookCount > 0 ? 'books' : folderCount > 0 ? 'folders' : 'nothing');
 
 // Which selected folders a Delete may take: never the Inbox (nor any place that isn't a real folder). Returns
 // { deletable: [...], kept: [...] } — `kept` is what the words must mention.
