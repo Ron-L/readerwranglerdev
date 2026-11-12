@@ -224,4 +224,20 @@ def real_history_import_order_fix():
 test("BKLG-006", "the real case: 7.26.0's Import-order fix counts as done (its ✅ was on the branch, 2026-11-05)",
      real_history_import_order_fix)
 
+
+# 2026-11-12: a task finished without a ✅ is declared `done <id>` in the commit that removes it — but that commit is on
+# the release's branch, and the release reaches main as a squash whose message doesn't repeat it. The report read the
+# declarations from main's own commits only, so three finished tasks counted as DROPPED (found when "done" went DOWN,
+# 14 → 13, the day two tasks were finished). The same trap as the ✅ marks (BKLG-001), the same cure: every branch.
+def real_history_done_declared_on_a_branch():
+    recs, _, _ = br.walk(br.load_versions(main_only=True), br.all_marks())
+    for tid, what in (("20261110-0908", "7.28.0's logging kit (declared on feature/logkit)"),
+                      ("20261014-1030ay", "7.28.1's Delete key (declared on main-prime)"),
+                      ("20261112-0757", "every repository's own .gitignore (declared on main-prime)")):
+        r = next((r for r in recs if "id:" + tid in r.aliases), None)
+        check(r is not None, f"{what}: not in the history")
+        check(r.end == "done", f"{what}: should be done, got {r.end!r}")
+test("BKLG-015", "the real case: a task declared `done <id>` on a release's branch counts as done, not dropped",
+     real_history_done_declared_on_a_branch)
+
 done()

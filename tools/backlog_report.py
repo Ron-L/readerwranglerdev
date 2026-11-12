@@ -250,8 +250,10 @@ def declared_done(messages):
 
 
 def load_messages():
-    """[(sha, when, message)] for main's commits (first parents) since the format began."""
-    log = git('log', '--first-parent', '--format=%H%x1f%aI%x1f%B%x1e', f'{FORMAT_START}^..HEAD')
+    """[(sha, when, message)] for EVERY branch's commits since the format began (2026-11-12: main's alone missed them — a
+    task is declared `done <id>` in a commit on the release's branch, and the release reaches main as a squash whose
+    message doesn't repeat it; the same trap as the ✅ marks, the same cure — BKLG-015)."""
+    log = git('log', '--branches', '--remotes', '--tags', '--format=%H%x1f%aI%x1f%B%x1e', '--not', f'{FORMAT_START}^')
     out = []
     for rec in log.split('\x1e'):
         if rec.strip():
@@ -836,12 +838,18 @@ def stamp(recs, snaps):
     print(f'\nAdded {len(added)} id lines to {TODO}. Review them, then commit.')
 
 
-def main():
-    sys.stdout.reconfigure(encoding='utf-8')
+def all_marks():
+    """Every piece of 'this task was finished' evidence, with its date: a ✅ on any branch, and a `done <id>` in any
+    commit's message (one place, so the report and its tests read the same evidence)."""
     marks = checkmarks(load_versions(main_only=False))
     for key, when in declared_done(load_messages()).items():      # `done <id>` in a commit message counts as its ✅
         marks[key] = min(marks.get(key, when), when)
-    recs, snaps, _ = walk(load_versions(main_only=True), marks)
+    return marks
+
+
+def main():
+    sys.stdout.reconfigure(encoding='utf-8')
+    recs, snaps, _ = walk(load_versions(main_only=True), all_marks())
     if '--stamp' in sys.argv:
         stamp(recs, snaps)
         return
