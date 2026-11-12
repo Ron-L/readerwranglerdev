@@ -12,8 +12,9 @@ Never the dev or production relay: the address is always http://127.0.0.1:<the p
 
 Stopping (PRINCIPLES Law 5, Law 12 — 7.28.0: ending the shell that started a relay left workerd and three node
 processes serving its port, caught only by checking the port): every process it started is listed by exact id — with
-its start time, so a reused id is never taken for ours — the whole tree is stopped by exact id (`taskkill /PID <id> /T
-/F`, never by name or pattern), and then it is CHECKED: each listed process gone, each port no longer listening.
+its start time, so a reused id is never taken for ours — each is stopped by its exact id (`taskkill /PID <id> /F`; never
+`/T`, which follows parent ids that Windows reuses; never by name or pattern), and then it is CHECKED: each listed
+process gone, each port no longer listening.
 Anything left is reported by id and name and never stopped here — a process we can't show we started isn't ours to stop.
 """
 import os
@@ -102,8 +103,11 @@ if os.name == "nt":
         finally:
             _k32.CloseHandle(h)
 
-    def stop_tree(pid):
-        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+    def stop_one(pid):
+        # One process, by its exact id — never /T: taskkill /T follows recorded PARENT ids, and Windows reuses ids, so an
+        # older, unrelated process whose dead parent's id our relay happened to get would be taken too (review,
+        # 2026-11-12). The tree is ours to walk (LocalRelay._note_tree checks each start time); stop_one stops one.
+        subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True)
 
     def port_owners(port):
         """Ids of the processes listening on this port (netstat; 'listening' read from the 0.0.0.0:0 / [::]:0 remote
@@ -133,19 +137,11 @@ else:   # Ron's PC is Windows; this branch keeps the module usable elsewhere (a 
         out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
         return out or None
 
-    def stop_tree(pid):
-        procs = processes()
-        tree, todo = [pid], [pid]
-        while todo:
-            p = todo.pop()
-            kids = [c for c, (pp, _) in procs.items() if pp == p]
-            tree += kids
-            todo += kids
-        for p in tree:
-            try:
-                os.kill(p, signal.SIGKILL)
-            except OSError:
-                pass
+    def stop_one(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
 
     def port_owners(port):
         return set()
@@ -244,10 +240,12 @@ class LocalRelay:
             return []
         if self.proc.poll() is None:
             self._note_tree()
-        stop_tree(self.proc.pid)
-        for pid, (t, _) in list(self.ours.items()):      # anything whose link to the root broke — still by exact id
-            if t is not None and started_at(pid) == t:
-                stop_tree(pid)
+        # Every process proven ours (its start time checked as it was adopted, and again now), each by its exact id —
+        # the children first, then the one we started, so nothing is left to start new ones
+        root = self.proc.pid
+        for pid, (t, _) in [(p, v) for p, v in self.ours.items() if p != root] + [(root, self.ours.get(root, (None, '')))]:
+            if pid == root or (t is not None and started_at(pid) == t):
+                stop_one(pid)
         try:
             self.proc.wait(self.stop_s)
         except subprocess.TimeoutExpired:
@@ -268,7 +266,7 @@ class LocalRelay:
             ids = [o for o in sorted(owners) if o and o not in alive]
             left.append(f"port {p} is still in use by {who}" + (
                 " — not one the runner can show it started, so it was left running. Stop it by its id: "
-                + "  ".join(f"taskkill /PID {o} /T /F" for o in ids) if ids else ""))
+                + "  ".join(f"taskkill /PID {o} /F" for o in ids) if ids else ""))
         self.proc = None
         shutil.rmtree(self.store, ignore_errors=True)
         return left

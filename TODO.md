@@ -560,7 +560,7 @@ _Why it matters:_ Rules that depend on memory keep failing; automatic checks don
 - Since then, more checks run on every commit: the undefined-names check, the version stamps (now incl. the relay worker), and the TODO table of contents.
 
 **Left**
-- Items 1, 3 and 4 below, and the rule-by-rule sort of PRINCIPLES.md.
+- Item 1 below, and the rule-by-rule sort of PRINCIPLES.md (items 3 and 4: ✅ 2026-11-12, in `main-prime` for review).
 
 **The idea** (Ron, 2026-09-22, after "assuming bit us again")
 - Go through docs/PRINCIPLES.md rule by rule and sort each one:
@@ -572,14 +572,13 @@ _Why it matters:_ Rules that depend on memory keep failing; automatic checks don
 1. **My code safety check can be skipped by accident** (7.19.0 post-mortem). The checklist only fires for my normal editing tool; edits made with a find-and-replace command skip it. Make it fire for those too. Small.
 2. ✅ **The version check reads only readerwrangler.html's cache-busters** (found 2026-11-09, 7.26.0-alpha.20) — done
    in 7.27.0: every page's `?v=` stamps are read from the page itself (test/test_version_guard.py, VG-001–005).
-3. **The relay tests start and stop their own local relay** (7.28.0 post-mortem). Today they skip unless a local relay
-   is already running, and stopping one by hand left four relay processes serving its port. `tools/run_tests.py
-   --tier 3` with no `--relay-url` should start `wrangler dev --env dev --local` on a free port, wait for "Ready", run
-   the tests, stop every process it started by exact id, and check the port is free — failing loud if anything is
-   left. Never the dev or production relay. Small.
-4. **A release run counts "skipped" as failed** (7.28.0 post-mortem: "31 passed, 2 skipped" read as a pass). A
-   `--release` flag on `tools/run_tests.py --tier all` (the release checklist's step) fails when any file is skipped,
-   naming it and why. With item 3, nothing skips. Small.
+3. ✅ **The relay tests start and stop their own local relay** (7.28.0 post-mortem) — done 2026-11-12 (autonomous
+   trial): `tools/local_relay.py`; `run_tests.py --tier 3` with no `--relay-url` starts wrangler's local emulator on a
+   free port, stops each process it proves it started (by exact id, never `/T`), and checks every port is free
+   (RUN-016–021). Follow-up: the screen tests' own relay starter (`test/ui/rw.py` `LocalRelay`) should use it too.
+4. ✅ **A release run counts "skipped" as failed** (7.28.0 post-mortem) — done 2026-11-12: `run_tests.py --release`
+   fails on any skipped file, naming it and why (RUN-022–024). The release checklist's line in CLAUDE.md should name it
+   — proposed in the review queue.
 
 **How (technical)**
 - Item 1: the gate hooks only Edit / Write. Add a PreToolUse hook on Bash that spots `sed -i` or redirects onto a root `.js` or the relay worker, and runs the same once-per-turn checklist (reuse `is_app_source()`).
