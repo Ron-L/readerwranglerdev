@@ -94,6 +94,8 @@
       - [Working-process safety net: three small follow-ups](#working-process-safety-net-three-small-follow-ups)
   - [🚦 Before public launch](#before-public-launch)
     - [Help, docs and onboarding](#help-docs-and-onboarding)
+      - [An anti-glossary: the words we don't show people, kept in a list and enforced at every commit](#an-anti-glossary-the-words-we-dont-show-people-kept-in-a-list-and-enforced-at-every-commit)
+      - [A glossary page on the site, built from GLOSSARY.md](#a-glossary-page-on-the-site-built-from-glossarymd)
       - [Site pages use the shared named colors, so all four themes work (the security page's high-contrast light first)](#site-pages-use-the-shared-named-colors-so-all-four-themes-work-the-security-pages-high-contrast-light-first)
       - [Landing page: "Open My Library" for returning users, and "Always free · No ads · No account needed" under the start button](#landing-page-open-my-library-for-returning-users-and-always-free--no-ads--no-account-needed-under-the-start-button)
       - [Say plainly what ReaderWrangler works with: US Amazon, Kindle, English, Chrome](#say-plainly-what-readerwrangler-works-with-us-amazon-kindle-english-chrome)
@@ -222,8 +224,11 @@ _Why it matters:_ The Help menu has nothing for reporting a problem or seeing kn
 1. **Help → Report a problem…** copies the diagnostics (as Diagnostics' Copy does), then opens a new GitHub issue —
    telling the person the diagnostics are on the clipboard to paste in.
 2. **Help → Known problems** opens the issue list.
-3. **Open question (Ron, when built):** GitHub needs an account to report, and many readers won't have one — also
-   offer email (contact@readerwrangler.com), or GitHub only?
+3. **Both — email and GitHub** (Ron, 2026-11-12, agreed before sprint 2; it was "GitHub needs an account to report, and
+   many readers won't have one"): the diagnostics are copied first, then a small choice — **Email us** (opens their
+   mail app to contact@readerwrangler.com with a subject line) or **Report on GitHub** (a new issue) — and either way
+   they're told the diagnostics are on the clipboard to paste in. Not in the email's body (a mail link cuts long text
+   off). ONE shared "report a problem" helper, used here and by "When the app can't open…" (its Report this problem).
 
 #### One table for every move, copy, paste and delete: what each gesture does in each place
 <!-- id 20261106-1237 -->
@@ -2593,6 +2598,42 @@ _Formerly: 🚦 Pre-Launch (must-do before public launch)_
 
 _Formerly: Docs & onboarding_
 
+#### An anti-glossary: the words we don't show people, kept in a list and enforced at every commit
+<!-- id 20261112-1431 -->
+
+_Why it matters:_ A retired word creeps back one message at a time ("the fetcher" was never decided and is all over the
+help; "Relay" will be retired by the rename). A rule in someone's memory — or buried in a script — doesn't stop it; a
+visible list that a commit check reads does, and adding a word to it takes seconds (Ron, 2026-11-12).
+
+**Decided** (Ron + Claude, 2026-11-12)
+1. **A file of its own** — `docs/design/ANTI-GLOSSARY.md` — not a section: the data the check reads, visible to anyone.
+   The glossary's "Words users never see" section MOVES there (one home per word); the two files link to each other.
+2. **Each row:** the word (word boundaries; case as listed), why, what to say instead, and a **status** — **Banned**
+   (any use in what people see is refused) or **Retiring** (still on screen until a named task replaces it: the check
+   refuses NEW uses only — the count can only go down — so it can be listed today without turning everything red).
+   First rows: Import/Export (for backups, Banned), "Sync now" (Banned), IndexedDB / localStorage / JSON / tombstone
+   (Banned — checked where they'd reach a person), Relay / Credentials / Channel ID / Passphrase (Retiring — the
+   Cloud Sync rename), fetcher (Retiring — the same sweep; glossary: "update your library from Amazon").
+3. **Where it looks** — only text people see: the messages and labels in the shipped scripts (string literals, not code
+   names — `relay-client.js` keeps its name), the site's pages, README, the User Guide, the help pages. It skips the
+   CHANGELOG's history, post-mortems, design notes and tests. The exclusions live in the same file, also visible.
+4. **A commit check** (git-hooks/, like the others; tests first) reads the file — and refuses a malformed row, so the
+   list can't silently stop working.
+
+#### A glossary page on the site, built from GLOSSARY.md
+<!-- id 20261112-1430 -->
+
+_Why it matters:_ People meet words like "Cloud Sync Key" and "Book List" with no one place that says what they mean;
+and a page kept by hand beside GLOSSARY.md would drift from it. One source, shown prettily (Ron, 2026-11-12).
+
+**Decided** (Ron + Claude, 2026-11-12)
+1. **Built from the file:** `tools/build.py` turns GLOSSARY.md into a page (the way the app is built ahead of time since
+   7.27.0) — nobody edits the page; the commit check refuses a stale copy, as it does for `dist/`.
+2. **Only what's decided:** the Decided rows' term and meaning — not the proposed ones, the decision records or the
+   words people never see.
+3. **Styled like the other site pages** (the shared named colors, so every theme works), linked from Help and the site's
+   footer.
+
 #### Site pages use the shared named colors, so all four themes work (the security page's high-contrast light first)
 <!-- id 20260909-0000 -->
 
@@ -2909,9 +2950,11 @@ reopens a name, never a new argument.
    to ReaderWrangler** / **Send Collections to ReaderWrangler** · "the sync server" on the security page. Data Status
    and "bookmarklet" stay. About 80+ places (app ~52, phone 3, bookmarklet screens ~22, site pages ~13), plus README,
    help notes and the User Guide.
-2. **The name defined once, and a commit check** that refuses retired words in anything users see — a general
-   "words we don't show users" list (Relay, "Sync now", and CLAUDE.md's jargon list), word boundaries, an exclusion
-   list by path. Old CHANGELOG entries, post-mortems and design records keep "Relay".
+2. **The name defined once, and a commit check** that refuses retired words in anything users see — now its own task,
+   "An anti-glossary: the words we don't show people…" (Help, docs and onboarding — built before this one). This rename
+   sweeps its Retiring words to zero — Relay, Credentials, Channel ID, Passphrase, **and "fetcher"** (Ron, 2026-11-12:
+   the tool is "the bookmarklet", the act "update your library from Amazon" — GLOSSARY.md) — then flips them to Banned.
+   Old CHANGELOG entries, post-mortems and design records keep "Relay".
 3. **One Cloud Sync Key:** `RW1-` + 13 groups of 5, Crockford's alphabet (no I, L, O, U; O read as 0, I/L as 1), the
    ID's 32 hex digits + a 31-character secret + 2 check characters (ISO 7064 pure, radix 32, modulus 1021). A 6-character
    support code beside it (the relay's nightly email moving to 6 is done in "Relay worker: one release…").

@@ -11,6 +11,7 @@ import os
 import socket
 import subprocess
 import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # print ✓ even when piped (2026-11-12; as harness.py)
 import tempfile
 import time
 

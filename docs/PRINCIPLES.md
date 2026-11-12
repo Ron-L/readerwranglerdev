@@ -236,6 +236,11 @@ tests) and missed two that handle paths and names: the commit's style check copi
 their folders (a crash, caught by the hook), and the code checker found calls by the text `rwLog.log(` — the moved
 window gets the logger as `log`, so its messages would have left the support table with no error at all (found only by
 reading the checker first). A check keyed to a name goes quiet when the name changes; quiet is the dangerous failure.
+**A squash hides EVERY kind of evidence the branch held** (7.28.1): the backlog report learned in 7.26.0 to read ✅ marks
+from every branch, but read `done <id>` markers from main alone — so three finished tasks counted as dropped, caught
+only because "done" went DOWN on a day two tasks were finished. Anything that reads history reads every branch, for
+every kind of evidence. **And `taskkill /T` is a pattern, not an identity:** it follows recorded parent ids, which
+Windows reuses — an agent's relay stopper used it; review replaced it with "the processes proven ours, one by one".
 **Enforcement**: `feedback_investigate_completely` memory; grep-the-class before declaring done —
 for a markup change, grep the class/attr name across the file for remote matchers *before* editing.
 
@@ -376,6 +381,9 @@ serving its port — a stop isn't done until it's verified (probe the port, then
 release run said "31 passed, 2 skipped" and read as a pass — a report of "passed" must never include "skipped"; and a
 test file printed "19 passed" while 21 ran (a hand-typed "+ 4") — counts are counted, never typed. (Mechanisms filed:
 TODO "Turn more of our working rules into automatic checks", items 3–4.)
+**A header that describes something is a claim too** (7.28.1): GLOSSARY.md said "the User Guide's glossary is built from
+this list" — no page had a glossary. **And an agent's "done" is a claim:** in the autonomous trial every agent's diff
+was read and its tests re-run before anything entered `main-prime` — the reviews found what the agents missed.
 **Enforcement**: `feedback_mechanical_honesty` memory; the heredoc ban (three-for-three earned a ban, not a
 caution); receipts-and-honesty as a feature genre; the logging kit (`logkit/logger.js` — every message has a level, an
 area and a code; the commit check `tools/message_codes.py` on the kit's `logkit/check_messages.py`) and the driver's

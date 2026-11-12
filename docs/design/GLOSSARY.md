@@ -1,9 +1,22 @@
 # Glossary — the words ReaderWrangler shows users
 
 _The single list of user-facing terms (Ron, 2026-11-04: "show me our legend / terms / glossary"). **Decided** terms
-come from their decision records; **proposed** ones are under discussion and change status here when decided. The User
-Guide's glossary is built from this list. Words users never see (IndexedDB, JSON, localStorage, tombstone, Relay,
-"Sync now"…) are listed at the end._
+come from their decision records; **proposed** ones are under discussion and change status here when decided. Words
+users never see (IndexedDB, JSON, localStorage, tombstone, Relay, "Sync now"…) are listed at the end._
+
+_**Read this before writing any words a person sees** — a message, a button, a help line, a page, the CHANGELOG (Ron,
+2026-11-12: CLAUDE.md points here; every agent brief that touches words names this file). A new term, or a change, is
+proposed here first and decided by Ron. (Until 2026-11-12 this header said the User Guide's glossary is built from this
+list — no page had a glossary; a page built from this file is TODO "A glossary page on the site, built from
+GLOSSARY.md".)_
+
+## On screen today — until the Cloud Sync rename ships
+
+Until the rename ships (TODO "Cloud Sync: rename Relay…"), the app still shows **Relay, Credentials, Channel ID,
+Passphrase, Import from Relay, Download Library / Download Collections** — mirror those exact words on the surfaces
+that show them (don't invent "Cloud Storage"); they become the Cloud Sync words below when the rename ships. **Plain
+"cloud" is fine in ordinary prose** ("syncs through the cloud") — the 2026-08-28 vocabulary rule (7.0.1–7.4.0
+post-mortem).
 
 ## Cloud Sync (decided 2026-10-23 — docs/design/CLOUD-SYNC-NAMING.md; building it: TODO "Cloud Sync: rename Relay…")
 
@@ -44,7 +57,7 @@ Guide's glossary is built from this list. Words users never see (IndexedDB, JSON
 | **View on Amazon** | Opens the book's Amazon page. | The app's label (checked 2026-11-02) |
 | **Read in Kindle** | Opens the book to read (Kindle app on Android; Cloud Reader elsewhere). | Decided 2026-11-02 (not built) |
 | **bookmarklet** | The button you drag to your bookmarks bar that fetches from Amazon's pages. Kept — no plainer word. | Decided |
-| **update your library from Amazon** | Running the bookmarklet on Amazon's page to bring your books in — the act, in messages ("…the next time you update your library from Amazon"). Replaces "run the fetcher" — first used in 7.28.1's owned-book boxes (Ron, 2026-11-12, review queue Q-033). The rest of the app, the help pages and the User Guide still say "the fetcher" / "fetch": the decision on the tool's and the act's names, then one sweep — review queue Q-034. | Proposed 2026-11-12 |
+| **update your library from Amazon** | Running the bookmarklet on Amazon's page to bring your books in — the act, in messages ("…the next time you update your library from Amazon"). Replaces "run the fetcher": the TOOL is **the bookmarklet**, the ACT is this — "fetcher" is retired (Ron, 2026-11-12, review queue Q-033/Q-034). First used in 7.28.1's owned-book boxes; the rest of the app, the help pages and the User Guide still say "the fetcher" until the Cloud Sync rename's sweep, which the anti-glossary then enforces. | Decided 2026-11-12 (Ron) |
 
 ## Words users never see
 

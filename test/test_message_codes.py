@@ -7,6 +7,7 @@
 import importlib.util
 import os
 import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # print ✓ even when piped (2026-11-12; as harness.py)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 spec = importlib.util.spec_from_file_location("message_codes", os.path.join(ROOT, "tools", "message_codes.py"))

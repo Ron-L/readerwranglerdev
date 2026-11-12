@@ -6,6 +6,16 @@ import re
 import sys
 import traceback
 
+# Print UTF-8 whatever the output is (2026-11-12): run piped or redirected on Windows, Python used the old code page and
+# crashed on the first "✓" — every test had to be run with PYTHONIOENCODING=utf-8 set by hand. Here for every test that
+# prints through the harness; the three that print on their own (test_check_parse, test_message_codes, test_run_tests)
+# set it the same way.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 _passed = 0
 _failures = []
 _seen = set()

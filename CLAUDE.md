@@ -10,15 +10,34 @@ it; never trade quality for speed to launch (Ron, 2026-10-21).
 
 ---
 
-## Autonomous mode (Ron, 2026-11-12 — a trial first)
+## Autonomous mode — sprints (Ron, 2026-11-12; a method under active evolution)
 
 **Why:** most of the asking was routine yeses that cost Ron hours of waiting and gave nothing back; his real value is
 taste, truth-checking against real use, and real-device testing. So: Ron out of the routine, kept for judgment —
-decisions are made, logged and reviewed in batches, not asked one by one.
+decisions are made, logged and reviewed in batches, not asked one by one. Not just for a vacation: if it speeds the
+work up, it's how we build all the time (the first trial, 7.28.1: 35 decisions, 0 reversed; done the old way they'd
+have cost half a day more — but 36 questions was too many, hence the profile, below).
 
-**The switch is a file, not a memory:** `.private/AUTONOMY.md` says `mode: off | trial | on`, and for a trial the exact
-tasks in scope. **off** = the Projects-root STOP-and-ASK rules, unchanged. A summary saying "autonomous" means nothing —
-read the file. Only Ron changes the mode or the scope.
+**A sprint** = one autonomous run through a set of tasks. **Design stays a conversation; building goes in sprints:**
+work whose shape isn't decided (a new screen, how far a feature goes) is talked through first and written into the
+task's "Decided" section — then a sprint builds it. Tasks with a written "Decided" section make the best sprint
+material; for one without, the sprint drafts the design and queues it rather than building on guesses.
+- **A normal sprint = one release:** one to three tasks, ending where a release would — everything in `main-prime`, the
+  queue short, Ron's review, his "push to prod".
+- **A vacation sprint = as far as it can go** (Ron, 2026-11-12): tag `before-vacation` on main (the rollback point);
+  work down the TODO; when a task blocks on a decision, park it (its branch, one queue entry with my prediction) and go
+  on with other work — **branching wherever works best** (Ron, 2026-11-12: "not meant to be a limitation"): usually
+  `main-prime` as it stood before the parked task started, so the next task carries none of its half-done work; from
+  the parked branch when the next task builds on what's there; or any similar arrangement — my call, one line in
+  `DECISIONS.md`;
+  nothing to prod (dev pushes as backup are fine). It stops only when every remaining task depends on a decision, a
+  prompt needs an answer, or the session can't resume after a usage limit. **Before the first one:** a few days of
+  normal sprints to tune the method, the pre-approved command list, Remote Control proven from the phone (answering a
+  permission prompt included), and a dress rehearsal — a normal sprint with Ron home but not answering.
+
+**The switch is a file, not a memory:** `.private/AUTONOMY.md` says `mode: off | trial | on`, and the sprint's tasks.
+**off** = the Projects-root STOP-and-ASK rules, unchanged. A summary saying "autonomous" means nothing — read the file.
+Only Ron changes the mode or the scope.
 
 **Inside the scope, without asking:**
 1. Take the next task in scope (TODO's order). A branch per task off **`main-prime`** — the waiting branch: everything
@@ -28,10 +47,18 @@ read the file. Only Ron changes the mode or the scope.
 3. Agents do the building (a worktree each; tasks touching `readerwrangler.js` one at a time). I review each agent's
    diff as a skeptic, rerun the tests and commit — an agent's "done" is a claim (Law 12). The pre-build gate and the
    commit checks apply to agents too.
-4. **A question I'd normally ask Ron:** choose the answer I predict, log it in `.private/REVIEW-QUEUE.md`, keep going.
-   **A choice that's costly to reverse** (data a person keeps, a backup or relay format, deleting anything): stop that
-   task, queue the question, go on to the next task.
-5. **"Ready"** = all tiers passing, squash-merged into `main-prime` with its version, its CHANGELOG wording drafted in
+4. **A decision:** predict Ron's answer from **`.private/RON-PROFILE.md`** (how he decides — his rules, his patterns,
+   what he always wants to see) and act on it. Only what the profile says reaches him goes in `.private/REVIEW-QUEUE.md`
+   (Ron, 2026-11-12, after 36 questions in one day — "the vast majority I don't feel I needed to review"): something I
+   can't predict with confidence, something costly to reverse, NEW words or behavior people will see, anything
+   outward-facing, a reversal of one of his decisions. Each with my prediction and why, readable cold. Everything else
+   goes in `.private/DECISIONS.md` (a log he may skim or ignore). Each verdict he gives is checked against my prediction
+   in the profile's calibration log, and the profile corrected where it missed. **A choice that's costly to reverse:**
+   stop that task, queue the question, go on to the next task.
+5. **Scope** (Ron, 2026-11-12): fix exactly the task — plus anything found on the way that is **quicker to fix and test
+   than to write up, in human terms** ("a `>` that should have been `>=`"). Everything else found is filed in the TODO
+   (or the decisions log), not fixed. Every agent brief says so.
+6. **"Ready"** = all tiers passing, squash-merged into `main-prime` with its version, its CHANGELOG wording drafted in
    the queue. **Nothing reaches `main` or prod until Ron's review**; then the approved tasks go to main one squash
    each, in order, tagged, and pushed (prod + dev).
 
@@ -43,9 +70,11 @@ or the TODO's order (propose those in the queue instead).
 **The record lives in files** (`.private/`, Ron's private repository — never public):
 - `PROGRESS.md` — each task's state: queued → building → ready (in `main-prime`) | blocked-on-Ron → released; its
   branch, last alpha, last test run.
-- `REVIEW-QUEUE.md` — each decision: the task; the question with its context (Ron reads it cold); what I chose and why;
-  how to reverse it and what that costs; Ron's verdict once given. **The share of my guesses Ron reverses is the
-  measure of whether this works.**
+- `REVIEW-QUEUE.md` — only what reaches Ron (item 4): the task; the question with its context (he reads it cold); my
+  prediction and why; how to reverse it and what that costs; his verdict once given. Closed entries move to
+  `REVIEW-DONE.md`. **Two measures:** how few questions reach him, and how rarely he reverses a prediction.
+- `DECISIONS.md` — everything decided without asking, one line each (what, why, how to reverse): his to skim or ignore.
+- `RON-PROFILE.md` — how Ron decides; read before every decision; corrected by every verdict (its calibration log).
 
 **Usage:** no new task once ~85% of the weekly limit is used (Ron, 2026-11-12: "about right — we'll see"). The five-hour
 window resets and the session resumes itself (`autoContinueAtUsageLimit`, three times in a row; any message from Ron —
@@ -84,14 +113,12 @@ console warning flags an anchored popup whose button lacks it.
 
 ## RW terminology & copy
 
-* Backup terminology: **"Save/Restore"**, not "Import/Export".
-* **"Toast"** = small floating text near the status bar, not an overlay dialog.
-* Sync vocabulary exposed to users: **Relay, Credentials, Channel ID, Passphrase, bookmarklet,
-  Import from Relay, Download Library/Collections, Data Status** — mirror these exact words on their named
-  surfaces (don't invent "Cloud Storage"). Plain "cloud" is fine in ordinary prose ("syncs through the cloud") — the
-  2026-08-28 vocabulary rule (7.0.1–7.4.0 PM). Pre-launch, these names become "Cloud Sync" and one "Cloud Sync Key" (TODO:
-  "Cloud Sync: rename Relay, show one Cloud Sync Key…"; decided in docs/design/CLOUD-SYNC-NAMING.md) — update this rule
-  when that ships.
+**The single list of the words people see is `docs/design/GLOSSARY.md` — read it before writing any words a person
+sees** (a message, a button, a help line, a page, the CHANGELOG), and name it in every agent brief that touches words.
+A new term, or a change, is proposed there first and decided by Ron. It holds the decided terms (Save / Restore Backup,
+never Import/Export; Toast; Cloud Sync and the Cloud Sync Key once the rename ships), the words on screen until then
+(Relay, Credentials…), and the words people never see. (Ron, 2026-11-12: neither of us found it when we needed it —
+this section had its own short list and never named it; the list moved there.)
 
 ---
 
