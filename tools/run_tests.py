@@ -7,8 +7,8 @@ Finds every test file, reads its header, picks the ones asked for, runs each, an
     py tools/run_tests.py                     tier 1 (the default): the fast function tests
     py tools/run_tests.py --tier all          everything (tier 3 starts its own local relay — see below)
     py tools/run_tests.py --tier all --release   the release run: a SKIPPED file fails it, named with why
-    py tools/run_tests.py --tag merge         by area
-    py tools/run_tests.py --id MERGE-012      the file(s) holding that test ID
+    py tools/run_tests.py --tag merge         by area — in every tier unless --tier says one
+    py tools/run_tests.py --id MERGE-012      the file(s) holding that test ID — in every tier unless --tier says one
     py tools/run_tests.py --changed           the tests covering what changed (staged + unstaged) — the commit hook
     py tools/run_tests.py --list              show what would run, run nothing
 
@@ -116,6 +116,13 @@ def select(files, tier=None, tags=None, ids=None, changed=None, base=ROOT):
     return out
 
 
+def default_tier(a):
+    """The tier when none is given (2026-11-12): --id or --tag → every tier (they name what to run — a screen test's ID
+    said "No tests match" when tier 1 was applied first); --changed → tier 1 (the commit hook: seconds, not minutes);
+    nothing → tier 1."""
+    return "all" if (a.id or a.tag) and not a.changed else 1
+
+
 def skip_reason(tf):
     """Why this file won't run here — None = it runs. The ONE place a skip is decided. Nothing skips today: tier 3 brings
     its own relay (2026-11-12) and a missing tool fails loud (RUN-015). A reason added here is reported as skipped — and
@@ -163,7 +170,9 @@ def main(argv=None, files=None, relay=None):
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="Run ReaderWrangler's tests (docs/design/TESTING.md).")
-    ap.add_argument("--tier", default="1", choices=["1", "2", "3", "all"])
+    ap.add_argument("--tier", default=None, choices=["1", "2", "3", "all"],
+                    help="default: 1 — but --id / --tag with no --tier look in every tier (a screen test's ID is tier 2); "
+                         "--changed stays tier 1 (the commit hook)")
     ap.add_argument("--tag", action="append", default=[])
     ap.add_argument("--id", action="append", default=[])
     ap.add_argument("--changed", action="store_true", help="only tests covering what changed (staged + unstaged)")
@@ -176,7 +185,7 @@ def main(argv=None, files=None, relay=None):
                          "--tier all --release)")
     a = ap.parse_args(argv)
 
-    tier = "all" if a.tier == "all" else int(a.tier)
+    tier = default_tier(a) if a.tier is None else ("all" if a.tier == "all" else int(a.tier))
     files = discover() if files is None else files
     broken = [f for f in files if f.problem]
     chosen = select([f for f in files if not f.problem], tier=tier, tags=a.tag or None, ids=a.id or None,

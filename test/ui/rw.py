@@ -9,6 +9,8 @@ test/ui/rw.py — the shared setup every screen test uses (docs/design/TESTING.m
         app.shot("name")                    # a screenshot in the artifacts folder
         app.covered_scroll_boxes()          # scroll areas something else covers (the status bar, 2026-11-06)
         app.show_boxes(locator, "name")     # outline a box and every box around it, each in its own color (Law 19)
+        app.stub_outside(page)              # window.open and the clipboard RECORDED, never a real mail program or web page
+        app.open_broken_app()               # a tab whose app code is broken on purpose → the "Something went wrong" screen
 
     App(zoom=1.25, size=(1000, 900))        # a window of 1000 x 900 screen pixels at 125% browser zoom
 
@@ -401,7 +403,7 @@ class App:
         if not box or box["width"] < 1 or box["height"] < 1:
             raise App.Unreachable(f"the target has no size ({box}) — nobody can point at it")
         x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
-        self.page.mouse.move(x, y)
+        target.page.mouse.move(x, y)   # the target's own tab (a second tab: the emergency screen, the reset page)
         info = target.evaluate("""(el, pt) => {
             const top = document.elementFromPoint(pt.x, pt.y);
             const say = (e) => !e ? 'nothing' : e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') +
@@ -420,9 +422,52 @@ class App:
     def click_reachable(self, target):
         """hover() first (refusing a covered or zero-size target), then a real click where the pointer is."""
         info = self.hover(target)
-        self.page.mouse.down()
-        self.page.mouse.up()
+        target.page.mouse.down()
+        target.page.mouse.up()
         return info
+
+    # --- the world outside the page: never really reached ----------------------------------------------------------
+    # 7.29.0 (Report a problem): a test must never open a real mail program or a real web page, and the clipboard is the
+    # computer's, not the test's. stub_outside() replaces both IN THE PAGE with recorders — window.open(...) calls land in
+    # window._opened (each call's arguments, as text), clipboard writes in window._copied — so a test asserts what WOULD
+    # have opened or been copied. refuse_clipboard=True: the browser says no, as it may (an insecure page, a denied
+    # permission). Call it again to change that; what was recorded stays.
+    STUB_OUTSIDE_JS = """(refuse) => {
+        window._opened = window._opened || []; window._copied = window._copied || [];
+        window._refuseClipboard = !!refuse;
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (t) => {
+            if (window._refuseClipboard) throw new DOMException('Write permission denied (screen test).', 'NotAllowedError');
+            window._copied.push(String(t)); } } });
+        window.open = (...a) => { window._opened.push(a.map(x => String(x))); return null; };
+    }"""
+
+    def stub_outside(self, page=None, refuse_clipboard=False):
+        (page or self.page).evaluate(self.STUB_OUTSIDE_JS, refuse_clipboard)
+
+    def opened(self, page=None):
+        """Every window.open(...) the page made since stub_outside(), oldest first: [[url, target, features], ...]."""
+        return (page or self.page).evaluate("() => window._opened")
+
+    def copied(self, page=None):
+        """Every text the page wrote to the clipboard since stub_outside(), oldest first."""
+        return (page or self.page).evaluate("() => window._copied")
+
+    def open_broken_app(self, body="this is not javascript {"):
+        """A second tab whose app code fails to load ON PURPOSE (the way 7.27.1's screenshots reached it): the built
+        dist/readerwrangler.js is answered with `body` (by default a syntax error, as a damaged or half-updated copy would
+        be), so the app never starts and the page's own "Something went wrong" screen appears. That screen waits 15 s for
+        the app (readerwrangler.html) — the tab's clock is moved past it, not waited for. Returns (page, its console)."""
+        page = self.ctx.new_page()
+        log = []
+        page.on("console", lambda m: log.append((m.type, m.text)))
+        page.on("pageerror", lambda e: log.append(("crash", str(e))))
+        page.route(lambda u: "/dist/readerwrangler.js" in u,
+                   lambda r: r.fulfill(status=200, content_type="application/javascript", body=body))
+        page.clock.install()
+        page.goto(f"http://localhost:{self.port}/readerwrangler.html")
+        page.clock.fast_forward(16_000)
+        page.get_by_text("Something went wrong", exact=True).wait_for(timeout=10_000)
+        return page, log
 
     # --- reading the screen -------------------------------------------------------------------------------------
     def left_count(self, label):

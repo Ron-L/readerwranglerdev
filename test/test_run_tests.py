@@ -284,6 +284,40 @@ else:
     row("RUN-024", "--release with nothing skipped passes (the flag isn't a blanket failure)",
         code == 0 and "2 file(s) passed" in buf.getvalue(), f"exit {code}: {buf.getvalue()[-300:]}")
 
+    # --- With no --tier: --id and --tag look in EVERY tier (2026-11-12, sprint 2: a screen test's ID said "No tests
+    # match" because the default tier 1 was applied first); --changed stays tier 1 (the commit hook's budget is seconds);
+    # nothing at all stays tier 1 (the default).
+    ui_id = write("test_g.py", "# sample\n# tags: screen-sample, tier 2\n# covers: readerwrangler.js\n"
+                               "# SCREENSAMPLE-001 is this file's test\n")
+    tier3 = write("test-h.mjs", "// sample\n// tags: screen-sample, tier 3\n// covers: relay/relay-worker.js\n")
+    pool = [rt.TestFile(p) for p in (js_ok, py_ok, ui_id, tier3)]
+
+    def listed(argv, changed=None):
+        saved_changed = rt.changed_files
+        if changed is not None:
+            rt.changed_files = lambda: changed
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rt.main(argv + ["--list"], files=pool)
+        finally:
+            rt.changed_files = saved_changed
+        return sorted(os.path.basename(ln.split()[2]) for ln in buf.getvalue().splitlines()
+                      if ln.strip().startswith("tier "))
+
+    got = listed(["--id", "SCREENSAMPLE-001"])
+    row("RUN-025", "--id with no --tier finds a screen test's ID (it said \"No tests match\")",
+        got == ["test_g.py"], str(got))
+    got = listed(["--tag", "screen-sample"])
+    row("RUN-026", "--tag with no --tier looks in every tier", got == ["test-h.mjs", "test_g.py"], str(got))
+    got = listed(["--id", "SCREENSAMPLE-001", "--tier", "1"])
+    row("RUN-027", "--id with --tier 1 still looks in tier 1 only", got == [], str(got))
+    got = listed(["--changed"], changed=["readerwrangler.js", "bookMerge.js"])
+    row("RUN-028", "--changed with no --tier stays tier 1 (the commit hook's budget is seconds)",
+        got == ["a.test.js"], str(got))
+    got = listed([])
+    row("RUN-029", "no flags at all still means tier 1", got == ["a.test.js", "test_c.py"], str(got))
+
 failed = [r for r in results if not r[2]]
 print(f"{len(results) - len(failed)} passed, {len(failed)} failed")
 sys.exit(1 if failed else 0)

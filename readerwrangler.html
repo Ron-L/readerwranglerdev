@@ -139,6 +139,10 @@
     <!-- 7.28.0 - the module moved into logkit/ ("Logging as its own module"); RW's settings for it load just before it -->
     <script src="logkit-settings.js?v=7.28.0"></script>
     <script src="logkit/logger.js?v=7.28.0"></script>
+    <!-- 7.29.0 - THE "report a problem" helper (window.RWReport): copy the diagnostics, then Email us / Report on GitHub.
+         Plain script, right after the logger, so the "Something went wrong" screen below can use it when the app didn't
+         load; the app's Help → Report a problem… uses it too -->
+    <script src="reportProblem.js?v=7.29.0-alpha.3"></script>
     <!-- 7.28.0 - the logging kit's Diagnostics window (JSX, built ahead of time like the app: tools/build.py) — before
          the app, which shows it -->
     <script src="dist/logkit/diagnostics-window.js?v=7.28.0"></script>
@@ -362,9 +366,21 @@
                         ? '<pre style="text-align:left; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; font-size:0.78em; color:#991b1b; white-space:pre-wrap; word-break:break-word; margin-bottom:20px;">' +
                           String(window._lastLoadError).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</pre>'
                         : '') +
+                    '<div id="emergencyReport"></div>' +
                     '<button id="emergencyResetBtn" style="padding:12px 24px; background:#dc2626; color:white; border:none; border-radius:8px; font-size:1em; font-weight:600; cursor:pointer; margin-bottom:12px;">Reset App</button>' +
                     '<div style="color:var(--text-muted,#64748b); font-size:0.8em; margin-top:8px;">To get everything back afterwards: File → Restore Backup… with your backup file.</div>' +
                 '</div>';
+            // 7.29.0 (TODO 20261111-1104a; Law 20) - Copy diagnostics and Report this problem, above Reset App — offered
+            // before anyone reaches the reset, and not on its "Erase and Reset" confirmation (one place). The logging module
+            // loaded first and survives a failed app, so the copy has the kept log; it also carries the build and the error
+            // that stopped the load (shown above only on a local server). reportProblem.js draws them (plain page elements).
+            if (window.RWReport) {
+                RWReport.addButtons(document.getElementById('emergencyReport'), {
+                    lead: RWReport.TEXT.pleaseTell, build: APP_VERSION, where: 'the "Something went wrong" screen',
+                    headerLines: [(typeof isMobile !== 'undefined' && isMobile ? 'Phone' : 'Desktop') + " app didn't open (page " + APP_VERSION + ')',
+                        'Load error: ' + (window._lastLoadError ? String(window._lastLoadError).replace(/\n/g, ' — ') : 'none recorded')]
+                });
+            }
             // v7.4.0 - App-styled confirm (React is dead on this screen, but the stylesheet
             // isn't — a hand-rolled DOM dialog beats the native "localhost:8000 says" box)
             document.getElementById('emergencyResetBtn').addEventListener('click', function() {

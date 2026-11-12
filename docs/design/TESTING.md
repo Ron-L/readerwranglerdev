@@ -63,7 +63,9 @@ Plus a short **manual list per release** (§8) for what can't be automated.
   The `covers:` lines are the **one source** for "which tests does this change need?" — tier 1 picks its tests from
   them, and nothing else keeps a separate list.
 - **The runner — one command, in Python** (`tools/run_tests.py`; Ron's scripts rule): `--tier 1|2|3|all`,
-  `--tag <area>`, `--id <ID>`, `--changed` (the tests covering what changed). One summary at the end; a screen test's
+  `--tag <area>`, `--id <ID>`, `--changed` (the tests covering what changed). With no `--tier`: tier 1 — except `--id`
+  and `--tag`, which look in every tier (2026-11-12: a screen test's ID said "No tests match"; RUN-025–029); `--changed`
+  stays tier 1. One summary at the end; a screen test's
   failure saves a screenshot and the console to Claude's scratch folder. The commit hook calls it with `--changed`.
 - **Tier 3 brings its own relay** (`tools/local_relay.py`, 2026-11-12): with no `--relay-url`, the runner starts
   relay-worker.js in wrangler's local emulator (`wrangler dev --env dev --local`) on a free port with an empty,

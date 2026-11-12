@@ -90,9 +90,39 @@
         // (logkit/diagnostics-window.js, loaded before this file); the app hands it the logger, its own <Dialog> (so Esc,
         // ✕ and stacking are ours) and the build line Copy diagnostics puts under its first line.
         const DiagnosticsWindow = ({ onClose }) => (
-            <LogkitDiagnosticsWindow log={rwLog} Dialog={Dialog} onClose={onClose}
-                copyHeader={[`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`]} />
+            <LogkitDiagnosticsWindow log={rwLog} Dialog={Dialog} onClose={onClose} copyHeader={DIAGNOSTICS_HEADER} />
         );
+
+        // 7.29.0 (TODO 20261111-1104b; Ron, 2026-11-12: both email and GitHub, one shared helper) - Help → Report a
+        // problem…: the shared helper (reportProblem.js, window.RWReport — also on the emergency screen and the reset page)
+        // copied the diagnostics in the menu click (the clipboard needs the click); this window says how that went and
+        // offers Email us / Report on GitHub. It stays open after a choice, so the address and the paste reminder stay in
+        // view if no mail program opens; it closes with its ✕ (named Close) or Esc, like Share by Email. Its words are the
+        // helper's (one copy). state: 'copying' | 'copied' | 'refused'.
+        const ReportProblemDialog = ({ state, onRetry, onClose }) => {
+            const T = RWReport.TEXT;
+            return (
+                <Dialog onClose={onClose} title={T.title} maxWidthClassName="max-w-md">
+                    <div className="p-4 space-y-3 text-sm text-gray-700">
+                        <p data-select-text data-dialog-body role="status"
+                            className={state === 'refused' ? 'text-amber-700' : state === 'copied' ? 'text-green-700' : 'text-gray-500'}>
+                            {state === 'copying' ? T.copying : state === 'copied' ? `✓ ${T.copied}` : `⚠ ${T.refused}`}
+                            {state === 'refused' && (
+                                <button type="button" onClick={onRetry} className="ml-2 text-blue-600 hover:underline">{T.tryAgain}</button>
+                            )}
+                        </p>
+                        <p data-select-text>{T.ask}</p>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => RWReport.openEmail(ORGANIZER_VERSION)}
+                                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">{T.email}</button>
+                            <button type="button" onClick={() => RWReport.openGitHub()}
+                                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium">{T.github}</button>
+                        </div>
+                        <p data-select-text className="text-xs text-gray-500">{T.explain}</p>
+                    </div>
+                </Dialog>
+            );
+        };
 
         // v7.19.0-alpha.4 (Ron + UX) - THE "Select all / Clear" link in a checklist SECTION's header: one piece for every
         // section (removed-books groups, Tag from Collections' books pane + "Removed from Kindle"), so they can't drift.
@@ -123,7 +153,12 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.29.0-alpha.2";  // Build version for this file
+        const ORGANIZER_VERSION = "7.29.0-alpha.3";  // Build version for this file
+        // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
+        // problem… (7.29.0: one copy, so the two can't drift)
+        const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
+        // Why File → Save Backup… (and the Reset App box's Save Backup…) is greyed out (7.29.0, Law 16) — one sentence
+        const NO_BOOKS_TO_BACK_UP = 'Your library is empty — there are no books to back up';
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -1643,6 +1678,16 @@
             const toastHistoryRef = useRef([]); // v7.6.2-alpha.2 - session toast receipts (ring buffer of 50)
             const [toastHistoryOpen, setToastHistoryOpen] = useState(false); // v7.6.2-alpha.2
             const [diagnosticsOpen, setDiagnosticsOpen] = useState(false); // 7.26.0 - the Diagnostics window (Help, and the 🕐's "Full log…")
+            // 7.29.0 - Help → Report a problem…: null (closed) | 'copying' | 'copied' | 'refused' — one state, so the window
+            // can't be open without saying how the copy went
+            const [reportState, setReportState] = useState(null);
+            // Copy the diagnostics (from the click — the clipboard needs it) and show the window. A copy that finishes after
+            // the window was closed leaves it closed.
+            const copyForReport = () => {
+                setReportState('copying');
+                RWReport.copyDiagnostics({ headerLines: DIAGNOSTICS_HEADER, where: 'Help → Report a problem…' })
+                    .then(ok => setReportState(s => (s === null ? null : (ok ? 'copied' : 'refused'))));
+            };
             const toastHistoryBtnRef = useRef(null); // v7.18.0-alpha.40 - anchor for the toast-history <Popover>
             const folderSortBtnRef = useRef(null); // v7.18.0-alpha.44 - anchor for the FOLDERS-header sort <Popover>
             const folderSortPickerBtnRef = useRef(null); // v7.18.0-alpha.44 - anchor for the right-pane "Sort:" folder picker <Popover>
@@ -9771,10 +9816,13 @@
                                                 </MenuBarItem>
                                                 <MenuDivider />
                                                 <MenuBarItem onClick={menuAction(restoreBackup)}>📂 Restore Backup…</MenuBarItem>
-                                                <MenuBarItem onClick={menuAction(exportBackup)} disabled={books.length === 0}>💾 Save Backup…</MenuBarItem>
+                                                {/* 7.29.0 (Law 16) - greyed out with an empty library, each says why */}
+                                                <MenuBarItem onClick={menuAction(exportBackup)} disabled={books.length === 0}
+                                                    title={books.length === 0 ? NO_BOOKS_TO_BACK_UP : undefined}>💾 Save Backup…</MenuBarItem>
                                                 {/* v7.10.0 - Save Spreadsheet (CSV) — first user-requested feature */}
                                                 <MenuBarItem onClick={menuAction(exportSpreadsheet)} disabled={books.length === 0}
-                                                    title="Your library as a spreadsheet file (CSV) — opens in Excel; includes tags, folders, and Book Lists">
+                                                    title={books.length === 0 ? 'Your library is empty — there are no books to put in a spreadsheet'
+                                                        : 'Your library as a spreadsheet file (CSV) — opens in Excel; includes tags, folders, and Book Lists'}>
                                                     📊 Save Spreadsheet (CSV)…
                                                 </MenuBarItem>
                                             </>
@@ -9855,6 +9903,11 @@
                                                 <MenuBarItem onClick={menuAction(() => window.open('tutorials.html', '_blank'))}>Watch Tutorials</MenuBarItem>
                                                 <MenuBarItem onClick={menuAction(() => setShortcutsDialogOpen(true))}>Keyboard Shortcuts</MenuBarItem>
                                                 <MenuBarItem onClick={menuAction(() => setDiagnosticsOpen(true))} title="The log of what ReaderWrangler did and what went wrong — to read, or to copy for us">Diagnostics…</MenuBarItem>
+                                                {/* 7.29.0 (TODO 20261111-1104b) - copy the diagnostics in THIS click (the clipboard needs it), then the window */}
+                                                <MenuBarItem onClick={menuAction(copyForReport)}
+                                                    title="Copies the diagnostics, then lets you email us or report it on GitHub">Report a problem…</MenuBarItem>
+                                                <MenuBarItem onClick={menuAction(() => RWReport.openKnownProblems())}
+                                                    title="The problems already reported, and what's being done about them — on GitHub, in a new tab">Known problems</MenuBarItem>
                                                 <MenuDivider />
                                                 <MenuBarItem onClick={menuAction(() => setAboutDialogOpen(true))}>About ReaderWrangler™</MenuBarItem>
                                             </>
@@ -12071,7 +12124,7 @@
                                     <div className="bg-yellow-50 border border-yellow-300 rounded p-3 text-sm flex items-center justify-between gap-3">
                                         <p className="font-semibold text-gray-800">💡 Before you reset, save a backup: File → Save Backup.</p>
                                         <button type="button" onClick={() => exportBackup()} disabled={books.length === 0}
-                                            title={books.length === 0 ? 'Your library is empty — there are no books to back up' : undefined}
+                                            title={books.length === 0 ? NO_BOOKS_TO_BACK_UP : undefined}
                                             className="flex-shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                                             Save Backup…
                                         </button>
@@ -12144,6 +12197,7 @@
 
                     {/* v5.0.0-alpha.175.2 - About Dialog */}
                     {diagnosticsOpen && <DiagnosticsWindow onClose={() => setDiagnosticsOpen(false)} />}
+                    {reportState && <ReportProblemDialog state={reportState} onRetry={copyForReport} onClose={() => setReportState(null)} />}
                     {aboutDialogOpen && (
                         <Dialog onClose={() => setAboutDialogOpen(false)} showClose={false} maxWidthClassName="max-w-md">
                                 <div className="flex justify-between items-start p-4 bg-gray-200 rounded-t-lg border-b border-gray-300">
@@ -20676,7 +20730,7 @@
                         </div>
                         {/* Center: Affiliate disclosure */}
                         <div className="text-center flex-1">
-                            As an Amazon Associate, I earn from qualifying purchases. | <a href="https://github.com/Ron-L/ReaderWrangler/issues" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700" title="Report issues or request features">Feedback</a> | <a href="security.html" className="hover:text-gray-700" title="Security & Privacy information">Security</a>
+                            As an Amazon Associate, I earn from qualifying purchases. | <a href={RWReport.ISSUES_URL} target="_blank" rel="noopener noreferrer" className="hover:text-gray-700" title="Report issues or request features">Feedback</a> | <a href="security.html" className="hover:text-gray-700" title="Security & Privacy information">Security</a>
                         </div>
                         {/* Right: Sync indicator + Build version */}
                         <div className="text-right flex items-center gap-2 justify-end pr-3">
