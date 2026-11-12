@@ -248,6 +248,41 @@ else:
     row("RUN-021", "the real relay is wrangler's LOCAL emulator on 127.0.0.1 — never the dev or production relay",
         "--local" in a and a[a.index("--ip") + 1] == "127.0.0.1" and "--remote" not in a and "{port}" in a, str(a))
 
+    # --- A release run counts "skipped" as failed (TODO "Turn more of our working rules…", item 4; 7.28.0 post-mortem:
+    # "31 passed, 2 skipped" read as a pass). Nothing skips today, so the test plants a reason through the runner's one
+    # place that decides a skip (skip_reason) — keeping the original to put back.
+    def run_with_skip(argv):
+        saved = getattr(rt, "skip_reason", None)
+        rt.skip_reason = lambda f: "SAMPLE-SKIP: the sample says it can't run here" if f.path == py_ok else None
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                code = rt.main(argv, files=[rt.TestFile(js_ok), rt.TestFile(py_ok)])
+        except SystemExit as e:          # an unknown flag: argparse exits
+            code = f"SystemExit {e.code}"
+        finally:
+            if saved is None:
+                del rt.skip_reason
+            else:
+                rt.skip_reason = saved
+        return code, buf.getvalue()
+
+    code, out = run_with_skip(["--tier", "1", "--release"])
+    row("RUN-022", "--release: a skipped file fails the run, naming the file and why",
+        code == 1 and "test_c.py" in out and "SAMPLE-SKIP: the sample says it can't run here" in out
+        and "a.test.js" in out, f"exit {code}: {out[-400:]}")
+    code, out = run_with_skip(["--tier", "1"])
+    row("RUN-023", "without --release a skip is reported as skipped and the run still passes (as before)",
+        code == 0 and "1 skipped" in out and "test_c.py: skipped" in out, f"exit {code}: {out[-400:]}")
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            code = rt.main(["--tier", "1", "--release"], files=[rt.TestFile(js_ok), rt.TestFile(py_ok)])
+    except SystemExit as e:
+        code = f"SystemExit {e.code}"
+    row("RUN-024", "--release with nothing skipped passes (the flag isn't a blanket failure)",
+        code == 0 and "2 file(s) passed" in buf.getvalue(), f"exit {code}: {buf.getvalue()[-300:]}")
+
 failed = [r for r in results if not r[2]]
 print(f"{len(results) - len(failed)} passed, {len(failed)} failed")
 sys.exit(1 if failed else 0)

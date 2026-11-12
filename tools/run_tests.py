@@ -6,6 +6,7 @@ Finds every test file, reads its header, picks the ones asked for, runs each, an
 
     py tools/run_tests.py                     tier 1 (the default): the fast function tests
     py tools/run_tests.py --tier all          everything (tier 3 starts its own local relay — see below)
+    py tools/run_tests.py --tier all --release   the release run: a SKIPPED file fails it, named with why
     py tools/run_tests.py --tag merge         by area
     py tools/run_tests.py --id MERGE-012      the file(s) holding that test ID
     py tools/run_tests.py --changed           the tests covering what changed (staged + unstaged) — the commit hook
@@ -115,6 +116,13 @@ def select(files, tier=None, tags=None, ids=None, changed=None, base=ROOT):
     return out
 
 
+def skip_reason(tf):
+    """Why this file won't run here — None = it runs. The ONE place a skip is decided. Nothing skips today: tier 3 brings
+    its own relay (2026-11-12) and a missing tool fails loud (RUN-015). A reason added here is reported as skipped — and
+    fails a --release run (7.28.0: "31 passed, 2 skipped" read as a pass)."""
+    return None
+
+
 def run_file(tf, relay_url=None, timeout=600):
     """(passed?, output) — runs one test file from the repo root."""
     if tf.path.endswith(".py") and tf.tier == 2:
@@ -163,6 +171,9 @@ def main(argv=None, files=None, relay=None):
                     help="a relay you started, for tier 3 (default: the runner starts and stops its own local relay)")
     ap.add_argument("--list", action="store_true", help="show what would run, run nothing")
     ap.add_argument("--quiet", action="store_true", help="print only failures and the summary (the commit hook)")
+    ap.add_argument("--release", action="store_true",
+                    help="a release run: a skipped file FAILS the run (the release checklist: py tools/run_tests.py "
+                         "--tier all --release)")
     a = ap.parse_args(argv)
 
     tier = "all" if a.tier == "all" else int(a.tier)
@@ -187,6 +198,11 @@ def main(argv=None, files=None, relay=None):
         if not a.quiet:   # the commit hook stays silent when no test covers the change (Law 12: no noise on the normal path)
             print("No tests cover these changes." if a.changed else "No tests match.")
         return 0
+    skipped = [(f, why) for f, why in ((f, skip_reason(f)) for f in chosen) if why]
+    chosen = [f for f in chosen if not any(f is s for s, _ in skipped)]
+    if not a.quiet or a.release:
+        for f, why in skipped:
+            print(f"- {f.rel()}: skipped — {why}")
 
     def run_and_report(f, relay_url):
         ok, out = run_file(f, relay_url=relay_url)
@@ -228,7 +244,12 @@ def main(argv=None, files=None, relay=None):
                 print("✗ local relay: not everything it started was stopped —\n    " + "\n    ".join(left))
             elif not a.quiet:
                 print(f"✓ local relay stopped — every process it started is gone, ports {', '.join(map(str, r.ports))} free")
-    print(f"Tests: {count['passed']} file(s) passed, {count['failed']} failed")
+    print(f"Tests: {count['passed']} file(s) passed, {count['failed']} failed"
+          + (f", {len(skipped)} skipped" if skipped else ""))
+    if a.release and skipped:    # a release needs every file to have RUN — skipped is not passed (7.28.0)
+        print(f"✗ release run: {len(skipped)} file(s) skipped — a release needs every file to run:\n    "
+              + "\n    ".join(f"{f.rel()} — {why}" for f, why in skipped))
+        return 1
     return 1 if count["failed"] else 0
 
 

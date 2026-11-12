@@ -47,7 +47,7 @@ underneath".
 | **1** | Function tests + the commit checks (names, parse, versions, private values, TOC…) | **Every commit, automatically** — only the tests covering the staged files | seconds (≤ ~10 s) |
 | **2** | Screen tests | **Before every alpha Claude hands Ron** — Ron is never the first to find a regression | a few minutes (≤ ~5 min) |
 | **3** | Relay tests — against a local relay **the runner starts and stops itself** (dev only as a final check, by `--relay-url`) | When relay code changes; before any worker deploy | ~1½ min |
-| **all** | Every tier | **Before every release** (release checklist step) | |
+| **all** | Every tier — `py tools/run_tests.py --tier all --release`: **a skipped file fails a release run**, named with why | **Before every release** (release checklist step) | |
 
 Plus a short **manual list per release** (§8) for what can't be automated.
 
@@ -72,6 +72,9 @@ Plus a short **manual list per release** (§8) for what can't be automated.
   both its ports no longer listening. Anything left fails the run, named by id — and is left running, since the runner
   can't show it started it. `--relay-url <address>` runs against a relay you started instead (no start, no stop). Never
   the dev or production relay by default.
+- **`--release` — skipped is not passed** (2026-11-12; 7.28.0: "31 passed, 2 skipped" read as a pass): with it, any
+  file that didn't run fails the run, each named with why. One function decides a skip (`skip_reason` in the runner);
+  nothing skips today — tier 3 brings its own relay, and a missing tool fails loud — so this guards any skip added later.
 - **The project's own Python for screen tests** (Ron, 2026-11-04): Playwright lives in a venv at the repo root
   (`.venv/`, ignored by git), pinned in `requirements-dev.txt` — set up once with `py -m venv .venv` then
   `.venv\Scripts\pip install -r requirements-dev.txt`. The runner starts tier-2 files with that Python and fails loud
@@ -176,4 +179,7 @@ A test that fails sometimes teaches everyone to ignore failures (Law 12: an alar
   `RUN-016`–`021` prove it with a stand-in relay: the files get its address; the relay AND its child are gone after and
   the port free; one that never says "ready" fails loud and is stopped; a child that escaped the tree and still holds
   the port is named by id; `--relay-url` still starts nothing; the real command is wrangler's local emulator.
+- **Built 2026-11-12 (branch `tooling/release-fails-on-skip`):** `--release` (§4) — a skipped file fails a release
+  run; `RUN-022`–`024` (fails it naming file and why; without the flag a skip still passes, as before; with nothing
+  skipped the flag passes).
 - From then on, every task follows §6.
