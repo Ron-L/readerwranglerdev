@@ -75,3 +75,10 @@ dev-tasks.cfg
 
 # The backlog report's generated page (tools/backlog_report.py rebuilds it from git history)
 tools/backlog-report.html
+
+# Secrets — never committed (the standard block; checked by Projects/check_gitignores.py — 2026-11-12)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
