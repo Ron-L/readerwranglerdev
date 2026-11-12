@@ -6,6 +6,7 @@
       - [Reset App: a Save Backup… button where the box says to save a backup](#reset-app-a-save-backup-button-where-the-box-says-to-save-a-backup)
       - [When the app can't open: Copy diagnostics and Report this problem, right there](#when-the-app-cant-open-copy-diagnostics-and-report-this-problem-right-there)
       - [Help → Report a problem… and Known problems (the GitHub issues)](#help--report-a-problem-and-known-problems-the-github-issues)
+      - [Copy buttons tell the truth: "copied" only when something was copied, and a refusal said](#copy-buttons-tell-the-truth-copied-only-when-something-was-copied-and-a-refusal-said)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
       - [Relay worker: one release of changes (backup alerter, clearer daily email, strict ID check)](#relay-worker-one-release-of-changes-backup-alerter-clearer-daily-email-strict-id-check)
       - [Outside reviews before building: launch risks, security, data safety, a newcomer's first look](#outside-reviews-before-building-launch-risks-security-data-safety-a-newcomers-first-look)
@@ -51,6 +52,7 @@
       - [Restore dialog calls yesterday's backup "today"](#restore-dialog-calls-yesterdays-backup-today)
       - [One safe way to read saved settings — a damaged one can blank the phone app today](#one-safe-way-to-read-saved-settings--a-damaged-one-can-blank-the-phone-app-today)
     - [Polish](#polish)
+      - [Phone: Report a problem in the ⋮ menu, like the desktop's Help](#phone-report-a-problem-in-the--menu-like-the-desktops-help)
       - [Buttons name their action: replace the remaining OK, Yes and No buttons](#buttons-name-their-action-replace-the-remaining-ok-yes-and-no-buttons)
       - [Move and copy books anywhere — folders, Book Lists, All Books, Searches](#move-and-copy-books-anywhere--folders-book-lists-all-books-searches)
       - [Retire two leftover book fields: the hidden "seen" flag and the old price-goal field](#retire-two-leftover-book-fields-the-hidden-seen-flag-and-the-old-price-goal-field)
@@ -229,6 +231,22 @@ _Why it matters:_ The Help menu has nothing for reporting a problem or seeing kn
    mail app to contact@readerwrangler.com with a subject line) or **Report on GitHub** (a new issue) — and either way
    they're told the diagnostics are on the clipboard to paste in. Not in the email's body (a mail link cuts long text
    off). ONE shared "report a problem" helper, used here and by "When the app can't open…" (its Report this problem).
+
+#### Copy buttons tell the truth: "copied" only when something was copied, and a refusal said
+<!-- id 20261112-1755 -->
+
+_Why it matters:_ A support report starts with "I pressed Copy" — if Copy says "copied" when nothing was, the person
+pastes nothing and we get an empty report; if it fails without a word, they don't know to try again (Law 12, Law 16).
+Found while building 7.29.0's Report a problem (sprint 2), whose own copy already does this right.
+
+**To do** (each place: a failing test first)
+1. **The Diagnostics window's Copy diagnostics** (`logkit/diagnostics-window.js`, ~line 50) and **the phone's Copy
+   diagnostics** (`mobile.js`, ~line 902): `Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(…))`
+   reports success when the page has NO clipboard at all — on an insecure address (a phone on the home network reaching
+   a self-hosted copy). Treat a missing clipboard as a refusal, as `reportProblem.js` does.
+2. **The red banner's Copy and the critical box's Copy details** (`logkit/logger.js` `copyInto`): an empty rejection
+   handler and a bare `catch {}` — a refused clipboard fails silently. Say it on the button ("Couldn't copy").
+3. One shared "copy, and say what happened" — the kit's own, so all four use it (the kit can't use reportProblem.js).
 
 #### One table for every move, copy, paste and delete: what each gesture does in each place
 <!-- id 20261106-1237 -->
@@ -1580,6 +1598,16 @@ approximate)
    load", done in the logging switch's PHONE area (7.26.0).
 
 ### Polish
+
+#### Phone: Report a problem in the ⋮ menu, like the desktop's Help
+<!-- id 20261112-1756 -->
+
+_Why it matters:_ Since 7.29.0 the desktop has Help → Report a problem… (copy the diagnostics, then email us or report
+on GitHub); the phone's ⋮ menu has only Copy diagnostics, so a phone reader has to find our address on their own.
+Found while building it (sprint 2).
+
+**To do:** a **Report a problem** item in the phone's ⋮ menu (beside Copy diagnostics), using `reportProblem.js`'s
+words and flow (the phone page already loads it). A screen test at phone size first.
 
 #### Buttons name their action: replace the remaining OK, Yes and No buttons
 <!-- id 20261112-1241 -->
