@@ -214,7 +214,7 @@ else:
         f"exit {code}, started {started}: {out[-600:]}")
     for pid in started.values():      # the test's own cleanup — by exact id, processes this test started
         if pid in now:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True)   # one process each — never /T
 
     def no_relay():
         raise AssertionError("a relay was started although --relay-url named one")
@@ -241,7 +241,7 @@ else:
         row("RUN-020", "--relay-url given → no relay is started, and the file gets that address (as before)",
             code == 0 and seen == given, f"exit {code}, url seen {seen!r}, given {given}: {buf.getvalue()[-300:]}")
     finally:
-        subprocess.run(["taskkill", "/PID", str(srv.pid), "/T", "/F"], capture_output=True)
+        srv.kill()      # the one process this test started (no children here)
         srv.wait(10)
 
     a = lr.WRANGLER_ARGS
