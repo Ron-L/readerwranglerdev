@@ -67,6 +67,10 @@
             </div>
         </div>
 
+        <!-- 7.29.0 (TODO 20261111-1104a) - Copy diagnostics and Report this problem (reportProblem.js draws them; reset.js
+             puts them here), before the reset -->
+        <div id="resetReport" class="text-center"></div>
+
         <!-- Action Buttons -->
         <div class="flex gap-4 justify-center">
             <a href="readerwrangler.html"
@@ -90,8 +94,9 @@
     <!-- Reset Logic -->
     <script src="logkit-settings.js?v=7.28.0"></script> <!-- 7.28.0 - RW's settings for the logging module, just before it -->
     <script src="logkit/logger.js?v=7.28.0"></script> <!-- 7.26.0 - storage.js logs through rwLog; 7.28.0 - moved into logkit/ -->
+    <script src="reportProblem.js?v=7.29.0-alpha.3"></script> <!-- 7.29.0 - THE "report a problem" helper (window.RWReport) -->
     <script src="storage.js?v=7.27.0"></script> <!-- 7.25.1 - deleteBookStore, the one delete (waits when another tab blocks it) -->
-    <script src="reset.js?v=7.27.1"></script> <!-- 7.26.0 - had no cache-buster at all -->
+    <script src="reset.js?v=7.29.0-alpha.3"></script> <!-- 7.26.0 - had no cache-buster at all -->
 
 </body>
 </html>

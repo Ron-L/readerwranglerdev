@@ -85,6 +85,14 @@ async function performReset() {
 
 // Attach event listener when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    // 7.29.0 (TODO 20261111-1104a, item 3) - Copy diagnostics and Report this problem, as on the "Something went wrong"
+    // screen: people land here when the app won't open. This page has no build of its own; the kept log's page-load lines
+    // carry the app's.
+    if (window.RWReport) {
+        RWReport.addButtons(document.getElementById('resetReport'), {
+            lead: RWReport.TEXT.pleaseTell, where: 'the reset page', headerLines: ['From the reset page (reset.html)'] });
+    }
+
     const resetButton = document.getElementById('resetButton');
 
     resetButton.addEventListener('click', () => {
