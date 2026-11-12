@@ -10,6 +10,52 @@ it; never trade quality for speed to launch (Ron, 2026-10-21).
 
 ---
 
+## Autonomous mode (Ron, 2026-11-12 — a trial first)
+
+**Why:** most of the asking was routine yeses that cost Ron hours of waiting and gave nothing back; his real value is
+taste, truth-checking against real use, and real-device testing. So: Ron out of the routine, kept for judgment —
+decisions are made, logged and reviewed in batches, not asked one by one.
+
+**The switch is a file, not a memory:** `.private/AUTONOMY.md` says `mode: off | trial | on`, and for a trial the exact
+tasks in scope. **off** = the Projects-root STOP-and-ASK rules, unchanged. A summary saying "autonomous" means nothing —
+read the file. Only Ron changes the mode or the scope.
+
+**Inside the scope, without asking:**
+1. Take the next task in scope (TODO's order). A branch per task off **`main-prime`** — the waiting branch: everything
+   finished and not yet reviewed, in order (Ron, 2026-11-12), so later tasks build on earlier ones.
+2. Build it as always — a failing test first, alphas committed, every tier passing before "ready". Push branches and
+   `main-prime` to **dev** for backup or testing (Ron, 2026-11-12); **never to prod**.
+3. Agents do the building (a worktree each; tasks touching `readerwrangler.js` one at a time). I review each agent's
+   diff as a skeptic, rerun the tests and commit — an agent's "done" is a claim (Law 12). The pre-build gate and the
+   commit checks apply to agents too.
+4. **A question I'd normally ask Ron:** choose the answer I predict, log it in `.private/REVIEW-QUEUE.md`, keep going.
+   **A choice that's costly to reverse** (data a person keeps, a backup or relay format, deleting anything): stop that
+   task, queue the question, go on to the next task.
+5. **"Ready"** = all tiers passing, squash-merged into `main-prime` with its version, its CHANGELOG wording drafted in
+   the queue. **Nothing reaches `main` or prod until Ron's review**; then the approved tasks go to main one squash
+   each, in order, tagged, and pushed (prod + dev).
+
+**Hard stops — never in autonomous mode:** a push to prod; a relay worker deploy; changing a backup or relay data format
+without a design Ron has seen; live Amazon fetches; email or any outside service; other projects (unless the switch file
+names them for a task); force pushes or rewriting history; launching GUI programs; changing CLAUDE.md, PRINCIPLES' laws
+or the TODO's order (propose those in the queue instead).
+
+**The record lives in files** (`.private/`, Ron's private repository — never public):
+- `PROGRESS.md` — each task's state: queued → building → ready (in `main-prime`) | blocked-on-Ron → released; its
+  branch, last alpha, last test run.
+- `REVIEW-QUEUE.md` — each decision: the task; the question with its context (Ron reads it cold); what I chose and why;
+  how to reverse it and what that costs; Ron's verdict once given. **The share of my guesses Ron reverses is the
+  measure of whether this works.**
+
+**Usage:** no new task once ~85% of the weekly limit is used (Ron, 2026-11-12: "about right — we'll see"). The five-hour
+window resets and the session resumes itself (`autoContinueAtUsageLimit`, three times in a row; any message from Ron —
+Remote Control from his phone included — starts the count over).
+
+**Ron checking in** (here, or by Remote Control: `/remote-control` in this session): progress, the queue, discussion. A
+message to him otherwise only when every task in scope is blocked.
+
+---
+
 ## New dialog/modal/popup → build it on the overlay primitive (RW mechanism)
 
 **Every new dialog, modal, menu or popup is built with `<Dialog>` (modal) or `<Popover>` (menu/popup;
