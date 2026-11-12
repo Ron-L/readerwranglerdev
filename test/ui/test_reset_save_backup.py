@@ -116,7 +116,11 @@ with App() as app:
         app.expect("BACKUP-05")   # caused on purpose: the stand-in file refuses to be written
         page.evaluate(PICKER, "fail")
         app.click_reachable(save_button())
-        page.get_by_text("Export Error", exact=True).wait_for(timeout=10_000)
+        # 7.29.0-alpha.2: the box said "Export Error — Failed to export library." (the retired word for backups)
+        page.get_by_text("Backup Error", exact=True).wait_for(timeout=10_000)
+        error_text = page.locator(".rw-imperative-overlay").inner_text()
+        check("Failed to save the backup." in error_text and "xport" not in error_text,
+              f"the failure box doesn't say the backup wasn't saved, or still says Export: {error_text!r}")
         error_box = page.locator(".rw-imperative-overlay")
         error_box.get_by_role("button", name="OK", exact=True).click()
         error_box.wait_for(state="detached", timeout=5_000)
