@@ -123,7 +123,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.28.1"; // Build version for this file
+var ORGANIZER_VERSION = "7.29.0-alpha.1"; // Build version for this file
 // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
 // compiled) and the page's APP_VERSION doesn't move during alphas
 rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -12063,8 +12063,17 @@ function ReaderWrangler() {
     React.createElement("p", { className: "mb-2" }, "Your saved backup files are not touched."), /*#__PURE__*/
     React.createElement("p", null, "To get everything back afterwards: File \u2192 Restore Backup\u2026 with your backup file.")
     ), /*#__PURE__*/
-    React.createElement("div", { className: "bg-yellow-50 border border-yellow-300 rounded p-3 text-sm" }, /*#__PURE__*/
-    React.createElement("p", { className: "font-semibold text-gray-800" }, "\uD83D\uDCA1 Before you reset, save a backup: File \u2192 Save Backup.")
+
+
+
+
+    React.createElement("div", { className: "bg-yellow-50 border border-yellow-300 rounded p-3 text-sm flex items-center justify-between gap-3" }, /*#__PURE__*/
+    React.createElement("p", { className: "font-semibold text-gray-800" }, "\uD83D\uDCA1 Before you reset, save a backup: File \u2192 Save Backup."), /*#__PURE__*/
+    React.createElement("button", { type: "button", onClick: () => exportBackup(), disabled: books.length === 0,
+      title: books.length === 0 ? 'Your library is empty — there are no books to back up' : undefined,
+      className: "flex-shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed" }, "Save Backup\u2026"
+
+    )
     ), /*#__PURE__*/
     React.createElement("div", { className: "flex gap-3 justify-end pt-2" }, /*#__PURE__*/
     React.createElement("button", {
