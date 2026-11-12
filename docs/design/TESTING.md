@@ -99,6 +99,13 @@ Plus a short **manual list per release** (§8) for what can't be automated.
    it's backed up** (Ron): a test tied to that exact data set can always get it back, and made-up sets holding anything
    personal live there too (its README has the rules). The test loader refuses any file that still carries a key.
 
+**The relay's stored data** (Ron, 2026-11-12 — review queue Q-021): every relay test run starts from a **fresh, empty
+store, thrown away afterwards** (tier 3's own local relay, `tools/local_relay.py`), so a test never depends on what an
+earlier run left — or it isn't repeatable. A test that NEEDS history (a mailbox with old runs, a channel mid-change) gets
+it from a **frozen, labelled snapshot**: built once on purpose, saved as `relay/.wrangler/state-<what it holds>` (a
+meaningful label, not a number), with an index listing each snapshot and what it's for; a run COPIES it into place, so
+the frozen copy is always there for the next run. None exists yet — the first test that needs one makes it.
+
 Screen tests never use Amazon's pages and never the real library's cloud copy: the test app has no Cloud Sync (or a
 throwaway test channel on a local relay). Whatever the driver shows Claude goes to Anthropic — so the demo-style
 fixture, never anything sensitive on screen.

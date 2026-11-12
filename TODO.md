@@ -14,6 +14,7 @@
       - [Generated test libraries: made-up books at any size, with their own covers](#generated-test-libraries-made-up-books-at-any-size-with-their-own-covers)
       - [Receipts reach the screen: one screen test per area, not only the log](#receipts-reach-the-screen-one-screen-test-per-area-not-only-the-log)
       - [Turn more of our working rules into automatic checks (my tooling)](#turn-more-of-our-working-rules-into-automatic-checks-my-tooling)
+      - [One starter for every process our tools start: a list of their ids, leftovers shown loudly](#one-starter-for-every-process-our-tools-start-a-list-of-their-ids-leftovers-shown-loudly)
       - [Trim the always-loaded rules: one home per rule, history out, a lean memory index](#trim-the-always-loaded-rules-one-home-per-rule-history-out-a-lean-memory-index)
       - [Rebuild the old-style message boxes as standard dialogs](#rebuild-the-old-style-message-boxes-as-standard-dialogs)
       - [Drag any dialog out of the way](#drag-any-dialog-out-of-the-way)
@@ -52,6 +53,7 @@
       - [Restore dialog calls yesterday's backup "today"](#restore-dialog-calls-yesterdays-backup-today)
       - [One safe way to read saved settings — a damaged one can blank the phone app today](#one-safe-way-to-read-saved-settings--a-damaged-one-can-blank-the-phone-app-today)
     - [Polish](#polish)
+      - [Buttons name their action: replace the remaining OK, Yes and No buttons](#buttons-name-their-action-replace-the-remaining-ok-yes-and-no-buttons)
       - [Move and copy books anywhere — folders, Book Lists, All Books, Searches](#move-and-copy-books-anywhere--folders-book-lists-all-books-searches)
       - [Retire two leftover book fields: the hidden "seen" flag and the old price-goal field](#retire-two-leftover-book-fields-the-hidden-seen-flag-and-the-old-price-goal-field)
       - [Remove code left over from older versions (hiding single copies, phone tag shelves, unused functions)](#remove-code-left-over-from-older-versions-hiding-single-copies-phone-tag-shelves-unused-functions)
@@ -290,6 +292,14 @@ _Why it matters:_ "Where can books be pasted?" was answered by four lists in the
 refused the Inbox while the menu allowed it, and a cut pasted into a Book List or the Trash took the book out of its
 folder and put it nowhere, then said "Pasted". Law 4 (Ron, 2026-11-06): the 2nd related break means a missing structure
 — one table, read by one function every gesture calls, not a fifth list.
+
+**Status (2026-11-12):** the design is written and **approved by Ron** — `docs/design/ONE-TABLE.md` (the whole matrix;
+each "today" cell marked measured, read in the code, or from the survey). Its first rows, the Delete key's, are built
+(7.28.1: `gestureTable.js`). Left for this task: the move / copy / paste rows — including three harmful cells found
+while building Delete (ONE-TABLE.md §4–5; Ron: "part of the table work"): (1) Ctrl+X then Ctrl+V back into the folder
+the books came from leaves them in NO folder while saying "Pasted…"; (2) Ctrl+X / Ctrl+C with books selected also puts
+the folder you're in on a separate folder clipboard; (3) F2 on a folder selected in the Folders view does nothing.
+Also ONE-TABLE.md §6 item 9: the right-click Delete with books and folders both selected still acts on one kind.
 
 **Decided** (Ron + Claude, 2026-11-06)
 1. **Two small tables, one function** — `decide(gesture, what, from, to)`:
@@ -577,11 +587,36 @@ _Why it matters:_ Rules that depend on memory keep failing; automatic checks don
    free port, stops each process it proves it started (by exact id, never `/T`), and checks every port is free
    (RUN-016–021). Follow-up: the screen tests' own relay starter (`test/ui/rw.py` `LocalRelay`) should use it too.
 4. ✅ **A release run counts "skipped" as failed** (7.28.0 post-mortem) — done 2026-11-12: `run_tests.py --release`
-   fails on any skipped file, naming it and why (RUN-022–024). The release checklist's line in CLAUDE.md should name it
-   — proposed in the review queue.
+   fails on any skipped file, naming it and why (RUN-022–024). The release checklist's line in CLAUDE.md names it
+   (Ron, 2026-11-12).
+5. **A test file can be set aside on purpose — a `skip:` line naming its TODO** (Ron, 2026-11-12: "a good idea, used
+   judiciously"). TESTING.md §7 says a flaky test is fixed or set aside, with a TODO, the same day — today there's no
+   way to set one aside that the runner understands. A `skip: <TODO id> — why` line in a test file's header: the runner
+   skips it and prints why; a release run (`--release`) refuses it (so a set-aside test blocks the next release until
+   fixed); the TODO id must exist. Small.
 
 **How (technical)**
 - Item 1: the gate hooks only Edit / Write. Add a PreToolUse hook on Bash that spots `sed -i` or redirects onto a root `.js` or the relay worker, and runs the same once-per-turn checklist (reuse `is_app_source()`).
+
+#### One starter for every process our tools start: a list of their ids, leftovers shown loudly
+<!-- id 20261112-1240 -->
+
+_Why it matters:_ The tools start processes — a local relay, the screen tests' web server and their own relay — and a
+crashed or interrupted run can leave them running, unnoticed (2026-11-11: a hand-stopped relay left four processes on
+its port). Stopping by name or pattern risks stopping something that isn't ours (Law 5). (Ron, 2026-11-12 — review
+queue Q-020, Q-022, Q-024.)
+
+**Decided** (Ron + Claude, 2026-11-12)
+1. **One starter** (grown from `tools/local_relay.py`) for everything our tools launch: the relay tests' relay (done in
+   7.28.1's tooling), the screen tests' own relay (`test/ui/rw.py` `LocalRelay`) and their web server.
+2. **A list in a file** of every process it started — its id, its start time, what it is, which run started it; an
+   entry leaves the list only when the process is confirmed gone (Ron: "keep a list of IDs as you create them, delete
+   from list when confirmed dead"). The file outlives a crashed run; the start time means a reused id is never taken
+   for ours (Windows has no real process label). Stopping: by exact id, never `/T`, never by name.
+3. **Leftovers are shown loudly** — not a line lost in a slew of output (Ron: "draw my attention to it"): at the end of
+   the run that left them, at the START of the next run (a banner, with the exact command to stop each), and in
+   Claude's "needs your attention" list when reporting to Ron. Something on our port that the list doesn't name is
+   reported, never stopped (it isn't provably ours).
 
 #### Trim the always-loaded rules: one home per rule, history out, a lean memory index
 <!-- id 20261021-1332 -->
@@ -1600,6 +1635,21 @@ approximate)
    load", done in the logging switch's PHONE area (7.26.0).
 
 ### Polish
+
+#### Buttons name their action: replace the remaining OK, Yes and No buttons
+<!-- id 20261112-1241 -->
+
+_Why it matters:_ "OK" under "Delete these 3 folders?" makes you read the question again to know what OK will do; a
+button that says **Delete** doesn't. Law 21 (Ron, 2026-11-12): a button names what it does — never OK, Yes or No;
+Cancel stays.
+
+**To do**
+1. **The comb first** (Law 5): every confirm / choice / info box and `<Dialog>` with an OK / Yes / No button — the
+   imperative boxes (`showConfirmDialog`, `showChoiceDialog`, `showInfoDialog`, the delete warning) and their default
+   button words included; publish the site map (file:line, today's words, the proposed verb) for Ron's red pen.
+2. **Then one change:** the confirm routines take the action's word as a required argument (no "OK" default), so a new
+   box can't be born with one — the mechanism, not a sweep that drifts back.
+3. An information-only box (nothing to decide) may keep a single "OK"/"Got it" — say which in the site map.
 
 #### Move and copy books anywhere — folders, Book Lists, All Books, Searches
 <!-- id 20261014-1030ad; merged 20260808-0000, 20260829-0000 -->

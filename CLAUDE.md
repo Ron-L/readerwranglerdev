@@ -129,8 +129,10 @@ Follows the generic semver+alpha rules in `../CLAUDE.md`. RW's specific stamps:
   `WORKFLOW-PATTERNS.md` (usage patterns). The sweep is a COMB: grep the KB for every term the
   release touched (renamed labels, changed behaviors, new UI) and update each hit; bump the KB's
   "up to date as of" stamp.
-- **Tests** (docs/design/TESTING.md): every tier passes; every task in the release has promoted its tests and filed its
-  gaps; the post-mortem names any bug no test would have caught — and that test gets written.
+- **Tests** (docs/design/TESTING.md): `py tools/run_tests.py --tier all --release` passes — every tier ran and passed,
+  nothing skipped (a skipped file fails a release run; tier 3 starts and stops its own local relay and checks nothing is
+  left); every task in the release has promoted its tests and filed its gaps; the post-mortem names any bug no test
+  would have caught — and that test gets written. (Ron, 2026-11-12.)
 - **TODO.md**: delete every ✅ section (done tasks — now recorded in CHANGELOG) — TODO is future-only.
 - **Backlog report:** run `py tools/backlog_report.py` (after the ✅ sweep is committed) and republish its page — where
   the backlog is on its hump, arrivals vs completions, the launch-scope burn-down (Ron, 2026-10-21).

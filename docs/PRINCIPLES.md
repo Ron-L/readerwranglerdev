@@ -492,6 +492,17 @@ control announces itself where the need arises; this law says the message *is* t
 do right now? then it's a button, not a sentence." First users (TODO, after the Delete key): the Reset App box's Save
 Backup… button; Copy diagnostics + Report on the emergency screen and the reset page; Help → Report a problem.
 
+### 21. A button names what it does — never OK, Yes or No (Ron's rule)
+A button that answers a question says the action it takes: **Delete**, **Hide Instead**, **Restore**, **Keep Both** —
+not OK / Yes / No. The person reads the button, not the paragraph above it; "OK" under "Delete these 3 folders?" makes
+them read the question again to know what OK will do, and "Yes" under a question phrased the other way round deletes
+what they meant to keep. **Cancel** stays — it's the one universal "do nothing". (Ron, 2026-11-12, reviewing the Delete
+key in the autonomous trial — review queue Q-010: the folder confirmation said "OK"; 7.28.1 made it "Delete": "Buttons
+that name their action rather than Yes/No, etc. are always more clear and preferred where possible.") Pairs with Law
+20: the message is the control — and the control says what it does.
+**Enforcement**: the review question for every dialog — "could the button's word be the verb of the question?". The
+existing OK / Yes / No buttons: TODO "Buttons name their action…" (the sweep).
+
 ---
 
 ## SECOND TIER — by theme (the best of the rest)
