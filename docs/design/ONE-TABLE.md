@@ -71,9 +71,11 @@ gesture [survey].
 
 ## 3. Delete — BUILT in 7.28.1
 
-**The rule (Ron + UX, 2026-10-22), in one sentence:** Delete acts on what's selected where you're working — the selected
-books; else the folders selected in the right pane; else, only when the left pane has your focus, the folder highlighted
-there; with nothing selected, nothing. Several folders get one confirmation listing them and one undo for the lot.
+**The rule (Ron + UX, 2026-10-22; books and folders together: Ron, 2026-11-12, review queue Q-013), in one sentence:**
+Delete acts on what's selected where you're working — the books and folders selected in the right pane (both, when both
+are: one confirmation naming both, one undo — as File Explorer does); with nothing selected, only when the left pane has
+your focus, the folder highlighted there; otherwise nothing. Several folders get one confirmation listing them and one
+undo for the lot.
 
 **"The left pane has your focus"** = your last click (or keyboard focus) was inside the left pane (`focusPaneRef`, read at
 the click; `data-left-pane` on the pane). A click anywhere else — the right pane, the toolbar, a menu — moves it away.
@@ -85,7 +87,8 @@ the table still holds a row for it, saying so.
 
 | What's selected | folder / inbox | all-books / search | folders-view | searches-view / book-lists-view | book-list | trash |
 |---|---|---|---|---|---|---|
-| **books** (folders too, or not) | out of this folder; a book in no other folder goes to the Trash (owned books: the hide-instead question) | out of every folder, into the Trash | — | — | off this list only | delete forever, after a confirmation |
+| **books and folders** (7.28.1-alpha.2) | **both**: one confirmation naming the books and the folders, one undo. The folders go first (their books to the folder you're in), then the books by this place's books row — so a selected book that was also in a selected folder really leaves. Owned books bound for the Trash: Hide Instead is a button in the same box | (both, the books by this place's books row — can't be reached: no folders shown) | (the folders row — no books shown) | (the folders row — no books shown) | (the books only — no folders shown) | (the books only — no folders shown; and a delete forever can't share one undo with a folder delete) |
+| **books** (no folders) | out of this folder; a book in no other folder goes to the Trash (owned books: the hide-instead question) | out of every folder, into the Trash | — | — | off this list only | delete forever, after a confirmation |
 | **folders** (no books) | delete those folders | — | delete those folders | — | — | — |
 | **nothing**, focus in the right pane | nothing | nothing | nothing | nothing | nothing | nothing |
 | **nothing**, focus in the left pane | delete the folder highlighted there; **the Inbox: says "The Inbox can't be deleted."** | nothing | nothing (a header) | nothing (a header) | nothing — **proposed: delete the Book List** (Q3) | nothing |
@@ -117,21 +120,26 @@ the table still holds a row for it, saying so.
 | The Inbox selected | nothing, silently | says it can't be deleted; others still go | DELKEY-006 |
 | Right-click Delete on one of several selected folders | only the clicked one | all the selected ones | DELKEY-007 |
 | Ctrl+Z after deleting a subfolder whose book is also in its parent | the book left the parent too | the parent is as it was | DELKEY-008 |
-| Books and folders selected | the books | the books (unchanged; decided order) | DELKEY-009 |
+| Books and folders selected | the books | **7.28.1-alpha.2: both** — one confirmation naming both ("Delete 1 book and 1 folder from "Science Fiction"? • 'Written Together' • "Space Opera" — 2 books, 1 subfolder …"), one receipt (alpha.1: the books only) | DELKEY-009 |
+| … Cancel at that confirmation | — | nothing changes | DELKEY-012 |
+| … then Ctrl+Z, Ctrl+Y | — | one Ctrl+Z puts it all back exactly (the books where they were, the folders with their books, nothing extra); Ctrl+Y does it all again | DELKEY-013 |
+| … a selected book also inside the selected folder, in no other folder | — | the folder goes, then the book — to the Trash (books first, the folder's delete would have put it back); the box says it's owned, with Hide Instead; one Ctrl+Z | DELKEY-014, 015 |
+| Ctrl+Y after undoing a book deleted from one folder | took the book out of **every** folder (it lost its others) | out of that folder only, as the delete did | DELKEY-016 |
 | Delete in a Book List | off the list, **silently** | off the list, with a receipt | DELKEY-011 |
 | A toast shown within ~2.5 s of another | hidden after ~0.8 s by the older toast's timers | shows its full time | DELKEY-011 |
 
-The rows themselves: TABLE-001–008 (every combination has a row; the decided order; the Inbox is never taken).
+The rows themselves: TABLE-001–010 (every combination has a row; the order; the Inbox is never taken; the 'both' rows take
+both where both are shown, and each 'both' row's book half IS that place's books row — the two can't drift).
 
 ### 3.3 The Delete site map (Law 5 — two searches: every `'Delete'` key test, and every call of a delete operation)
 
 | Where | readerwrangler.js | Now |
 |---|---|---|
-| The Delete key | ~5582 → `pressDelete` ~5362 | the table |
+| The Delete key | ~5582 → `pressDelete` ~5362 | the table; books and folders together → `deleteBooksAndFolders` (alpha.2: `planFolderDelete` + `planBookDelete` / `applyBookDelete`, the same working-out `deleteFolders` and `softDeleteBooks` use; one COMPOUND undo step of their own steps) |
 | (the second keyboard listener's Delete — "the folder you're in") | was ~5687 | **removed** — the bug |
 | Folder right-click → Delete Folder | ~19047 | `deleteFolders(menuTargets)` — selection-aware |
 | Left pane × on a folder | ~15805 | `deleteFolders([id])` |
-| Book right-click → Delete / Remove from list / Delete Permanently | ~20250–20277, ~19222 | unchanged ops (the table's book acts); Remove now `removeBooksFromBookList` |
+| Book right-click → Delete / Remove from list / Delete Permanently | ~20250–20277, ~19222 | unchanged ops (the table's book acts); Remove now `removeBooksFromBookList`. **With folders selected too, still the books only** (its words say "Delete 2 Books") — §6 item 9 |
 | Drag onto the Trash | ~15884 | `softDeleteBooks` — unchanged (§6 Q5) |
 | Trash: Empty Trash; Removed books: delete | ~16049, ~11415 | unchanged — explicit, confirmed, outside the key |
 | Book List delete (×, menu); Search delete | ~15055, ~18483; ~14894, ~19128 | unchanged — no key reaches them (Q3) |
@@ -191,8 +199,12 @@ Decided in 7.28.1 without asking (autonomous mode — each is cheap to reverse):
 2. **The Inbox gets words** when Delete is aimed at it — alone ("can't be deleted"), or among others ("stays").
 3. **A Book List highlighted in the left pane + Delete: nothing** (the decided rule names folders). Proposed: delete it,
    as its right-click Delete does (asks first when it has books; Ctrl+Z).
-4. **Books and folders selected together: the books only** (your decided order). Proposed alternative: both, in one
-   confirmation and one undo — what File Explorer does.
+4. **Books and folders selected together — DECIDED (Ron, 2026-11-12, review queue Q-013): both, in one confirmation and
+   one undo — what File Explorer does.** Built in 7.28.1-alpha.2 (alpha.1 deleted the books only). Decided with it,
+   without asking (each cheap to reverse): the folders go first, then the books (so a selected book that was also inside
+   a selected folder really leaves); owned books bound for the Trash get Hide Instead as a button in that one box (not
+   a second box); the cells where both can't be shown say what they'd do (§3.1 — the Trash and a Book List: the books
+   only).
 5. **Drag onto the Trash** keeps today's book-only behavior; a folder dragged onto the Trash is not accepted.
 
 Open for the move / copy / paste rows (§4–§5):
@@ -200,6 +212,14 @@ Open for the move / copy / paste rows (§4–§5):
 6. A move OUT of the Trash = a restore into the destination, for every gesture (today only a drag does)?
 7. Pasting where the books already are: nothing, with "already here" words — or refuse?
 8. Copying a folder: copies its books' memberships too (today's folder clipboard), or only the folder tree?
+
+Open for the Delete rows (7.28.1-alpha.2):
+
+9. **The right-click Delete with books AND folders selected.** The key now takes both; the book menu's Delete ("Delete 2
+   Books", showing "Del" as its key) still takes the books only, and the folder menu's "Delete Folders (2)" the folders
+   only. Each item's words say what it acts on, so neither misleads — but the book item's "Del" promises the key's
+   behavior. Proposed: when both are selected, one item "Delete 2 Books and 1 Folder" in both menus, through the same
+   operation as the key (File Explorer's right-click Delete takes the whole selection).
 
 ## 7. Build list
 
@@ -212,6 +232,14 @@ Open for the move / copy / paste rows (§4–§5):
 5. `removeBooksFromBookList` — one removal (key + two menu items), with a receipt.
 6. A newer toast is no longer hidden by an older toast's timers.
 7. Tests: TABLE-001–008 (tier 1), DELKEY-001–011 (tier 2).
+
+**7.28.1-alpha.2 — books and folders together (Ron, 2026-11-12, Q-013) — built:**
+1. `gestureTable.js` — the 'both' rows (`delete-books-and-folders`, its book half = the place's books row); `deleteWhat`
+   answers 'both'.
+2. `deleteBooksAndFolders` — one confirmation naming both (Hide Instead in it when owned books would go to the Trash),
+   one COMPOUND undo step; `deleteFolders` and `softDeleteBooks` split into a plan and an apply it shares.
+3. Redo of a book delete takes the books out of the folders they left only (was: every folder).
+4. Tests: TABLE-003 (changed), 009, 010; DELKEY-009 (changed), 012–016.
 
 **The table's own task — next:**
 1. A screen test that tries every cell of §4–§5 and records today's answer (the LOGGING.md pattern; PASTE-001–009 were

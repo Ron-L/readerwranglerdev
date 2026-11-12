@@ -123,7 +123,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.28.1-alpha.1";  // Build version for this file
+        const ORGANIZER_VERSION = "7.28.1-alpha.2";  // Build version for this file
         // 7.26.0 - the code's own build, once it runs: the page-load entry can't know it (it's written before this code is
         // compiled) and the page's APP_VERSION doesn't move during alphas
         rwLog.log('info', 'BOOT', `Desktop app ${ORGANIZER_VERSION} running (page ${APP_VERSION})`);
@@ -2999,13 +2999,18 @@
                 return arr;
             };
 
-            const softDeleteBooks = async (bookIds) => {
+            // 7.28.1-alpha.2 - the book half of a Delete in two steps, so ONE Delete of books and folders together
+            // (deleteBooksAndFolders) can work it out against the folder list the folder half leaves — not against the app's
+            // folders as they were. planBookDelete changes nothing; applyBookDelete does it (the books' Trash / hidden state)
+            // and hands back the folder list after, the undo steps and the receipt's words, for the caller to set / record /
+            // say with whatever else its Delete did. softDeleteBooks = the two, around the "owned books" question.
+            // fromFolderId: the place the books are deleted from.
+            const planBookDelete = (bookIds, folderList, fromFolderId) => {
                 const bookIdsSet = new Set(bookIds);
-                const currentFolderId = selectedFolderId;
 
                 // Capture current folder membership (with index) for each book (for position-preserving restore)
                 const folderMembership = {};
-                folders.forEach(folder => {
+                folderList.forEach(folder => {
                     (folder.bookIds || []).forEach((bookId, idx) => {
                         if (bookIdsSet.has(bookId)) {
                             if (!folderMembership[bookId]) folderMembership[bookId] = [];
@@ -3019,70 +3024,43 @@
                 // single source folder: delete there means delete the BOOK — remove from every folder,
                 // trash it. (Previously delete was silently disabled in All Books and silently PARTIAL
                 // in My Library/Searches: only folderless books trashed. Same fix for the whole class.)
-                const isAggregateView = currentFolderId === '__all__' || currentFolderId === '__library__' || isViewFolder(currentFolderId);
-                const foldersToRemoveFrom = isAggregateView ? new Set(folders.map(f => f.id)) : new Set([currentFolderId]);
+                const isAggregateView = fromFolderId === '__all__' || fromFolderId === '__library__' || isViewFolder(fromFolderId);
+                const foldersToRemoveFrom = isAggregateView ? new Set(folderList.map(f => f.id)) : new Set([fromFolderId]);
 
-                // Calculate which books would go to trash (lose their last folder ref)
-                const tempFolders = folders.map(f => {
-                    if (foldersToRemoveFrom.has(f.id)) {
-                        return { ...f, bookIds: (f.bookIds || []).filter(id => !bookIdsSet.has(id)) };
-                    }
-                    return f;
-                });
+                // Which books go to the Trash: those in no folder outside the ones they're deleted from (their last one)
                 const remainingFolderBooks = new Set();
-                tempFolders.forEach(f => {
-                    (f.bookIds || []).forEach(id => {
-                        if (bookIdsSet.has(id)) remainingFolderBooks.add(id);
-                    });
+                folderList.forEach(f => {
+                    if (foldersToRemoveFrom.has(f.id)) return;
+                    (f.bookIds || []).forEach(id => { if (bookIdsSet.has(id)) remainingFolderBooks.add(id); });
                 });
                 const booksToTrash = bookIds.filter(id => !remainingFolderBooks.has(id));
 
-                // v6.2.0 - Check for purchased books going to trash
-                // Skip dialog for already-hidden purchased books (user already tried the gentle path)
-                let hideInsteadIds = new Set();
-                if (booksToTrash.length > 0) {
-                    const purchasedTrashBooks = booksToTrash.filter(id => {
-                        const book = books.find(b => b.id === id);
-                        const type = book?.ownershipType || 'purchased';
-                        return type === 'purchased' && !book?.isHidden;
-                    });
+                // v6.2.0 - purchased books going to the Trash get the "hide instead?" question (they'd come back from Amazon).
+                // Skip it for already-hidden purchased books (the user already tried the gentle path).
+                const ownedToTrash = booksToTrash.filter(id => {
+                    const book = books.find(b => b.id === id);
+                    const type = book?.ownershipType || 'purchased';
+                    return type === 'purchased' && !book?.isHidden;
+                });
+                return { bookIds, folderList, fromFolderId, folderMembership, foldersToRemoveFrom, booksToTrash, ownedToTrash };
+            };
 
-                    if (purchasedTrashBooks.length > 0) {
-                        const result = await showDeleteWarningDialog(purchasedTrashBooks.length);
-                        if (result === null) return; // Cancel — abort everything
-                        if (result === 'hide') {
-                            hideInsteadIds = new Set(purchasedTrashBooks);
-                        }
-                        // 'delete' → proceed normally
-                    }
-                }
-
+            // hideInsteadIds: the owned books the person chose to hide instead of deleting
+            const applyBookDelete = (plan, hideInsteadIds) => {
+                const { bookIds, folderList, fromFolderId, folderMembership, foldersToRemoveFrom, booksToTrash } = plan;
                 // Books being hidden stay in their folders — exclude from folder removal
                 const booksToRemoveFromFolder = hideInsteadIds.size > 0
                     ? bookIds.filter(id => !hideInsteadIds.has(id))
                     : bookIds;
                 const booksToRemoveSet = new Set(booksToRemoveFromFolder);
-
-                // Recalculate folder updates and trash list excluding hidden books
-                const updatedFolders = folders.map(f => {
-                    if (foldersToRemoveFrom.has(f.id) && booksToRemoveSet.size > 0) {
-                        return { ...f, bookIds: (f.bookIds || []).filter(id => !booksToRemoveSet.has(id)) };
-                    }
-                    return f;
-                });
-
                 const actualBooksToTrash = booksToTrash.filter(id => !hideInsteadIds.has(id));
                 const booksToTrashSet = new Set(actualBooksToTrash);
 
-                // For trashed books: clean up bookIds from ALL folders (not just current)
-                if (actualBooksToTrash.length > 0) {
-                    for (let i = 0; i < updatedFolders.length; i++) {
-                        const f = updatedFolders[i];
-                        if ((f.bookIds || []).some(id => booksToTrashSet.has(id))) {
-                            updatedFolders[i] = { ...f, bookIds: f.bookIds.filter(id => !booksToTrashSet.has(id)) };
-                        }
-                    }
-                }
+                // Out of the folders they're deleted from — and a book going to the Trash out of EVERY folder
+                const updatedFolders = folderList.map(f => {
+                    const kept = (f.bookIds || []).filter(id => !booksToTrashSet.has(id) && !(foldersToRemoveFrom.has(f.id) && booksToRemoveSet.has(id)));
+                    return kept.length !== (f.bookIds || []).length ? { ...f, bookIds: kept } : f;
+                });
 
                 // Apply book changes: trash non-purchased, hide purchased
                 setBooks(prev => {
@@ -3104,25 +3082,27 @@
                     return updated;
                 });
 
-                setFolders(updatedFolders);
-
-                // Record undo actions
+                // The undo steps (the caller records them)
+                const actions = [];
                 if (booksToRemoveFromFolder.length > 0 || actualBooksToTrash.length > 0) {
-                    recordAction({
+                    actions.push({
                         type: 'SOFT_DELETE_BOOKS',
                         bookIds: booksToRemoveFromFolder,
                         booksToTrash: actualBooksToTrash,
                         folderMembership,
-                        fromFolderId: currentFolderId,
+                        fromFolderId,
+                        // 7.28.1-alpha.2 - the folders the books left, so redo takes them out of THOSE again (redo took them
+                        // out of every folder — a book deleted from one folder lost its others on Ctrl+Y; DELKEY-013)
+                        removedFrom: [...foldersToRemoveFrom],
                         // v7.10.1-alpha.7 (Ron) - name the source folder: "where did it go back to?" is THE
                         // question when this label surfaces in an undo toast. Aggregate views stay folder-less.
-                        label: `Delete ${bookCountLabel(actualBooksToTrash.length > 0 ? actualBooksToTrash : booksToRemoveFromFolder)}${(() => { const sf = folders.find(f => f.id === currentFolderId); return sf ? ` from '${sf.name.slice(0, 40)}'` : ''; })()}`
+                        label: `Delete ${bookCountLabel(actualBooksToTrash.length > 0 ? actualBooksToTrash : booksToRemoveFromFolder)}${(() => { const sf = folderList.find(f => f.id === fromFolderId); return sf ? ` from '${sf.name.slice(0, 40)}'` : ''; })()}`
                     });
                 }
                 if (hideInsteadIds.size > 0) {
                     const previousStates = {};
                     hideInsteadIds.forEach(id => { previousStates[id] = false; });
-                    recordAction({
+                    actions.push({
                         type: 'TOGGLE_HIDE',
                         bookIds: Array.from(hideInsteadIds),
                         previousStates,
@@ -3131,9 +3111,7 @@
                     });
                 }
 
-                setExplorerSelectedItems(new Set());
-
-                // Toast messages
+                // The receipt's words
                 const msgs = [];
                 if (actualBooksToTrash.length > 0) {
                     // v6.12.0 - Disclose Book List fallout: trashed books are hidden from their lists (membership
@@ -3144,6 +3122,22 @@
                 if (hideInsteadIds.size > 0) msgs.push(`Hid ${bookCountLabel(Array.from(hideInsteadIds))}${hideInsteadIds.size === 1 ? ' (purchased — hides instead of deleting)' : ' (purchased books hide instead of deleting)'}`); // v7.10.1 - named + teaching kept
                 const removedFromFolder = booksToRemoveFromFolder.length - actualBooksToTrash.length;
                 if (removedFromFolder > 0) msgs.push(`Removed ${removedFromFolder === booksToRemoveFromFolder.length ? bookCountLabel(booksToRemoveFromFolder) : removedFromFolder + ' book' + (removedFromFolder !== 1 ? 's' : '')} from folder`); // v7.10.1
+                return { updatedFolders, actions, msgs };
+            };
+
+            const softDeleteBooks = async (bookIds) => {
+                const plan = planBookDelete(bookIds, folders, selectedFolderId);
+                let hideInsteadIds = new Set();
+                if (plan.ownedToTrash.length > 0) {
+                    const result = await showDeleteWarningDialog(plan.ownedToTrash.length);
+                    if (result === null) return; // Cancel — abort everything
+                    if (result === 'hide') hideInsteadIds = new Set(plan.ownedToTrash);
+                    // 'delete' → proceed normally
+                }
+                const { updatedFolders, actions, msgs } = applyBookDelete(plan, hideInsteadIds);
+                setFolders(updatedFolders);
+                actions.forEach(recordAction);
+                setExplorerSelectedItems(new Set());
                 if (msgs.length > 0) rwLog.log('info', 'MOVE', msgs.join(', '), null, { toast: true });
             };
 
@@ -3958,17 +3952,17 @@
             // stays, and the words say so. Books return to each folder's parent (the Inbox for a top-level folder) — only
             // the ones not already there are added, and only those are taken back out on undo (DELKEY-008: the undo used
             // to take out every book the folder held, even ones its parent had before). Returns true if anything was deleted.
-            const deleteFolders = async (folderIds) => {
+            // 7.28.1-alpha.2 - deleteFolders' working-out, on its own (it changes nothing), so a Delete of books AND folders
+            // (deleteBooksAndFolders) uses the very same plan, words and undo step as deleteFolders.
+            const plural = (n, word) => `${n} ${word}${n !== 1 ? 's' : ''}`;
+            const planFolderDelete = (folderIds) => {
                 const { deletable, kept } = gestureTable.splitDeletableFolders([...new Set(folderIds || [])]);
                 const keptNote = kept.includes('__inbox__') ? ` ${gestureTable.DELETE_WORDS.inboxStays}` : '';
                 const byId = new Map(folders.map(f => [f.id, f]));
                 const isUnder = (id, ancestorIds) => { for (let p = byId.get(id)?.parentId; p; p = byId.get(p)?.parentId) if (ancestorIds.has(p)) return true; return false; };
                 const asked = new Set(deletable.filter(id => byId.has(id)));
                 const roots = [...asked].filter(id => !isUnder(id, asked)).map(id => byId.get(id)); // a selected subfolder goes with its selected parent
-                if (roots.length === 0) {
-                    if (kept.includes('__inbox__')) rwLog.log('info', 'ORG', gestureTable.DELETE_WORDS.inboxCantDelete, null, { toast: true });
-                    return false;
-                }
+                if (roots.length === 0) return { kept, keptNote, plans: [] };
 
                 const descendantsOf = (id) => folders.filter(f => f.parentId === id).flatMap(c => [c, ...descendantsOf(c.id)]);
                 const plans = roots.map(root => {
@@ -3979,8 +3973,62 @@
                 const folderIdsToDelete = new Set(foldersToDelete.map(f => f.id));
                 const placeName = (id) => (id === '__inbox__' ? 'the Inbox' : `"${byId.get(id)?.name || 'folder'}"`);
                 const destinations = [...new Set(plans.map(p => p.destination))];
-                const plural = (n, word) => `${n} ${word}${n !== 1 ? 's' : ''}`;
                 const allBookIds = [...new Set(plans.flatMap(p => p.bookIds))];
+                // Only the books a destination doesn't already hold are added to it — and only those come back out on undo
+                const moves = destinations.map(dest => {
+                    const has = new Set(byId.get(dest)?.bookIds || []);
+                    return { destination: dest, bookIds: [...new Set(plans.filter(p => p.destination === dest).flatMap(p => p.bookIds))].filter(id => !has.has(id)) };
+                }).filter(m => m.bookIds.length > 0);
+                const viewedPlan = plans.find(p => p.subtree.some(f => f.id === selectedFolderId));
+                const returnTo = viewedPlan ? viewedPlan.destination : null;
+                // The confirmation's words: one line per folder with what it holds, and where their books go
+                const lines = plans.map(p => {
+                    const n = [...new Set(p.subtree.flatMap(f => f.bookIds || []))].length, subs = p.subtree.length - 1;
+                    const parts = [n > 0 ? plural(n, 'book') : '', subs > 0 ? plural(subs, 'subfolder') : ''].filter(Boolean);
+                    return `• "${p.root.name}"${parts.length ? ` — ${parts.join(', ')}` : ''}`;
+                });
+                // where their books go, in words: "Their books return to the Inbox." (`their` = how the box names the folders)
+                const booksGo = (their) => allBookIds.length === 0 ? ''
+                    : destinations.length === 1 ? `${their} books return to ${placeName(destinations[0])}.`
+                    : `Each folder's books return to the folder it's in (the Inbox for a top-level folder).`;
+                const movedTo = destinations.length === 1 ? (destinations[0] === '__inbox__' ? 'Inbox' : placeName(destinations[0])) : 'the folders they were in';
+                const what = plans.length === 1 ? `"${plans[0].root.name}"` : `${plans.length} folders`;
+                const receipt = allBookIds.length > 0 ? `Deleted ${what} — ${plural(allBookIds.length, 'book')} moved to ${movedTo}` : `Deleted ${what}`;
+                return { kept, keptNote, plans, foldersToDelete, folderIdsToDelete, destinations, allBookIds, moves, returnTo, placeName, lines, booksGo, receipt };
+            };
+            // The folder delete's undo step (the caller records it, alone or inside a compound step)
+            const folderDeleteAction = (fp) => {
+                const savedSortSettings = {};
+                fp.foldersToDelete.forEach(f => { if (folderSortSettings[f.id]) savedSortSettings[f.id] = folderSortSettings[f.id]; });
+                return {
+                    type: 'DELETE_FOLDERS',
+                    label: fp.plans.length === 1 ? `Delete folder "${fp.plans[0].root.name}"` : `Delete ${fp.plans.length} folders`,
+                    deletedFolders: fp.foldersToDelete.map(f => ({ ...f })),
+                    folderIndices: fp.foldersToDelete.map(f => folders.findIndex(x => x.id === f.id)),
+                    orphanMoves: fp.moves,
+                    viewed: selectedFolderId,   // undo brings you back to where you were
+                    returnTo: fp.returnTo,      // redo, if you're inside a folder it deletes again
+                    savedSortSettings
+                };
+            };
+            // A folder list with the plan done to it: the books into each parent, then the folders out
+            const foldersAfterDelete = (list, fp) => applyOrphanMoves(list, fp.moves).filter(f => !fp.folderIdsToDelete.has(f.id));
+            // The rest of a folder delete besides the folder list: the sort settings, and where you are / what's selected
+            const finishFolderDelete = (fp, action) => {
+                if (Object.keys(action.savedSortSettings).length > 0) {
+                    setFolderSortSettings(prev => { const next = { ...prev }; fp.foldersToDelete.forEach(f => delete next[f.id]); return next; });
+                }
+                if (fp.returnTo) navigateToFolder(fp.returnTo);
+                else setExplorerSelectedItems(prev => new Set([...prev].filter(id => !fp.folderIdsToDelete.has(id)))); // deleted ones leave the selection
+            };
+
+            const deleteFolders = async (folderIds) => {
+                const fp = planFolderDelete(folderIds);
+                const { keptNote, plans, allBookIds, placeName } = fp;
+                if (plans.length === 0) {
+                    if (fp.kept.includes('__inbox__')) rwLog.log('info', 'ORG', gestureTable.DELETE_WORDS.inboxCantDelete, null, { toast: true });
+                    return false;
+                }
 
                 if (plans.length === 1) {
                     // v6.13.2-alpha.1 - Empty folder (no books, no subfolders) deletes without a confirm — nothing to lose.
@@ -3995,50 +4043,64 @@
                     }
                 } else {
                     // Several folders: one confirmation listing them (a genuinely destructive act — Ron + UX, 2026-10-22)
-                    const lines = plans.map(p => {
-                        const n = [...new Set(p.subtree.flatMap(f => f.bookIds || []))].length, subs = p.subtree.length - 1;
-                        const parts = [n > 0 ? plural(n, 'book') : '', subs > 0 ? plural(subs, 'subfolder') : ''].filter(Boolean);
-                        return `• "${p.root.name}"${parts.length ? ` — ${parts.join(', ')}` : ''}`;
-                    });
-                    const back = allBookIds.length === 0 ? ''
-                        : destinations.length === 1 ? `\nTheir books return to ${placeName(destinations[0])}.`
-                        : `\nEach folder's books return to the folder it's in (the Inbox for a top-level folder).`;
-                    if (!(await showConfirmDialog('ORG', 'Delete Folders', `Delete these ${plans.length} folders?\n${lines.join('\n')}${back}${keptNote ? `\n${keptNote.trim()}` : ''}`, 'Delete'))) return false;
+                    const back = fp.booksGo('Their');
+                    if (!(await showConfirmDialog('ORG', 'Delete Folders', `Delete these ${plans.length} folders?\n${fp.lines.join('\n')}${back ? `\n${back}` : ''}${keptNote ? `\n${keptNote.trim()}` : ''}`, 'Delete'))) return false;
                 }
 
-                // Only the books a destination doesn't already hold are added to it — and only those come back out on undo
-                const moves = destinations.map(dest => {
-                    const has = new Set(byId.get(dest)?.bookIds || []);
-                    return { destination: dest, bookIds: [...new Set(plans.filter(p => p.destination === dest).flatMap(p => p.bookIds))].filter(id => !has.has(id)) };
-                }).filter(m => m.bookIds.length > 0);
-                const viewedPlan = plans.find(p => p.subtree.some(f => f.id === selectedFolderId));
-                const returnTo = viewedPlan ? viewedPlan.destination : null;
+                const action = folderDeleteAction(fp);
+                recordAction(action);
+                setFolders(prev => foldersAfterDelete(prev, fp));
+                finishFolderDelete(fp, action);
+                rwLog.log('info', 'ORG', fp.receipt + (keptNote ? `.${keptNote}` : ''), null, { toast: true });
+                rwLog.log('debug', 'MOVE', `Deleted ${plural(plans.length, 'folder')} with ${plural(fp.foldersToDelete.length - plans.length, 'subfolder')}; ${plural(fp.moves.reduce((n, m) => n + m.bookIds.length, 0), 'book')} added to ${plural(fp.moves.length, 'parent folder')}`);
+                return true;
+            };
 
-                const savedSortSettings = {};
-                foldersToDelete.forEach(f => { if (folderSortSettings[f.id]) savedSortSettings[f.id] = folderSortSettings[f.id]; });
+            // 7.28.1-alpha.2 (Ron, 2026-11-12, review queue Q-013) - books AND folders selected: Delete takes both, as File
+            // Explorer does — ONE confirmation naming both, ONE undo step: a COMPOUND of the two operations' own steps
+            // (DELETE_FOLDERS, then SOFT_DELETE_BOOKS / TOGGLE_HIDE), so undo and redo are the operations' own. The folders go
+            // first, then the books from the folders that are left: a selected book that was also inside a selected folder
+            // then really leaves (books first, the folder's delete would put it straight back here — DELKEY-014).
+            // bookAct: the place's own books row (gestureTable 'both' rows — 'remove-from-folder' | 'trash'), so the books go
+            // exactly as Delete on books alone sends them. Owned books bound for the Trash: the same "hide instead?" choice,
+            // asked in the same one box. Returns true if anything was deleted.
+            const deleteBooksAndFolders = async (bookIds, folderIds, bookAct) => {
+                const fp = planFolderDelete(folderIds);
+                if (fp.plans.length === 0) { await softDeleteBooks(bookIds); return true; } // only the Inbox among the folders
+                const bp = planBookDelete(bookIds, foldersAfterDelete(folders, fp), selectedFolderId);
+                const here = folders.find(f => f.id === selectedFolderId);
+                const hereName = here ? `"${here.name}"` : 'here';
+                const nBooks = bookIds.length, nTrash = bp.booksToTrash.length, nOwned = bp.ownedToTrash.length;
+                const bookLines = nBooks <= 5 ? bookIds.map(id => `• ${bookCountLabel([id])}`) : [`• ${plural(nBooks, 'book')}`];
+                const booksGo = bookAct === 'trash' ? `${nBooks === 1 ? 'The book goes' : 'The books go'} to the Trash.`
+                    : nTrash === 0 ? `${nBooks === 1 ? 'The book leaves' : 'The books leave'} ${hereName} and stay${nBooks === 1 ? 's' : ''} in ${nBooks === 1 ? 'its' : 'their'} other folders.`
+                    : nTrash === nBooks ? `${nBooks === 1 ? 'The book is' : 'The books are'} in no other folder, so ${nBooks === 1 ? 'it goes' : 'they go'} to the Trash.`
+                    : `${nTrash} of the books ${nTrash === 1 ? 'is' : 'are'} in no other folder and go${nTrash === 1 ? 'es' : ''} to the Trash; ${nBooks - nTrash === 1 ? 'the other stays in its' : 'the others stay in their'} other folders.`;
+                const ownedNote = nOwned === 0 ? ''
+                    : `\n\n${nOwned === 1 ? `${bookCountLabel(bp.ownedToTrash)} is` : `${nOwned} of them are`} owned and likely still in your Amazon library: in the Trash, ${nOwned === 1 ? 'it comes' : 'they come'} back the next time you run the fetcher. Hide Instead keeps ${nOwned === 1 ? 'it' : 'them'} in ${nOwned === 1 ? 'its' : 'their'} folders, hidden.`;
+                const folderBooksGo = fp.booksGo(fp.plans.length === 1 ? "The folder's" : "The folders'");
+                const title = `Delete ${nBooks === 1 ? 'Book' : 'Books'} and ${fp.plans.length === 1 ? 'Folder' : 'Folders'}`;
+                const message = `Delete ${plural(nBooks, 'book')} and ${plural(fp.plans.length, 'folder')} from ${hereName}?\n`
+                    + `${[...bookLines, ...fp.lines].join('\n')}\n${booksGo}${folderBooksGo ? ` ${folderBooksGo}` : ''}`
+                    + `${fp.keptNote ? `\n${fp.keptNote.trim()}` : ''}${ownedNote}`;
+                let hideInsteadIds = new Set();
+                if (nOwned > 0) {
+                    const answer = await showChoiceDialog('ORG', title, message, [
+                        { label: 'Cancel', value: null }, { label: 'Hide Instead', value: 'hide' }, { label: 'Delete', value: 'delete', primary: true }]);
+                    if (answer == null) return false;
+                    if (answer === 'hide') hideInsteadIds = new Set(bp.ownedToTrash);
+                } else if (!(await showConfirmDialog('ORG', title, message, 'Delete'))) return false;
+
+                const folderStep = folderDeleteAction(fp);
+                const { updatedFolders, actions: bookSteps, msgs } = applyBookDelete(bp, hideInsteadIds);
                 recordAction({
-                    type: 'DELETE_FOLDERS',
-                    label: plans.length === 1 ? `Delete folder "${plans[0].root.name}"` : `Delete ${plans.length} folders`,
-                    deletedFolders: foldersToDelete.map(f => ({ ...f })),
-                    folderIndices: foldersToDelete.map(f => folders.findIndex(x => x.id === f.id)),
-                    orphanMoves: moves,
-                    viewed: selectedFolderId,   // undo brings you back to where you were
-                    returnTo,                   // redo, if you're inside a folder it deletes again
-                    savedSortSettings
+                    type: 'COMPOUND', actions: [folderStep, ...bookSteps],
+                    label: `Delete ${bookCountLabel(bookIds)} and ${fp.plans.length === 1 ? `folder "${fp.plans[0].root.name}"` : `${fp.plans.length} folders`}`
                 });
-                if (Object.keys(savedSortSettings).length > 0) {
-                    setFolderSortSettings(prev => { const next = { ...prev }; foldersToDelete.forEach(f => delete next[f.id]); return next; });
-                }
-                setFolders(prev => applyOrphanMoves(prev, moves).filter(f => !folderIdsToDelete.has(f.id)));
-                if (returnTo) navigateToFolder(returnTo);
-                else setExplorerSelectedItems(prev => new Set([...prev].filter(id => !folderIdsToDelete.has(id)))); // deleted ones leave the selection
-
-                const movedTo = destinations.length === 1 ? (destinations[0] === '__inbox__' ? 'Inbox' : placeName(destinations[0])) : 'the folders they were in';
-                const what = plans.length === 1 ? `"${plans[0].root.name}"` : `${plans.length} folders`;
-                rwLog.log('info', 'ORG', (allBookIds.length > 0
-                    ? `Deleted ${what} — ${plural(allBookIds.length, 'book')} moved to ${movedTo}`
-                    : `Deleted ${what}`) + (keptNote ? `.${keptNote}` : ''), null, { toast: true });
-                rwLog.log('debug', 'MOVE', `Deleted ${plural(plans.length, 'folder')} with ${plural(foldersToDelete.length - plans.length, 'subfolder')}; ${plural(moves.reduce((n, m) => n + m.bookIds.length, 0), 'book')} added to ${plural(moves.length, 'parent folder')}`);
+                setFolders(updatedFolders);
+                finishFolderDelete(fp, folderStep);
+                setExplorerSelectedItems(new Set());
+                rwLog.log('info', 'ORG', `${fp.receipt}${msgs.length ? `. ${msgs.join(', ')}` : ''}${fp.keptNote ? `.${fp.keptNote}` : ''}`, null, { toast: true });
                 return true;
             };
             // DELETE_FOLDERS' book moves, applied (delete, redo) or taken back (undo) — one helper, so the three can't drift
@@ -5355,10 +5417,11 @@
 
             // 7.28.1 - THE Delete key (TODO "The Delete key deletes the folder you're in — not the folders you selected").
             // What it acts on and what it does are rows of the one table (gestureTable.js; docs/design/ONE-TABLE.md §3):
-            // selected books; else the folders selected in the right pane; else, only when the left pane has your focus,
-            // the folder highlighted there; with nothing selected, nothing. It replaces two Delete branches in two keyboard
-            // listeners (books in one; "the folder you're in" in the other). Read through a ref by the listener, so it never
-            // sees stale state. Returns true when it claimed the key. Tests: TABLE-001…, DELKEY-001….
+            // what's selected in the right pane — books and folders both (7.28.1-alpha.2, Ron 2026-11-12), books, or folders;
+            // else, only when the left pane has your focus, the folder highlighted there; with nothing selected, nothing.
+            // It replaces two Delete branches in two keyboard listeners (books in one; "the folder you're in" in the
+            // other). Read through a ref by the listener, so it never sees stale state. Returns true when it claimed the
+            // key. Tests: TABLE-001…, DELKEY-001….
             const pressDelete = () => {
                 const bookIds = getSelectedBookIds(), folderIds = getSelectedFolderIds();
                 const row = gestureTable.decide('delete', gestureTable.deleteWhat(bookIds.length, folderIds.length),
@@ -5372,6 +5435,7 @@
                         setExplorerSelectedItems(new Set());
                         return true;
                     case 'delete-folders': deleteFolders(folderIds); return true;
+                    case 'delete-books-and-folders': deleteBooksAndFolders(bookIds, folderIds, row.books); return true; // one box, one undo
                     case 'delete-highlighted': deleteFolders([selectedFolderId]); return true;
                     case 'say': rwLog.log('info', 'ORG', row.words, null, { toast: true }); return true;
                     default: return false; // 'nothing'
@@ -8793,9 +8857,12 @@
                                 return updated;
                             });
                         }
-                        // Remove from folders again
+                        // Remove from folders again: from the folders they left (removedFrom, 7.28.1-alpha.2 — was every
+                        // folder, so a book deleted from one folder lost its others on Ctrl+Y: DELKEY-016); a book going to
+                        // the Trash from every folder, as the delete did
+                        const removedFrom = action.removedFrom ? new Set(action.removedFrom) : null;
                         setFolders(prev => prev.map(f => {
-                            const bookIds = (f.bookIds || []).filter(id => !allBookIds.has(id));
+                            const bookIds = (f.bookIds || []).filter(id => !booksToTrashSet.has(id) && !(allBookIds.has(id) && (!removedFrom || removedFrom.has(f.id))));
                             return bookIds.length !== (f.bookIds || []).length ? { ...f, bookIds } : f;
                         }));
                         break;
