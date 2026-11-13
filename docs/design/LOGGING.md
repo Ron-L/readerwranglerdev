@@ -14,8 +14,9 @@ the kit's own codes). Mentions of `logger.js` below are its 7.26.0 history.
    form, the passphrase to hide (shown as "[passphrase]" — the kit's own word is "[hidden]"), the product name, the
    critical box's words, the build, the global `rwLog`.
 2. **The Diagnostics window:** `logkit/diagnostics-window.js` (JSX, built like the app into `dist/logkit/`, loaded
-   before the app), handed the logger, the app's `<Dialog>` and the build line for Copy diagnostics. Its copy-failure
-   warning is UI-06 (was SHARE-01). **Send a test message** (§5 step 5.5, built here): one error marked TEST, UI-07 —
+   before the app), handed the logger, the app's `<Dialog>` and the build line for Copy diagnostics. Its copy goes
+   through the logger's one copy routine, `copyText` (7.29.1 — used by every copy in the kit, the phone and Report a
+   problem; a refusal, or a page with no clipboard, is UI-06 — was SHARE-01 / PHONE-07 / the window's own). **Send a test message** (§5 step 5.5, built here): one error marked TEST, UI-07 —
    the banner shows it when its switch is on; with the switch off, a note says so and names it; never the critical box.
    Its text is fixed on purpose (Ron, 2026-11-11): support recognizes it, and nothing a person types reaches the log.
 3. **The commit check, in two layers:** the kit's `logkit/check_messages.py` (the rules on levels, areas and numbered

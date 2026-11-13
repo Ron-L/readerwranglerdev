@@ -1,6 +1,6 @@
 // mobile.js — ReaderWrangler Mobile Viewer
 // MOBILE_VERSION tracks mobile-specific iterations
-var MOBILE_VERSION = '1.12.0'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
+var MOBILE_VERSION = '1.12.1-alpha.1'; // suffix mirrors ORGANIZER_VERSION's -alpha.N in any alpha commit touching this file (Ron, 2026-08-30: invisible changes + no build marker = guaranteed mystery)
 rwLog.log('info', 'BOOT', `Phone app ${MOBILE_VERSION} running (page ${APP_VERSION})`);
 
 // v1.7.0 - Which server is this copy talking to? Derived from the page's own address, so an
@@ -891,19 +891,31 @@ function FolderDrawer({ folders, books, pinnedTagFolders, tagRegistry, bookLists
 
 // --- App Menu ---
 
+// 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth") - a Copy button's word after a press: copies through the
+// logging kit's ONE copy routine (rwLog.copyText — Law 22), then 'copied' or 'failed' for 2 s, then null (its label).
+// A page with no clipboard (a phone on an insecure address) is 'failed', never 'copied'.
+function useCopyResult() {
+  var [result, setResult] = useState(null); // null | 'copied' | 'failed'
+  var timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  var copy = (text, how) => rwLog.copyText(text, how).then((ok) => {
+    setResult(ok ? 'copied' : 'failed');
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setResult(null), 2000);
+  });
+  return [result, copy];
+}
+var copyResultLabel = (result, label) => result === 'copied' ? 'Copied' : result === 'failed' ? "Couldn't copy" : label;
+
 function AppMenu({ themePreference, viewMode, showDealsOnly, showHidden, onApplyTheme, onToggleViewMode, onToggleDeals, onToggleHidden, onDesktopMode, onUnpair, onPair, onReset, relayCreds, libraryAsOf, onClose }) {
   var themeLabels = { auto: 'Auto', light: 'Light', dark: 'Dark' };
   var nextTheme = { auto: 'light', light: 'dark', dark: 'auto' };
   var [showCreds, setShowCreds] = useState(false);
   // 7.26.0 (LOGGING.md §5 step 5.4 — Ron: just a Copy button on the phone, no viewer) - the phone's log, for a message to us
-  var [diagCopied, setDiagCopied] = useState(null); // null | 'copied' | 'failed'
-  var copyDiagnostics = () => {
-    var text = rwLog.diagnosticsText([`Phone app ${MOBILE_VERSION} (page ${APP_VERSION})`]);
-    Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(text)).then(
-      () => setDiagCopied('copied'),
-      () => {rwLog.log('warning', 'PHONE-07', "Diagnostics couldn't be copied (the browser refused the clipboard)");setDiagCopied('failed');});
-    setTimeout(() => setDiagCopied(null), 2000);
-  };
+  var [diagCopied, copyDiag] = useCopyResult();
+  var copyDiagnostics = () => copyDiag(rwLog.diagnosticsText([`Phone app ${MOBILE_VERSION} (page ${APP_VERSION})`]),
+  { what: 'Diagnostics', where: 'the phone' });
+  var [credsCopied, copyCreds] = useCopyResult(); // 7.29.1 - the credentials' Copy says what happened too
 
   return (/*#__PURE__*/
     React.createElement("div", { className: "fixed top-0 right-0 h-full z-50 flex flex-col overflow-y-auto",
@@ -984,14 +996,12 @@ function AppMenu({ themePreference, viewMode, showDealsOnly, showHidden, onApply
     React.createElement("div", { style: { fontSize: '0.75em', fontFamily: 'monospace', background: 'var(--bg-muted, #f1f5f9)', padding: '8px', borderRadius: '6px', marginBottom: '8px', wordBreak: 'break-all', lineHeight: 1.5 } }, /*#__PURE__*/
     React.createElement("div", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--text-muted, #64748b)' } }, "Channel:"), /*#__PURE__*/React.createElement("br", null), relayCreds.channelId), /*#__PURE__*/
     React.createElement("div", { style: { marginTop: '4px' } }, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--text-muted, #64748b)' } }, "Passphrase:"), /*#__PURE__*/React.createElement("br", null), relayCreds.passphrase), /*#__PURE__*/
-    React.createElement("button", { onClick: () => {
-        var text = 'Channel ID: ' + relayCreds.channelId + '\nPassphrase: ' + relayCreds.passphrase;
-        navigator.clipboard.writeText(text).catch(() => {});
-      }, style: {
+    React.createElement("button", { onClick: () => copyCreds('Channel ID: ' + relayCreds.channelId + '\nPassphrase: ' + relayCreds.passphrase,
+      { what: 'Credentials', where: 'the phone' }), style: {
         marginTop: '6px', padding: '4px 10px', fontSize: '0.9em',
         background: 'var(--bg-surface, #ffffff)', border: '1px solid var(--border-default, #e2e8f0)',
         borderRadius: '4px', cursor: 'pointer', touchAction: 'manipulation'
-      } }, "Copy")
+      } }, copyResultLabel(credsCopied, 'Copy'))
     ), /*#__PURE__*/
 
     React.createElement("button", { onClick: () => {
@@ -1060,7 +1070,7 @@ function AppMenu({ themePreference, viewMode, showDealsOnly, showHidden, onApply
     React.createElement("button", { type: "button", "data-copy-diagnostics": true, onClick: copyDiagnostics,
       className: "mt-2 py-1 px-3 rounded text-xs",
       style: { border: '1px solid var(--border-default, #e2e8f0)', color: 'var(--text-primary, #1e293b)', touchAction: 'manipulation' } },
-    diagCopied === 'copied' ? 'Copied' : diagCopied === 'failed' ? "Couldn't copy" : 'Copy diagnostics'
+    copyResultLabel(diagCopied, 'Copy diagnostics')
     )
     )
     )

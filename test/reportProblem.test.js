@@ -31,18 +31,34 @@ test('RPTFN-003', 'with no build known (the reset page), the subject has no empt
     assert.strictEqual(params.get('subject'), 'ReaderWrangler problem report');
 });
 
-test('RPTFN-004', "the copied text is the logger's own diagnostics, with the caller's lines (the build) passed through", () => {
-    let asked = null;
-    const log = { diagnosticsText: (lines) => { asked = lines; return 'FROM THE LOGGER\n' + lines.join('\n'); } };
-    const text = r.reportText(log, ['Desktop app 7.29.0 (page 7.28.1)'], { userAgent: 'TestBrowser' });
-    assert.deepStrictEqual(asked, ['Desktop app 7.29.0 (page 7.28.1)']);
-    assert.strictEqual(text, 'FROM THE LOGGER\nDesktop app 7.29.0 (page 7.28.1)');
+// 7.29.1 (TODO 20261112-1755; Ron, 2026-11-13: ONE copy routine in the whole app, the logging kit's — Law 22): the helper's
+// own copy is gone; it hands the logger's report to the logger's copyText, which says truthfully what happened. A stand-in
+// logger (the page's global rwLog) records what it was asked.
+const standInLogger = (answer) => {
+    const asked = { lines: null, copies: [] };
+    global.rwLog = {
+        log: () => {},
+        diagnosticsText: (lines) => { asked.lines = lines; return 'FROM THE LOGGER\n' + lines.join('\n'); },
+        copyText: (text, how) => { asked.copies.push([text, how]); return Promise.resolve(answer); },
+    };
+    return asked;
+};
+
+test('RPTFN-004', "the copy is the logger's own diagnostics, with the caller's lines, through the logger's copyText — its answer passed on", async () => {
+    try {
+        for (const answer of [true, false]) {
+            const asked = standInLogger(answer);
+            const ok = await r.copyDiagnostics({ headerLines: ['Desktop app 7.29.0 (page 7.28.1)'], where: 'the reset page' });
+            assert.strictEqual(ok, answer);
+            assert.deepStrictEqual(asked.lines, ['Desktop app 7.29.0 (page 7.28.1)']);
+            assert.deepStrictEqual(asked.copies, [['FROM THE LOGGER\nDesktop app 7.29.0 (page 7.28.1)', { what: 'Diagnostics', where: 'the reset page' }]]);
+        }
+    } finally { delete global.rwLog; }
 });
 
-test('RPTFN-005', "without the logger (it didn't load) the text still has the lines, the browser and says why the log is missing", () => {
-    const text = r.reportText(undefined, ['Desktop app didn\'t open (page 7.28.1)', 'Load error: boom'], { userAgent: 'TestBrowser' });
-    for (const want of ['ReaderWrangler diagnostics', "Desktop app didn't open (page 7.28.1)", 'Load error: boom',
-        'Browser: TestBrowser', "The log couldn't be read"]) assert.ok(text.includes(want), `missing ${JSON.stringify(want)}:\n${text}`);
+test('RPTFN-005', "without the logging kit (it didn't load) nothing can be copied — said as not copied (false), never a throw", async () => {
+    delete global.rwLog;
+    assert.strictEqual(await r.copyDiagnostics({ headerLines: ['x'], where: 'the reset page' }), false);
 });
 
 test('RPTFN-006', 'every button names its action — never OK, Yes or No (Law 21)', () => {

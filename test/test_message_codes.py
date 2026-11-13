@@ -88,8 +88,9 @@ check("MSG-011", "the areas come from RW's settings for the logging module — i
 # (7.28.0: the module moved into logkit/; its page-load line now takes its area from the settings, through record() like
 # dialog() — an info line with no number, so the scan doesn't list it)
 logger_calls = mc.find_calls("logkit/logger.js", open(os.path.join(ROOT, "logkit", "logger.js"), encoding="utf-8").read())
-check("MSG-012", "the logging module's own calls are found in logkit/ (UI-02, UI-03, UI-04, UI-05)",
-      {"UI-02", "UI-03", "UI-04", "UI-05"} <= {c[3] for c in logger_calls}, [c[3] for c in logger_calls])
+check("MSG-012", "the logging module's own calls are found in logkit/ (UI-02, UI-03, UI-04, UI-05, and UI-06 — the one "
+      "copy routine's refusal, since 7.29.1)",
+      {"UI-02", "UI-03", "UI-04", "UI-05", "UI-06"} <= {c[3] for c in logger_calls}, [c[3] for c in logger_calls])
 
 # 7.28.0 (step 2): the kit's Diagnostics window gets the logger handed in (log.log(…)), not as rwLog — its calls must
 # still be found, or they'd drop out of the table; other things' .log( (console.log) are not calls
@@ -100,9 +101,10 @@ check("MSG-020", "in the logging kit, a call through the handed-in logger (log.l
       [c[3] for c in kit_calls] == ["UI-06"], kit_calls)
 window_calls = mc.find_calls("logkit/diagnostics-window.js",
                              open(os.path.join(ROOT, "logkit", "diagnostics-window.js"), encoding="utf-8").read())
-check("MSG-021", "the Diagnostics window's own calls are found: Copy diagnostics' outcome (UI, and UI-06 when refused); "
-      "Send a test message's error (UI-07) and its banner-off note (UI)",
-      sorted(c[3] for c in window_calls) == ["UI", "UI", "UI-06", "UI-07"], [c[3] for c in window_calls])
+# (7.29.1: Copy diagnostics' outcome — UI, and UI-06 when refused — is logged by the logger's one copy routine now, MSG-012)
+check("MSG-021", "the Diagnostics window's own calls are found: Send a test message's error (UI-07) and its banner-off "
+      "note (UI)",
+      sorted(c[3] for c in window_calls) == ["UI", "UI-07"], [c[3] for c in window_calls])
 
 lt = mc.table(logger_calls)
 check("MSG-013", "a template's details (even a nested template) show as one \"…\" in the table",

@@ -1,7 +1,8 @@
 // Unit tests for the logging module (logkit/logger.js) with ReaderWrangler's settings (logkit-settings.js) — run:
 // node test/logger.test.js
 // tags: logging, tier 1
-// covers: logkit/logger.js, logkit-settings.js, logkit/diagnostics-window.js
+// covers: logkit/logger.js, logkit-settings.js, logkit/diagnostics-window.js, mobile.js, reportProblem.js, readerwrangler.js
+// (the last three for LOG-044: no shipped script keeps its own clipboard copy — Law 22)
 // The logging module (docs/design/LOGGING.md §1, §2, §2b, §6 — Ron + Claude, 2026-11-05/07): one call
 // rwLog.log(level, code, text, data, { test }), five levels, codes 'AREA' or 'AREA-NN' (numbered required for warning and
 // above), the kept log (info and up, the last 500, repeats counted, batched saves, page loads), the scrubber, test
@@ -469,6 +470,93 @@ test('LOG-038', 'a hidden secret becomes the host\'s label (secretLabel) — "[h
 test('LOG-037','the Diagnostics window knows nothing of ReaderWrangler: the logger, the dialog and the copy header are handed in', () => {
     const code = kitCode('diagnostics-window.js');
     for (const word of RW_WORDS) assert.ok(!code.includes(word), `logkit/diagnostics-window.js's code still mentions ${word}`);
+});
+
+// 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth"; Ron, 2026-11-13: ONE copy routine in the whole app, the kit's
+// — Law 22). log.copyText(text, { what, where, toast, next }) copies and says truthfully what happened: true only when
+// the clipboard accepted the text; a page with NO clipboard (an insecure address) is a refusal; a refusal is logged
+// (UI-06, the one place), never swallowed. A stand-in clipboard: accepts, refuses, or isn't there at all.
+const clipboards = {
+    accepts: (got) => ({ writeText: async (t) => { got.push(t); } }),
+    refuses: () => ({ writeText: async () => { throw new Error('Write permission denied.'); } }),
+    throws: () => ({ writeText: () => { throw new Error('Document is not focused.'); } }),
+};
+const copyWorld = (clip, extra) => world({ extra: { clipboard: () => clip, ...extra } });
+
+test('LOG-039', 'copyText: a clipboard that takes the text → true, the text on it, "copied" logged at info (UI)', async () => {
+    const got = [];
+    const w = copyWorld(clipboards.accepts(got));
+    const ok = await w.log.copyText('the report', { what: 'Diagnostics', where: 'the phone' });
+    assert.strictEqual(ok, true);
+    assert.deepStrictEqual(got, ['the report']);
+    assert.deepStrictEqual([last(w).level, last(w).code, last(w).text], ['info', 'UI', 'Diagnostics copied (the phone)']);
+});
+
+test('LOG-040', 'copyText: a clipboard that refuses → false (never a throw), UI-06 warning with the browser\'s reason', async () => {
+    for (const clip of [clipboards.refuses(), clipboards.throws()]) {
+        const w = copyWorld(clip);
+        const ok = await w.log.copyText('the report', { what: 'Diagnostics', where: 'the error banner' });
+        assert.strictEqual(ok, false);
+        const e = last(w);
+        assert.deepStrictEqual([e.level, e.code], ['warning', 'UI-06']);
+        assert.strictEqual(e.text, "Diagnostics couldn't be copied (the error banner) — the browser refused the clipboard");
+        assert.ok(/permission denied|not focused/.test(e.data.reason), JSON.stringify(e.data));
+    }
+});
+
+test('LOG-041', 'copyText: a page with NO clipboard (an insecure address) is a refusal — never "copied"', async () => {
+    for (const clip of [undefined, null, {}]) {
+        const w = copyWorld(clip);
+        const ok = await w.log.copyText('the report', { what: 'Diagnostics' });
+        assert.strictEqual(ok, false, `no clipboard (${JSON.stringify(clip)}) said copied`);
+        assert.deepStrictEqual([last(w).code, last(w).text], ['UI-06', "Diagnostics couldn't be copied — the browser refused the clipboard"]);
+        assert.ok(/no clipboard/.test(last(w).data.reason), JSON.stringify(last(w).data));
+    }
+});
+
+test('LOG-042', 'copyText { toast }: the person is told either way — "next" follows a copy; nothing told without it', async () => {
+    const toasts = [];
+    const got = [];
+    let w = copyWorld(clipboards.accepts(got));
+    w.log.setToaster((text, o) => toasts.push([text, o.level]));
+    await w.log.copyText('x', { what: 'Diagnostics', toast: true, next: 'paste them into your message to us' });
+    w = copyWorld(undefined);
+    w.log.setToaster((text, o) => toasts.push([text, o.level]));
+    await w.log.copyText('x', { what: 'Diagnostics', toast: true });
+    await w.log.copyText('x', { what: 'Diagnostics' });
+    assert.deepStrictEqual(toasts, [['Diagnostics copied — paste them into your message to us', 'info'],
+        ["Diagnostics couldn't be copied — the browser refused the clipboard", 'warning']]);
+});
+
+test('LOG-043', 'copyText with no "what" still says something true ("Text copied"), and the copy is the text as given', async () => {
+    const got = [];
+    const w = copyWorld(clipboards.accepts(got));
+    assert.strictEqual(await w.log.copyText(42), true);
+    assert.deepStrictEqual([got, last(w).text], [['42'], 'Text copied']);
+});
+
+// Law 22 as a check, not a promise: the clipboard is written in ONE place — copyText in logkit/logger.js. Every other
+// shipped script calls it. readerwrangler.js still holds its own Copy buttons (a title, an author, Amazon links, the email
+// text, the recovery steps…) — found in 7.29.1, still to move: it may hold AT MOST the number it has today, so a new
+// copy is refused and moving them never trips this.
+const STILL_TO_MOVE = { 'readerwrangler.js': 11 };
+test('LOG-044', 'the clipboard is written in ONE place (logkit/logger.js copyText) — no shipped script keeps its own copy', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const root = path.join(__dirname, '..');
+    const scripts = [...fs.readdirSync(root).filter(f => f.endsWith('.js')),
+        ...fs.readdirSync(path.join(root, 'logkit')).filter(f => f.endsWith('.js')).map(f => `logkit/${f}`)];
+    const WRITE = /\bwriteText\s*\(|\bexecCommand\(\s*['"]copy|\bClipboardItem\b|\bclipboard\.write\s*\(/g;
+    const found = [];
+    for (const file of scripts) {
+        const code = fs.readFileSync(path.join(root, file), 'utf8').split('\n')
+            .filter(l => !/^\s*(\/\/|\*)/.test(l)).map(l => l.replace(/\s+\/\/\s.*$/, '')).join('\n');
+        const n = (code.match(WRITE) || []).length;
+        const allowed = file === 'logkit/logger.js' ? 1 : (STILL_TO_MOVE[file] || 0);
+        if (n > allowed) found.push(`${file}: ${n} clipboard write(s) of its own (allowed ${allowed}) — call rwLog.copyText`);
+    }
+    assert.ok(scripts.includes('reportProblem.js') && scripts.includes('mobile.js'), `the scan missed the app's scripts: ${scripts}`);
+    assert.deepStrictEqual(found, []);
 });
 
 done();

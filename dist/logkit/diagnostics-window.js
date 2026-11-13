@@ -3,7 +3,7 @@
 // 2026-11-09). Its own window (not part of any status screen — many messages have nothing to do with the data). Newest
 // first, one line per entry, "details ▸" for an entry's details; errors tinted; TEST entries badged. The filter on top;
 // the two switches, Clear and Copy diagnostics at the bottom. Updates live (log.subscribe). Copy diagnostics copies
-// EVERYTHING kept, whatever the filter shows.
+// EVERYTHING kept, whatever the filter shows — through the logger's copyText, which says whether it really copied.
 //
 // It knows nothing of the app that shows it. The host hands it, as props:
 //   log        — the logger (logkit/logger.js's createLogger object)
@@ -45,12 +45,9 @@
     var today = new Date().toDateString();
     var when = (t) => {var d = new Date(t);return (d.toDateString() === today ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ') +
       d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });};
-    var copy = () => {
-      var text = log.diagnosticsText(copyHeader || []);
-      Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(text)).then(
-        () => log.log('info', 'UI', 'Diagnostics copied — paste them into your message to us', null, { toast: true }),
-        () => log.log('warning', 'UI-06', "Diagnostics couldn't be copied (the browser refused the clipboard)", null, { toast: true }));
-    };
+    // the logger's one copy routine (7.29.1): a page with no clipboard is a refusal, not "copied"; it logs and toasts either way
+    var copy = () => log.copyText(log.diagnosticsText(copyHeader || []),
+    { what: 'Diagnostics', toast: true, next: 'paste them into your message to us' });
     // 7.28.0 (Ron, 2026-11-11) - support can ask a person to press this, then Copy diagnostics: one error marked TEST goes
     // down the real path (the log; the banner when its switch is on). Never the critical box — alarming on purpose. With
     // the banner off, a note says so and names the switch, which is right here in this window.

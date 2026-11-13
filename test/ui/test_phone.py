@@ -30,16 +30,49 @@ with App(relay=True, size=(390, 844)) as app:
 
     def copy_diagnostics():
         # LOGGING.md §5 step 5.4 (Ron): the phone gets a Copy diagnostics button, no viewer
-        page.evaluate("() => { window._copied = null; navigator.clipboard.writeText = (t) => { window._copied = t; return Promise.resolve(); }; }")
+        app.stub_outside()      # the driver's one clipboard recorder (7.29.1: was a hand-written stub of its own)
         page.get_by_role("button", name="Menu").first.click()
         page.locator("[data-copy-diagnostics]").click()
-        page.wait_for_function("() => window._copied !== null", timeout=5000)
-        text = page.evaluate("() => window._copied")
+        page.wait_for_function("() => window._copied.length > 0", timeout=5000)
+        text = app.copied()[-1]
         check(text.startswith("ReaderWrangler diagnostics — "), text[:80])
         check(re.search(r"Phone app \d+\.\d+\.\d+(-alpha\.\d+)? \(page ", text), "no phone build line in the header")
         check("Phone app" in text and "running" in text, "the phone's own log lines aren't in the copy")
         page.locator("[data-copy-diagnostics]").get_by_text("Copied").wait_for(timeout=3000)
     test("PHONE-003", "the phone's menu has Copy diagnostics: the phone's log, under a header with its build", copy_diagnostics)
+
+    # 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth"): a phone on the home network reaching a self-hosted copy
+    # is on an insecure address — the page has NO clipboard — and Copy diagnostics said "Copied". Now: "Couldn't copy".
+    def copy_without_clipboard():
+        diag = page.locator("[data-copy-diagnostics]")
+        diag.get_by_text("Copy diagnostics").wait_for(timeout=5000)   # PHONE-003's "Copied" has gone back
+        page.evaluate("() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })")
+        n0 = len(app.console)
+        diag.click()
+        diag.get_by_text("Couldn't copy").wait_for(timeout=3000)
+        check([x for _, x in app.console[n0:] if x.startswith("warning · UI-06 · Diagnostics couldn't be copied (the phone)")],
+              "the refusal isn't logged (UI-06)")
+        diag.get_by_text("Copy diagnostics").wait_for(timeout=5000)
+    test("PHONE-004", "Copy diagnostics on a phone page with no clipboard says Couldn't copy — never Copied", copy_without_clipboard)
+
+    # Its neighbour in the same menu, the credentials' Copy (Law 22 — the same one copy routine): it said nothing at all,
+    # copied or refused. Now its button says Copied / Couldn't copy, as Copy diagnostics does.
+    def credentials_copy():
+        app.stub_outside(refuse_clipboard=False)
+        page.get_by_text("Show credentials").click()
+        copy = page.get_by_role("button", name="Copy", exact=True)
+        copy.click()
+        page.get_by_role("button", name="Copied", exact=True).wait_for(timeout=3000)
+        check(app.copied() and app.copied()[-1].startswith("Channel ID: "), f"the credentials weren't copied: {app.copied()[-1:]}")
+        copy.wait_for(timeout=5000)                                  # back to its label
+        app.stub_outside(refuse_clipboard=True)
+        copy.click()
+        page.get_by_role("button", name="Couldn't copy", exact=True).wait_for(timeout=3000)
+        copy.wait_for(timeout=5000)
+        page.get_by_text("Hide credentials").click()
+        app.stub_outside(refuse_clipboard=False)
+    test("PHONE-005", "the credentials' Copy says Copied when it copied, and Couldn't copy when the browser refused",
+         credentials_copy)
 
     def library_unreadable():
         app.expect("PHONE-03")   # caused on purpose

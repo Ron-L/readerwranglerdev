@@ -6,7 +6,8 @@
 // the words and calls here). So it is a plain script, loaded by both pages right after the logging module, and
 // published as window.RWReport.
 //
-// What it does: copies the diagnostics (the logging kit's rwLog.diagnosticsText, with the caller's build line), then
+// What it does: copies the diagnostics (the logging kit's rwLog.diagnosticsText, with the caller's build line, through
+// the kit's one copy routine rwLog.copyText), then
 // offers the choice — Email us (their mail program, to our address, with a subject line; never the diagnostics in the
 // body: a mail link cuts long text off) or Report on GitHub (a new issue) — telling them the diagnostics are on the
 // clipboard to paste in. A refused clipboard is said plainly, and the choice is still offered (Law 16: never silent).
@@ -45,41 +46,20 @@ function mailtoUrl(build) {
     return `mailto:${EMAIL}?subject=${encodeURIComponent(SUBJECT + (build ? ` (${build})` : ''))}`;
 }
 
-// The text copied: the logger's own report (everything kept), with the caller's lines under its first line. If the
-// logging module itself didn't load, what can still be said without it.
-function reportText(log, headerLines, nav) {
-    const lines = headerLines || [];
-    if (log && typeof log.diagnosticsText === 'function') return log.diagnosticsText(lines);
-    const browser = nav && nav.userAgent ? nav.userAgent : 'unknown';
-    return [`ReaderWrangler diagnostics — ${new Date().toISOString()}`, ...lines, `Browser: ${browser}`,
-        "The log couldn't be read (the logging module didn't load)."].join('\n');
-}
-
 // --- the browser half -------------------------------------------------------------------------------------------
 const page = typeof window !== 'undefined' ? window : null;
 // The logger (logkit/logger.js, loaded before this file) — absent only if it failed to load. Its calls below are written
 // out as rwLog.log(…) so the commit check reads each one (tools/message_codes.py; the table of codes).
 const hasLog = () => typeof rwLog !== 'undefined' && !!rwLog && typeof rwLog.log === 'function';   // eslint-disable-line no-undef
 
-// Copies the diagnostics. Resolves true (copied) or false (refused — said in the log as SHARE-01). Call it from the
-// click itself: browsers allow the clipboard only during a person's click. `where` names the place for the log.
+// Copies the diagnostics — the logger's own report (everything kept), with the caller's lines under its first line —
+// through the logging kit's ONE copy routine (rwLog.copyText; 7.29.1, Law 22: this file's own copy is gone). Resolves true
+// (copied) or false (refused: the kit logs it, UI-06 — or the kit itself didn't load, so nothing can be copied). Call it
+// from the click itself: browsers allow the clipboard only during a person's click. `where` names the place for the log.
 function copyDiagnostics({ headerLines, where } = {}) {
-    let attempt;
-    try {
-        const text = reportText(hasLog() ? rwLog : null, headerLines, page && page.navigator);   // eslint-disable-line no-undef
-        const clip = page && page.navigator && page.navigator.clipboard;
-        attempt = clip && typeof clip.writeText === 'function' ? clip.writeText(text)
-            : Promise.reject(new Error('this page has no clipboard (an insecure address?)'));
-    } catch (e) { attempt = Promise.reject(e); }
-    return Promise.resolve(attempt).then(
-        () => {
-            if (hasLog()) rwLog.log('info', 'SHARE', `Diagnostics copied (${where || 'a problem report'})`);   // eslint-disable-line no-undef
-            return true;
-        },
-        (e) => {
-            if (hasLog()) rwLog.log('warning', 'SHARE-01', `Diagnostics couldn't be copied (${where || 'a problem report'}) — the browser refused the clipboard: ${(e && e.message) || e}`);   // eslint-disable-line no-undef
-            return false;
-        });
+    if (!hasLog() || typeof rwLog.copyText !== 'function') return Promise.resolve(false);   // eslint-disable-line no-undef
+    return rwLog.copyText(rwLog.diagnosticsText(headerLines || []),   // eslint-disable-line no-undef
+        { what: 'Diagnostics', where: where || 'a problem report' });
 }
 
 // The three ways out. The email in a new context (as Share by Email's "Open in email app" — the page is never replaced);
@@ -175,7 +155,7 @@ function addButtons(container, opts) {
     return wrap;
 }
 
-const api = Object.freeze({ EMAIL, ISSUES_URL, NEW_ISSUE_URL, TEXT, mailtoUrl, reportText, copyDiagnostics, openEmail,
+const api = Object.freeze({ EMAIL, ISSUES_URL, NEW_ISSUE_URL, TEXT, mailtoUrl, copyDiagnostics, openEmail,
     openGitHub, openKnownProblems, showReportBox, addButtons });
 if (typeof window !== 'undefined') window.RWReport = api;   // written out: the name check reads `window.X =` (check-names.js)
 if (typeof module !== 'undefined' && module.exports) module.exports = api;

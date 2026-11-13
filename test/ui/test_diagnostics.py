@@ -69,11 +69,11 @@ with App() as app:
     test("DIAG-003", "the filters: level (errors and up), test entries hidden or shown, area", filters)
 
     def copies_everything():
-        page.evaluate("() => { window._copied = null; navigator.clipboard.writeText = (t) => { window._copied = t; return Promise.resolve(); }; }")
+        app.stub_outside()      # the driver's one clipboard recorder (7.29.1: was a hand-written stub of its own)
         page.locator("[data-diag-level]").select_option("error")     # a filter must NOT narrow the copy
         page.locator(WINDOW).get_by_role("button", name="Copy diagnostics").click()
-        page.wait_for_function("() => window._copied !== null", timeout=5000)
-        text = page.evaluate("() => window._copied")
+        page.wait_for_function("() => window._copied.length > 0", timeout=5000)
+        text = app.copied()[-1]
         check(text.startswith("ReaderWrangler diagnostics — "), text[:80])
         check(re.search(r"Desktop app \d+\.\d+\.\d+(-alpha\.\d+)? \(page ", text), "no build line in the header")
         check("Page loaded" in text and "a planted warning" in text, "the copy isn't everything kept (an info line is missing)")
@@ -169,5 +169,23 @@ with App() as app:
         page.keyboard.press("Escape")
     test("DIAG-010", "Send a test message: an error marked TEST (UI-07) — the banner shows it, or a note says the banner is off",
          test_message)
+
+    # 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth"): on a page with NO clipboard (an insecure address — a phone
+    # reaching a copy on the home network), Copy diagnostics said "Diagnostics copied" with nothing copied. Now it goes
+    # through the kit's one copy routine: no clipboard is a refusal, and the person is told.
+    def copy_without_clipboard():
+        page.evaluate("() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })")
+        check(page.evaluate("() => navigator.clipboard === undefined"), "the test didn't take the clipboard away")
+        n0 = len(app.console)
+        app.menu("Help", "Diagnostics").click()
+        page.locator(WINDOW).wait_for(timeout=10_000)
+        page.locator(WINDOW).get_by_role("button", name="Copy diagnostics").click()
+        page.locator(".clipboard-toast", has_text="couldn't be copied").first.wait_for(timeout=5000)
+        said = [x for _, x in app.console[n0:] if "Diagnostics co" in x]
+        check(not [x for x in said if "Diagnostics copied" in x], f"it still says copied: {said}")
+        check([x for x in said if x.startswith("warning · UI-06 · Diagnostics couldn't be copied")], f"no UI-06 refusal: {said}")
+        page.keyboard.press("Escape")
+    test("DIAG-011", "Copy diagnostics on a page with no clipboard says it couldn't be copied — never \"copied\"",
+         copy_without_clipboard)
 
 done()

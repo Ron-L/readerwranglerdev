@@ -12,7 +12,8 @@
 // switches' storage names, what to clean out (secrets, and IDs to shorten), the product's name, the critical box's
 // words, the build — comes from the host's SETTINGS (in ReaderWrangler: logkit-settings.js, loaded just before this file,
 // as window.LOGKIT_SETTINGS). The host's areas must include UI: the module's own codes are UI-02 (a malformed logging
-// call), UI-03 (an uncaught error), UI-04 (a failed promise nobody handled), UI-05 (a dialog naming an unknown area).
+// call), UI-03 (an uncaught error), UI-04 (a failed promise nobody handled), UI-05 (a dialog naming an unknown area),
+// UI-06 (a copy the clipboard refused — copyText, below: the one copy routine, for the kit and the app that uses it).
 //
 // It keeps a log on the device (info and up, the last 500, repeats counted, saved in batches), cleans every message,
 // sends each to the console method of its level, logs uncaught errors and failed promises, and draws two alerts in plain
@@ -55,7 +56,7 @@ function asText(value) {
 }
 
 // opts: the host's settings (areas, storageKey, oldLevelKey, switchKeys, idPattern, shortId, product, extraApi) plus the
-// environment (console, storage, now, schedule, secrets, cap, keepLevel, saveDelayMs, onAlert).
+// environment (console, storage, now, schedule, secrets, cap, keepLevel, saveDelayMs, onAlert, clipboard).
 function createLogger(opts = {}) {
     const AREAS = opts.areas || { UI: 'UI' };            // the host's areas (must include UI — the module's own codes)
     const SWITCH_KEYS = opts.switchKeys || { errorBanner: 'logkit-banner', logDetail: 'logkit-detail' };
@@ -71,6 +72,8 @@ function createLogger(opts = {}) {
     const keepRank = rank(opts.keepLevel || 'info');
     const saveDelayMs = opts.saveDelayMs != null ? opts.saveDelayMs : 3000;
     const onAlert = opts.onAlert || null;      // (kind 'banner' | 'critical', entry) — the page draws it
+    // the page's clipboard, asked at each copy (absent on an insecure address); tests hand in a stand-in
+    const getClipboard = opts.clipboard || (() => (typeof navigator !== 'undefined' ? navigator.clipboard : undefined));
     // The two switches (LOGGING.md §5 step 5.1 — Ron, 2026-11-09; they replace the ladder of levels): errorBanner — an
     // error raises the banner; logDetail — debug lines are recorded too. Independent (all four combinations make sense);
     // both off for an ordinary user. Set in the Diagnostics window, on the address (?errorBanner= / ?logDetail=) or the
@@ -176,6 +179,29 @@ function createLogger(opts = {}) {
         } catch (e) { /* logging must never break the app */ }
     };
 
+    // 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth"; Ron, 2026-11-13: ONE copy routine in the whole app, the
+    // kit's — Law 22) - THE copy: copies `text` and says truthfully what happened. Resolves true only when the clipboard
+    // took the text; false when it refused — and a page with NO clipboard (an insecure address) counts as refused. Never
+    // rejects, never throws. Both outcomes are logged HERE, the one place: "<what> copied (<where>)" at info, or UI-06
+    // with the browser's reason in its details. `toast` shows that line to the person too; `next` follows a copy's line
+    // ("— paste them into your message to us"). Call it from the click itself: browsers allow the clipboard only then.
+    const copyText = (text, { what = 'Text', where, toast, next } = {}) => {
+        const place = where ? ` (${where})` : '';
+        let attempt;
+        try {
+            const clip = getClipboard();
+            attempt = clip && typeof clip.writeText === 'function' ? clip.writeText(String(text))
+                : Promise.reject(new Error('this page has no clipboard (an insecure address?)'));
+        } catch (e) { attempt = Promise.reject(e); }
+        return Promise.resolve(attempt).then(
+            () => { log('info', 'UI', `${what} copied${place}${next ? ` — ${next}` : ''}`, null, { toast }); return true; },
+            (e) => {
+                log('warning', 'UI-06', `${what} couldn't be copied${place} — the browser refused the clipboard`,
+                    { reason: String((e && e.message) || e) }, { toast });
+                return false;
+            });
+    };
+
     // One switch on or off, remembered; an unknown name changes nothing.
     const setSwitch = (name, on) => {
         if (!Object.prototype.hasOwnProperty.call(SWITCH_KEYS, name)) return;
@@ -210,6 +236,7 @@ function createLogger(opts = {}) {
         },
         switches: () => ({ ...switches }),
         setSwitch,
+        copyText,
         // The app hands over its toast routine: fn(text, { level, x, y, hint }). Until then (or if the app has crashed) a
         // { toast } message still reaches the log and the console.
         setToaster: (fn) => { toaster = typeof fn === 'function' ? fn : null; },
@@ -304,12 +331,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         ...list.map(e => `${new Date(e.time).toISOString()}  ${pageLog.format(e)}`),
         '', 'Recent log:', ...pageLog.entries().slice(-50).map(e => `${new Date(e.time).toISOString()}  ${pageLog.format(e)}`)
     ].join('\n');
-    const copyInto = (btn, list, label) => {
-        try {
-            navigator.clipboard.writeText(report(list)).then(() => {
-                btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = label; }, 1500);
-            }, () => {});
-        } catch (e) { /* no clipboard */ }
+    // The alerts' copy buttons, through the one copy routine (copyText): the button says what happened — "Copied", or
+    // "Couldn't copy" when the browser refused (7.29.1: a refusal said nothing at all) — then its own label again.
+    const copyInto = (btn, list, label, where) => {
+        pageLog.copyText(report(list), { what: 'Diagnostics', where }).then((ok) => {
+            btn.textContent = ok ? 'Copied' : "Couldn't copy";
+            setTimeout(() => { btn.textContent = label; }, 1500);
+        });
     };
     const showBanner = (entry) => whenBody(() => {
         shown.banner.push(entry);
@@ -321,7 +349,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         msg.appendChild(document.createTextNode(` · ${entry.text}`));
         if (shown.banner.length > 1) msg.appendChild(el('em', 'margin-left:8px;opacity:.85', `(+${shown.banner.length - 1} more)`));
         const close = () => { shown.banner = []; bar.remove(); };
-        const copyBtn = button('Copy', BANNER_BTN, () => copyInto(copyBtn, shown.banner, 'Copy'));
+        const copyBtn = button('Copy', BANNER_BTN, () => copyInto(copyBtn, shown.banner, 'Copy', 'the error banner'));
         bar.append(msg, copyBtn, button('Dismiss', BANNER_BTN, close),
             button('Turn off this banner', BANNER_LINK, () => { pageLog.setSwitch('errorBanner', false); close(); }));
         debugger; // eslint-disable-line no-debugger -- stops here only when DevTools is open (TODO decision 3)
@@ -341,7 +369,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
                 : ((S.critical && S.critical.advice) || 'If this keeps happening, press Copy details and send it to us.')));
         if (shown.critical.length > 1) box.append(el('div', 'margin-bottom:8px;font-style:italic', `and ${shown.critical.length - 1} more`));
         const row = el('div', 'text-align:right');
-        const copyBtn = button('Copy details', CRITICAL_BTN, () => copyInto(copyBtn, shown.critical, 'Copy details'));
+        const copyBtn = button('Copy details', CRITICAL_BTN, () => copyInto(copyBtn, shown.critical, 'Copy details', 'the critical box'));
         row.append(copyBtn, button('OK', CRITICAL_OK, () => { shown.critical = []; box.remove(); }));
         box.append(row);
     });
