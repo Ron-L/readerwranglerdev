@@ -82,4 +82,51 @@ with App(log=None) as app:     # the switches' own tests: the page's defaults (b
     test("LOGUI-006", "no unexpected console messages (the planted ones excepted)",
          lambda: check(not app.unexpected_console(), app.unexpected_console()))
 
+    # 7.29.1 (TODO 20261112-1755 "Copy buttons tell the truth"; Ron, 2026-11-13): the banner's Copy and the critical box's
+    # Copy details went through the kit's one copy routine — a refused clipboard said nothing at all (an empty rejection
+    # handler, a bare catch). Now the button briefly reads "Couldn't copy", then its label again, as "Copied" does.
+    # (After LOGUI-006: these refuse the clipboard on purpose, and each refusal is a UI-06 warning.)
+    def banner_copy():
+        page.evaluate("() => window.rwLog.setSwitch('errorBanner', true)")
+        app.stub_outside(refuse_clipboard=False)
+        plant(app, "error", "UI-03", "an error to copy")
+        page.locator(BANNER).wait_for(timeout=5000)
+        copy = page.locator(BANNER).locator("button").first
+        check(copy.inner_text() == "Copy", f"the banner's first button is {copy.inner_text()!r}, not Copy")
+        app.click_reachable(copy)
+        page.locator(BANNER).get_by_text("Copied", exact=True).wait_for(timeout=3000)
+        check(any("an error to copy" in t for t in app.copied()), "the banner's Copy didn't copy the error")
+        page.locator(BANNER).get_by_text("Copy", exact=True).wait_for(timeout=5000)    # back to its label
+        n0 = len(app.console)
+        app.stub_outside(refuse_clipboard=True)
+        app.click_reachable(copy)
+        page.locator(BANNER).get_by_text("Couldn't copy", exact=True).wait_for(timeout=3000)
+        check([x for _, x in app.console[n0:] if x.startswith("warning · UI-06 · Diagnostics couldn't be copied (the error banner)")],
+              "the refusal isn't logged (UI-06)")
+        page.locator(BANNER).get_by_text("Copy", exact=True).wait_for(timeout=5000)
+        app.click_reachable(page.locator(BANNER).get_by_text("Dismiss", exact=True))
+    test("LOGUI-007", "the banner's Copy says Copied when it copied, and Couldn't copy when the browser refused — then Copy again",
+         banner_copy)
+
+    def critical_copy_without_clipboard():
+        # an insecure address (a phone reaching a copy on the home network): the page has NO clipboard at all
+        page.evaluate("() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })")
+        n0 = len(app.console)
+        plant(app, "critical", "STORE-02", "a critical to copy")
+        page.locator(CRITICAL).wait_for(timeout=5000)
+        copy = page.locator(CRITICAL).locator("button").first
+        check(copy.inner_text() == "Copy details", f"the box's first button is {copy.inner_text()!r}, not Copy details")
+        app.click_reachable(copy)
+        page.locator(CRITICAL).get_by_text("Couldn't copy", exact=True).wait_for(timeout=3000)
+        check([x for _, x in app.console[n0:] if x.startswith("warning · UI-06 · Diagnostics couldn't be copied (the critical box)")],
+              "the refusal isn't logged (UI-06)")
+        page.locator(CRITICAL).get_by_text("Copy details", exact=True).wait_for(timeout=5000)
+        app.click_reachable(page.locator(CRITICAL).get_by_text("OK", exact=True))
+    test("LOGUI-008", "the critical box's Copy details on a page with no clipboard says Couldn't copy — never silence",
+         critical_copy_without_clipboard)
+
+    test("LOGUI-009", "no unexpected console messages since (LOGUI-007/008's deliberate UI-06 refusals excepted)",
+         lambda: check(not [x for x in app.unexpected_console() if "UI-06" not in x],
+                       [x for x in app.unexpected_console() if "UI-06" not in x]))
+
 done()

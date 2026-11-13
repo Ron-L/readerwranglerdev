@@ -138,14 +138,14 @@
          catch an error in anything after it -->
     <!-- 7.28.0 - the module moved into logkit/ ("Logging as its own module"); RW's settings for it load just before it -->
     <script src="logkit-settings.js?v=7.28.0"></script>
-    <script src="logkit/logger.js?v=7.28.0"></script>
+    <script src="logkit/logger.js?v=7.29.1-alpha.1"></script>
     <!-- 7.29.0 - THE "report a problem" helper (window.RWReport): copy the diagnostics, then Email us / Report on GitHub.
          Plain script, right after the logger, so the "Something went wrong" screen below can use it when the app didn't
          load; the app's Help → Report a problem… uses it too -->
-    <script src="reportProblem.js?v=7.29.0"></script>
+    <script src="reportProblem.js?v=7.29.1-alpha.1"></script>
     <!-- 7.28.0 - the logging kit's Diagnostics window (JSX, built ahead of time like the app: tools/build.py) — before
          the app, which shows it -->
-    <script src="dist/logkit/diagnostics-window.js?v=7.28.0"></script>
+    <script src="dist/logkit/diagnostics-window.js?v=7.29.1-alpha.1"></script>
     <script src="uiHelpers.js?v=7.27.0"></script>
     <!-- v7.17.0 - The ONE book-field table (merge classes + wire mapping) + serialize/deserialize; node-unit-tested; loads before bookMerge/storage -->
     <script src="bookFields.js?v=7.19.0"></script>

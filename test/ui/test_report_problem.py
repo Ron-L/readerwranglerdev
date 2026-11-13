@@ -71,7 +71,7 @@ with App() as app:
         for name in ("Email us", "Report on GitHub", "Close"):
             check(box.get_by_role("button", name=name, exact=True).count() == 1, f"the box has no {name} button")
         check("contact@readerwrangler.com" in box.inner_text(), "the box doesn't show our address (for webmail users)")
-        check(app.console_matching(r"^info · SHARE · Diagnostics copied"), "the copy isn't in the log")
+        check(app.console_matching(r"^info · UI · Diagnostics copied \(Help → Report a problem…\)"), "the copy isn't in the log")
     test("RPT-002", "Report a problem… copies the diagnostics (with the build line), says so, and offers Email us / "
                     "Report on GitHub", copies_then_offers)
 
@@ -116,7 +116,8 @@ with App() as app:
         box = report_box()
         check(box.get_by_role("button", name="Email us", exact=True).is_enabled(), "Email us isn't offered")
         check(box.get_by_role("button", name="Report on GitHub", exact=True).is_enabled(), "Report on GitHub isn't offered")
-        check([x for _, x in app.console[n0:] if x.startswith("warning · SHARE-01 · ")], "the refusal isn't logged (SHARE-01)")
+        check([x for _, x in app.console[n0:] if x.startswith("warning · UI-06 · Diagnostics couldn't be copied (Help → Report a problem…)")],
+              "the refusal isn't logged (UI-06 — the logging kit's one copy routine)")
         app.stub_outside(refuse_clipboard=False)
         n1 = len(app.copied())
         app.click_reachable(box.get_by_role("button", name="Try again", exact=True))
@@ -139,9 +140,10 @@ with App() as app:
         check(href == ISSUES, f"the status bar's Feedback link goes to {href}")
     test("RPT-008", "the status bar's Feedback link still opens the issue list", feedback_link)
 
-    # RPT-006 refuses the clipboard ON PURPOSE, so its SHARE-01 warning is expected here.
-    test("RPT-009", "no unexpected console messages (RPT-006's deliberate SHARE-01 excepted)",
-         lambda: check(not [x for x in app.unexpected_console() if "SHARE-01" not in x],
-                       [x for x in app.unexpected_console() if "SHARE-01" not in x]))
+    # RPT-006 refuses the clipboard ON PURPOSE, so its UI-06 warning is expected here (SHARE-01 until 7.29.1: the copy is the
+    # logging kit's now, and so is its warning).
+    test("RPT-009", "no unexpected console messages (RPT-006's deliberate UI-06 excepted)",
+         lambda: check(not [x for x in app.unexpected_console() if "UI-06" not in x],
+                       [x for x in app.unexpected_console() if "UI-06" not in x]))
 
 done()

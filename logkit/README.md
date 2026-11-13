@@ -9,7 +9,7 @@ from the host's **settings**.
 
 | File | What it is | Needs |
 |---|---|---|
-| `logger.js` | The logger: keeps the log, cleans each message, writes to the console, logs uncaught errors, draws the error banner and the critical box | Nothing (plain script; also runs under Node for tests) |
+| `logger.js` | The logger: keeps the log, cleans each message, writes to the console, logs uncaught errors, draws the error banner and the critical box, copies text to the clipboard (and says whether it did) | Nothing (plain script; also runs under Node for tests) |
 | `diagnostics-window.js` | The Diagnostics window: the kept log, filtered, with the two switches, Send a test message, Clear and Copy diagnostics | React 18, a JSX build, the host's dialog component, Tailwind classes |
 | `check_messages.py` | The commit check's general half: the rules every logging call must follow, and the table of numbered codes | Python 3, standard library only |
 
@@ -80,6 +80,7 @@ logger never throws.
 | `switches()`, `setSwitch(name, on)` | The two switches: `errorBanner` (an error raises the banner) and `logDetail` (debug lines are kept too); remembered in this browser |
 | `applyAddress(search)` | `?errorBanner=on` / `?logDetail=on` on the page's address (the page does this itself) |
 | `dialog(area, text)` | A dialog logs what it showed, in the area its caller named (an unknown area is UI-05) |
+| `copyText(text, { what, where, toast, next })` | **The** copy: resolves `true` only when the clipboard took the text, `false` when it refused — a page with no clipboard (an insecure address) counts as refused. Never rejects. Logs either way: "<what> copied (<where>)" at info, or UI-06 with the browser's reason; `toast` shows that line to the person too, `next` follows a copy's line. Call it from the click itself. The banner, the critical box and the Diagnostics window copy through it — and so should the host |
 | `setToaster(fn)` | The host hands over its toast routine: `fn(text, { level, x, y, hint })` |
 | `format(entry)`, `levels`, `TEST_MARK`, `flush()` | One line as text; the five levels in order; the test mark; save now |
 
@@ -93,7 +94,7 @@ The host's areas must include `UI` for these:
 | UI-03 | error | An uncaught error (a browser extension's are ignored) |
 | UI-04 | error | A failed promise nobody handled |
 | UI-05 | error | A dialog named an unknown area |
-| UI-06 | warning | Copy diagnostics couldn't reach the clipboard |
+| UI-06 | warning | A copy the clipboard refused (`copyText` — any copy, the host's included) |
 | UI-07 | error | Send a test message (always marked TEST) |
 
 ## The Diagnostics window

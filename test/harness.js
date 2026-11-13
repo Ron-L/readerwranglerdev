@@ -5,15 +5,21 @@
 // had no stable ID. Here every test has an ID (`AREA-NNN`), a failure is reported and counted and the file carries on,
 // and done() prints the summary and sets the exit code (1 if anything failed) for tools/run_tests.py.
 //
+// A test may return a promise (7.29.1 — the copy routine answers later): it is waited for, and its failure counted. done()
+// prints the summary once every test has finished; a test whose promise never settles fails the file, by name (RUN-030–032).
+//
 // Usage in a test file:
 //   const { test, done } = require('./harness');
 //   test('MERGE-001', 'never invents a key absent from both inputs', () => { … });
+//   test('LOG-039', 'a later answer', async () => { … });
 //   done();
 'use strict';
 
 let passed = 0;
 const failures = [];
 const seenIds = new Set();
+const unfinished = new Map();   // id → name, for each test whose promise hasn't settled yet
+const waiting = [];
 
 function test(id, name, fn) {
     if (!/^[A-Z][A-Z0-9]*-\d{3}$/.test(id)) {
@@ -27,20 +33,37 @@ function test(id, name, fn) {
         return;
     }
     seenIds.add(id);
-    try {
-        fn();
-        passed++;
-        console.log(`  ✓ ${id} ${name}`);
-    } catch (e) {
+    const pass = () => { passed++; console.log(`  ✓ ${id} ${name}`); };
+    const fail = (e) => {
         failures.push({ id, name, error: e });
         const msg = String((e && e.message) || e).split('\n').slice(0, 6).join('\n      ');
         console.log(`  ✗ ${id} ${name}\n      ${msg}`);
-    }
+    };
+    let result;
+    try { result = fn(); } catch (e) { fail(e); return; }
+    if (result && typeof result.then === 'function') {
+        unfinished.set(id, name);
+        waiting.push(Promise.resolve(result).then(pass, fail).then(() => unfinished.delete(id)));
+    } else pass();
 }
 
 function done() {
-    console.log(`${passed} passed, ${failures.length} failed`);
-    if (failures.length) process.exitCode = 1;
+    // Until every test has finished, the file counts as failed: a promise that never settles lets Node exit with
+    // nothing left to run — that must not read as a pass.
+    process.exitCode = 1;
+    process.once('beforeExit', () => {
+        if (!unfinished.size) return;
+        for (const [id, name] of unfinished) {
+            failures.push({ id, name, error: 'never finished' });
+            console.log(`  ✗ ${id} ${name}\n      never finished (its promise never settled)`);
+        }
+        unfinished.clear();
+        console.log(`${passed} passed, ${failures.length} failed`);
+    });
+    return Promise.all(waiting).then(() => {
+        console.log(`${passed} passed, ${failures.length} failed`);
+        process.exitCode = failures.length ? 1 : 0;
+    });
 }
 
 module.exports = { test, done };

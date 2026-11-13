@@ -92,6 +92,34 @@ print("1 passed, 0 failed")
     ok, out = rt.run_file(rt.TestFile(py_ok))
     row("RUN-013", "a passing Python file reports success", ok, out[-200:])
 
+    # 7.29.1 (TODO 20261112-1755): the copy routine answers later (a promise), so a test may return one — the harness waits
+    # for it. Before, a test's promise was ignored: it "passed" at once, and its later failure never reached the count.
+    js_async = write("g.test.js", f"""// sample
+// tags: dates, tier 1
+// covers: uiHelpers.js
+const {{ test, done }} = require('{HARNESS}');
+test('SAMPLE-004', 'passes later', () => new Promise(r => setTimeout(r, 20)));
+test('SAMPLE-005', 'fails later', () => new Promise((_, no) => setTimeout(() => no(new Error('late boom')), 20)));
+test('SAMPLE-006', 'a plain test after them', () => {{}});
+done();
+""")
+    ok, out = rt.run_file(rt.TestFile(js_async))
+    row("RUN-030", "a test that returns a promise is waited for: its later failure is counted (2 passed, 1 failed)",
+        not ok and "late boom" in out and "2 passed, 1 failed" in out, out[-300:])
+    lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+    row("RUN-031", "the summary is the last line — printed after every test has finished",
+        bool(lines) and lines[-1].strip() == "2 passed, 1 failed", out[-300:])
+    js_hang = write("h.test.js", f"""// sample
+// tags: dates, tier 1
+// covers: uiHelpers.js
+const {{ test, done }} = require('{HARNESS}');
+test('SAMPLE-007', 'never finishes', () => new Promise(() => {{}}));
+done();
+""")
+    ok, out = rt.run_file(rt.TestFile(js_hang))
+    row("RUN-032", "a test whose promise never settles fails the file, by name — never a pass by not finishing",
+        not ok and "SAMPLE-007" in out, out[-300:])
+
     ui_py = write("test_f.py", "# sample\n# tags: screen, tier 2\n# covers: readerwrangler.js\n"
                                "import sys\nprint('ran with', sys.executable)\n")
     ok, out = rt.run_file(rt.TestFile(ui_py))

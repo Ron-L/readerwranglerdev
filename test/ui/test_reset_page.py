@@ -80,9 +80,9 @@ with App() as app:
     test("RESETPG-004", "a refused clipboard is said plainly and the choice is still offered; Esc closes the box", refused)
 
     def clean():
-        bad = [f"{t}: {x}" for t, x in log if t in ("error", "crash") or (t == "warning" and "SHARE-01" not in x)]
+        bad = [f"{t}: {x}" for t, x in log if t in ("error", "crash") or (t == "warning" and "UI-06" not in x)]
         check(not bad, bad)
-    test("RESETPG-005", "nothing goes wrong on the reset page (RESETPG-004's deliberate SHARE-01 excepted)", clean)
+    test("RESETPG-005", "nothing goes wrong on the reset page (RESETPG-004's deliberate UI-06 excepted)", clean)
     page.close()
 
 done()
