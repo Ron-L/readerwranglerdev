@@ -511,6 +511,18 @@ that name their action rather than Yes/No, etc. are always more clear and prefer
 **Enforcement**: the review question for every dialog — "could the button's word be the verb of the question?". The
 existing OK / Yes / No buttons: TODO "Buttons name their action…" (the sweep).
 
+### 22. One implementation — never two copies of the same logic (Ron's rule)
+When two places need the same thing, there is ONE function and two calls — never a second hand-written copy, however
+small. Abstract it the moment the second place appears, and when you find an existing pair, merge it. Copies drift: they
+start identical and diverge the first time someone fixes one of them. (Ron, 2026-11-13, deciding sprint 3: "one routine
+is preferred… abstract code when possible. Don't duplicate code if avoidable." The week's evidence: the Delete key and
+the book menu held three hand-kept copies of the Book List removal — one said nothing; the Date Added column showed one
+date expression, sorted by a second and filtered by a third; yesterday's `reportProblem.js` got an honest copy routine
+beside the logging kit's dishonest one. Older: two serializers that drifted eight fields apart — Law 10.) Pairs with
+Law 5 — enumerate the class, then **chokepoint** it: the comb finds the copies, this law says they become one.
+**Enforcement**: the gate checklist's item 5 ("is there already a function for this?"); the comb's chokepoint step;
+every agent brief; the review of each agent's diff looks for a second copy of anything.
+
 ---
 
 ## SECOND TIER — by theme (the best of the rest)
