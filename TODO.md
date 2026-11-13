@@ -196,6 +196,22 @@ the books came from leaves them in NO folder while saying "Pasted…"; (2) Ctrl+
 the folder you're in on a separate folder clipboard; (3) F2 on a folder selected in the Folders view does nothing.
 Also ONE-TABLE.md §6 item 9: the right-click Delete with books and folders both selected still acts on one kind.
 
+**Decided before sprint 4** (Ron + Claude, 2026-11-13 — the words in ONE-TABLE.md §6 items 6–9):
+1. **Out of the Trash = a restore, for every gesture, a copy too** — said at both ends: Ctrl+C in the Trash warns
+   ("Pasting them will restore them — they'll leave the Trash"), the paste's receipt says "Restored", and **every warning
+   message is amber and stays ~4 s** where it appeared (app-wide; the app's hookup drew warnings as ordinary messages).
+2. **Already there: nothing changes for that book, and the words say so** — "(1 was already there)", "Nothing to add —
+   all 3 are already in 'Fantasy'", a cut pasted back where it came from: "Nothing moved…". Never a refusal.
+3. **ANY operation on a folder includes its books and subfolders, recursively** (a copy files every book in the copy
+   too).
+4. **The right-click Delete with books and folders selected:** one item, "Delete 2 Books and 1 Folder", in both menus,
+   the key's operation.
+5. **The split:** this task = the table's move / copy / paste rows for every gesture that exists today (keys, menus,
+   today's drags), one keyboard listener, the harmful cells; the NEW drag gestures (Shift-drag, the live label, the
+   left pane's Book List drops) stay in "Move and copy books anywhere". The first step measures every cell; **anything
+   found working differently from the design, beyond what's listed, comes to Ron for discussion before it's built on.**
+6. The test library's "Written Together" → "Good Omens" (it read as something the app did).
+
 **Decided** (Ron + Claude, 2026-11-06)
 1. **Two small tables, one function** — `decide(gesture, what, from, to)`:
    - **gesture → verb:** Ctrl+X then paste = move, Ctrl+C then paste = copy, Shift-drag = move, Ctrl-drag = copy, a
