@@ -18,6 +18,50 @@ const RELAY_KEY = "readerwrangler-relay"; // v6.0.0 - Relay credentials (channel
 const RELAY_STATUS_KEY = "readerwrangler-relay-status"; // v6.9.0 - Persisted relay key status ('ok'|'revoked'|null)
 const DESKTOP_COVERS_CLEARED_KEY = "readerwrangler-desktop-covers-cleared"; // 7.27.0 - the desktop's old cover copies removed (once)
 
+// ===== Saved settings — THE reader =====
+// 7.29.1 (TODO "One safe way to read saved settings…", 20261109-0912; decided Ron, 2026-11-13) - every read of a value
+// the apps saved as text in the browser goes through readSaved: the saved value when it reads AND is the right kind,
+// else the fallback — quietly, with ONE warning in Diagnostics naming the setting (STORE-13; once per page load, since
+// the phone reads its settings on every redraw). Nothing on screen: there is nothing for the person to do, and the next
+// save of that setting writes a good copy. Before, each read had its own hand-written guard or none — a damaged phone
+// settings note blanked the phone app. A commit check refuses a bare read (git-hooks/check-saved-reads.py).
+//   rightKind: a name from SAVED_KINDS. A saved "null" counts as nothing saved.
+//   options.onDamaged(problem): for saved DATA, not a setting (the organization) — the caller reports the damage its own
+//     way (a critical box), instead of the warning. options.storage: another storage to read (default: localStorage).
+// Tests: test/readSaved.test.js (SAVED-).
+const SAVED_KINDS = Object.freeze({
+    object: (v) => v !== null && typeof v === 'object' && !Array.isArray(v),
+    array: (v) => Array.isArray(v),
+    string: (v) => typeof v === 'string',
+    number: (v) => typeof v === 'number' && Number.isFinite(v),
+    boolean: (v) => typeof v === 'boolean',
+});
+const kindOfValue = (v) => (Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v);
+const withArticle = (word) => (/^[aeiou]/.test(word) ? 'an ' : 'a ') + word;
+const savedReadWarned = new Set();   // the names already warned about, this page load
+
+const readSaved = (name, fallback, rightKind, { onDamaged, storage } = {}) => {
+    const isRightKind = SAVED_KINDS[rightKind];
+    if (!isRightKind) throw new TypeError(`readSaved("${name}"): unknown kind "${rightKind}" — one of ${Object.keys(SAVED_KINDS).join(', ')}`);
+    let problem;
+    try {
+        const text = (storage || localStorage).getItem(name);
+        if (text == null) return fallback;
+        const value = JSON.parse(text);   // not-readSaved: this IS the reader
+        if (value === null) return fallback;
+        if (isRightKind(value)) return value;
+        problem = `${withArticle(kindOfValue(value))} where ${withArticle(rightKind)} belongs`;
+    } catch (e) {
+        problem = e instanceof SyntaxError ? 'not readable' : `the browser refused to read it: ${e && e.message}`;
+    }
+    if (onDamaged) onDamaged(problem);
+    else if (!savedReadWarned.has(name)) {
+        savedReadWarned.add(name);
+        if (typeof rwLog !== 'undefined') rwLog.log('warning', 'STORE-13', `The saved "${name}" couldn't be read (${problem}) — the default is used`);
+    }
+    return fallback;
+};
+
 // ===== Amazon =====
 const AMAZON_AFFILIATE_TAG = 'rclewent-20';
 
@@ -201,7 +245,7 @@ const datePresetEarlierYears = (books, today = new Date()) => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         parsePrice, getAmazonUrl, isWishlisted, normalizeBook,
-        calculateFreshness, calendarDaysBetween, daysAgoWords,
+        calculateFreshness, calendarDaysBetween, daysAgoWords, readSaved, SAVED_KINDS,
         datePresetRange, datePresetLabel, datePresetOptions, datePresetEarlierYears, bookAcquiredYear,
     };
 }

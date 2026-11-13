@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.29.1-alpha.2";  // Build version for this file
+        const ORGANIZER_VERSION = "7.29.1-alpha.3";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -259,7 +259,7 @@
         document.title = IS_CONTRIBUTOR ? "ReaderWrangler (local · contributor)" : IS_LOCAL_HOST ? "ReaderWrangler (local)" : "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, saveBooksIfChanged, loadBooksFromIndexedDB, deleteBookStore, onBookStoreGone - see storage.js
-        // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, daysAgoWords - see uiHelpers.js
+        // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, daysAgoWords, readSaved - see uiHelpers.js
         // clearCoverCache - see storage.js (7.27.0: the desktop keeps no cover copies; buildCoverUrlMap and
         // populateCoverCache serve the phone)
 
@@ -4394,71 +4394,65 @@
             const dragHoverExpandTimeoutRef = useRef(null);
 
             // Load saved filters from localStorage on mount (v3.8.0.f, updated v3.8.0.k, v4.15.6)
+            // 7.29.1 - through the one reader (uiHelpers.js readSaved): a damaged note = no saved filters + one STORE-13
+            // warning (was its own guard, PREF-01)
             React.useEffect(() => {
-                try {
-                    const savedFilters = localStorage.getItem(FILTERS_KEY);
-                    if (savedFilters) {
-                        const filters = JSON.parse(savedFilters);
-                        if (filters.searchTerm !== undefined) setSearchTerm(filters.searchTerm);
-                        if (filters.readStatusFilter !== undefined) setReadStatusFilter(filters.readStatusFilter);
-                        if (filters.collectionFilter !== undefined) setCollectionFilter(filters.collectionFilter);
-                        if (filters.ratingFilter !== undefined) setRatingFilter(filters.ratingFilter);
-                        if (filters.ownershipFilter !== undefined) setOwnershipFilter(filters.ownershipFilter);
-                        if (filters.seriesFilter !== undefined) setSeriesFilter(filters.seriesFilter);
-                        if (filters.showHidden !== undefined) setShowHidden(filters.showHidden);
+                const filters = readSaved(FILTERS_KEY, null, 'object');
+                if (filters) {
+                    if (filters.searchTerm !== undefined) setSearchTerm(filters.searchTerm);
+                    if (filters.readStatusFilter !== undefined) setReadStatusFilter(filters.readStatusFilter);
+                    if (filters.collectionFilter !== undefined) setCollectionFilter(filters.collectionFilter);
+                    if (filters.ratingFilter !== undefined) setRatingFilter(filters.ratingFilter);
+                    if (filters.ownershipFilter !== undefined) setOwnershipFilter(filters.ownershipFilter);
+                    if (filters.seriesFilter !== undefined) setSeriesFilter(filters.seriesFilter);
+                    if (filters.showHidden !== undefined) setShowHidden(filters.showHidden);
 
-                        // v4.15.6: Load datePreset, with migration from old dateFrom/dateTo format
-                        if (filters.datePreset) {
-                            // New format: datePreset controls the filter
-                            setDatePreset(filters.datePreset);
-                            if (filters.datePreset === 'custom') {
-                                // Custom preset: also restore the manual dates
-                                if (filters.dateFrom) setDateFrom(filters.dateFrom);
-                                if (filters.dateTo) setDateTo(filters.dateTo);
-                            }
-                            // For non-custom presets, the useEffect will compute dateFrom/dateTo
-                        } else if (filters.dateFrom || filters.dateTo) {
-                            // Migration: old format had dateFrom/dateTo but no datePreset
-                            // Treat as custom date range
-                            setDatePreset('custom');
+                    // v4.15.6: Load datePreset, with migration from old dateFrom/dateTo format
+                    if (filters.datePreset) {
+                        // New format: datePreset controls the filter
+                        setDatePreset(filters.datePreset);
+                        if (filters.datePreset === 'custom') {
+                            // Custom preset: also restore the manual dates
                             if (filters.dateFrom) setDateFrom(filters.dateFrom);
                             if (filters.dateTo) setDateTo(filters.dateTo);
                         }
-                        // v4.27.0: Load tag filter
-                        if (filters.tagFilter && Array.isArray(filters.tagFilter)) {
-                            setTagFilter(filters.tagFilter);
-                        }
-                        // v5.0.0-alpha.175.41: Load Collections filter
-                        if (filters.selectedCollections && Array.isArray(filters.selectedCollections)) {
-                            setSelectedCollections(filters.selectedCollections);
-                        }
-                        // v5.0.0-alpha.175.42: Load Amazon Rating filter
-                        if (filters.minAmazonRating) {
-                            setMinAmazonRating(filters.minAmazonRating);
-                        }
-                        // v5.0.0-alpha.175.43: Load My Rating filter
-                        if (filters.minMyRating) {
-                            setMinMyRating(filters.minMyRating);
-                        }
-                        // v5.0.0-alpha.175.44: Load Series filter
-                        if (filters.selectedSeries && Array.isArray(filters.selectedSeries)) {
-                            setSelectedSeries(filters.selectedSeries);
-                        }
+                        // For non-custom presets, the useEffect will compute dateFrom/dateTo
+                    } else if (filters.dateFrom || filters.dateTo) {
+                        // Migration: old format had dateFrom/dateTo but no datePreset
+                        // Treat as custom date range
+                        setDatePreset('custom');
+                        if (filters.dateFrom) setDateFrom(filters.dateFrom);
+                        if (filters.dateTo) setDateTo(filters.dateTo);
                     }
-                    // v5.4.9: Load search history (separate from filters)
-                    // v6.12.0: Recents are now filter combos { filters }. Migrate legacy string entries.
-                    const savedHistory = localStorage.getItem(SEARCH_HISTORY_KEY);
-                    if (savedHistory) {
-                        try {
-                            const parsed = JSON.parse(savedHistory);
-                            const migrated = (Array.isArray(parsed) ? parsed : [])
-                                .map(h => typeof h === 'string' ? { filters: { search: h } } : h)
-                                .filter(h => h && h.filters && Object.keys(h.filters).length > 0);
-                            setSearchHistory(migrated);
-                        } catch(e) {}
+                    // v4.27.0: Load tag filter
+                    if (filters.tagFilter && Array.isArray(filters.tagFilter)) {
+                        setTagFilter(filters.tagFilter);
                     }
-                } catch (e) {
-                    rwLog.log('warning', 'PREF-01', "Your saved filters couldn't be read — they start empty", { error: String(e) });
+                    // v5.0.0-alpha.175.41: Load Collections filter
+                    if (filters.selectedCollections && Array.isArray(filters.selectedCollections)) {
+                        setSelectedCollections(filters.selectedCollections);
+                    }
+                    // v5.0.0-alpha.175.42: Load Amazon Rating filter
+                    if (filters.minAmazonRating) {
+                        setMinAmazonRating(filters.minAmazonRating);
+                    }
+                    // v5.0.0-alpha.175.43: Load My Rating filter
+                    if (filters.minMyRating) {
+                        setMinMyRating(filters.minMyRating);
+                    }
+                    // v5.0.0-alpha.175.44: Load Series filter
+                    if (filters.selectedSeries && Array.isArray(filters.selectedSeries)) {
+                        setSelectedSeries(filters.selectedSeries);
+                    }
+                }
+                // v5.4.9: Load search history (separate from filters)
+                // v6.12.0: Recents are now filter combos { filters }. Migrate legacy string entries.
+                const savedHistory = readSaved(SEARCH_HISTORY_KEY, null, 'array');
+                if (savedHistory) {
+                    const migrated = savedHistory
+                        .map(h => typeof h === 'string' ? { filters: { search: h } } : h)
+                        .filter(h => h && h.filters && Object.keys(h.filters).length > 0);
+                    setSearchHistory(migrated);
                 }
                 // v4.15.6: Mark filters as loaded after a small delay to let React batch state updates
                 setTimeout(() => {
@@ -4637,21 +4631,17 @@
             const saveRecent = async (key) => { const h = searchHistory.find(x => filterKey(x.filters) === key); if (h) await saveFiltersAsSearch(h.filters); };
 
             // v5.1.0-alpha.23 - Load wizard settings from localStorage on mount
+            // 7.29.1 - through the one reader (uiHelpers.js readSaved; was its own guard, PREF-03)
             React.useEffect(() => {
-                try {
-                    const savedWizard = localStorage.getItem(WIZARD_KEY);
-                    if (savedWizard) {
-                        const wizard = JSON.parse(savedWizard);
-                        if (wizard.minBooksSlider !== undefined) setWizardMinBooksSlider(wizard.minBooksSlider);
-                        if (wizard.minBooks !== undefined) setWizardMinBooks(wizard.minBooks);
-                        if (wizard.sortBy !== undefined) setWizardSortBy(wizard.sortBy);
-                        if (wizard.createSeriesFolders !== undefined) setWizardCreateSeriesFolders(wizard.createSeriesFolders);
-                        if (wizard.sortByPosition !== undefined) setWizardSortByPosition(wizard.sortByPosition);
-                        if (wizard.createMiscellaneous !== undefined) setWizardCreateMiscellaneous(wizard.createMiscellaneous);
-                        if (wizard.seriesFolderMin !== undefined) setWizardSeriesFolderMin(wizard.seriesFolderMin);
-                    }
-                } catch (e) {
-                    rwLog.log('warning', 'PREF-03', "Your saved Auto-Organize settings couldn't be read — the defaults are used", { error: String(e) });
+                const wizard = readSaved(WIZARD_KEY, null, 'object');
+                if (wizard) {
+                    if (wizard.minBooksSlider !== undefined) setWizardMinBooksSlider(wizard.minBooksSlider);
+                    if (wizard.minBooks !== undefined) setWizardMinBooks(wizard.minBooks);
+                    if (wizard.sortBy !== undefined) setWizardSortBy(wizard.sortBy);
+                    if (wizard.createSeriesFolders !== undefined) setWizardCreateSeriesFolders(wizard.createSeriesFolders);
+                    if (wizard.sortByPosition !== undefined) setWizardSortByPosition(wizard.sortByPosition);
+                    if (wizard.createMiscellaneous !== undefined) setWizardCreateMiscellaneous(wizard.createMiscellaneous);
+                    if (wizard.seriesFolderMin !== undefined) setWizardSeriesFolderMin(wizard.seriesFolderMin);
                 }
                 // Mark settings loaded after a small delay
                 setTimeout(() => {
@@ -4721,23 +4711,23 @@
                         // v5.0.0-alpha.175.49.1 - Removed settings load (dead code, settings state removed in v175.48)
 
                         // Restore libraryStatus and collectionsStatus from localStorage (v3.7.0.n)
-                        // 7.26.0 - its own guard: a damaged status note used to stop the whole library from loading
-                        // (BOOT-01) — it's only "how fresh is your library" (TODO "One safe way to read saved settings…")
-                        const savedStatus = localStorage.getItem(STATUS_KEY);
-                        if (savedStatus) try {
-                            const statusData = JSON.parse(savedStatus);
+                        // 7.26.0 - a damaged status note used to stop the whole library from loading (BOOT-01) — it's
+                        // only "how fresh is your library". 7.29.1 - through the one reader (uiHelpers.js readSaved;
+                        // was its own guard, BOOT-02): damaged = shown as unknown until the next fetch
+                        const statusData = readSaved(STATUS_KEY, null, 'object');
+                        if (statusData) {
                             if (statusData.libraryStatus) setLibraryStatus(statusData.libraryStatus);
                             if (statusData.collectionsStatus) setCollectionsStatus(statusData.collectionsStatus);
                             rwLog.log('debug', 'BOOT', `Status restored: library ${statusData.libraryStatus && statusData.libraryStatus.loadStatus}, collections ${statusData.collectionsStatus && statusData.collectionsStatus.loadStatus}`);
-                        } catch (e) {
-                            rwLog.log('warning', 'BOOT-02', "The saved library status couldn't be read — it shows as unknown until the next fetch", { error: String(e) });
                         }
 
                         // v5.0.0 - Load Explorer settings
-                        // 7.26.0 - its own guard too (BOOT-03): damaged view settings fall back to the defaults
-                        const savedExplorer = localStorage.getItem(EXPLORER_KEY);
-                        if (savedExplorer) try {
-                            const explorerData = JSON.parse(savedExplorer);
+                        // 7.29.1 - read through the one reader (uiHelpers.js readSaved): an unreadable note = the
+                        // defaults + its STORE-13 warning. The guard below stays for a note that READS but holds a
+                        // setting of the wrong shape (a column order that isn't a list, say): BOOT-03, the defaults
+                        // for the rest — never the whole library failing to load (7.26.0).
+                        const explorerData = readSaved(EXPLORER_KEY, null, 'object');
+                        if (explorerData) try {
                             // v5.0.2 - viewMode removed (always Explorer mode)
                             if (explorerData.selectedFolderId) setSelectedFolderId(explorerData.selectedFolderId);
                             if (explorerData.explorerView) setExplorerView(explorerData.explorerView);
@@ -4795,7 +4785,7 @@
                                 setFoldersSectionCollapsed(!!explorerData.sectionsCollapsed.folders);
                             }
                         } catch (e) {
-                            rwLog.log('warning', 'BOOT-03', "The saved view settings couldn't be read — the defaults are used", { error: String(e) });
+                            rwLog.log('warning', 'BOOT-03', "A saved view setting had the wrong shape — the defaults are used for the rest", { error: String(e) });
                         }
                         // v5.0.0-alpha.169.10 - Mark settings loaded (even if no saved data)
                         explorerSettingsLoadedRef.current = true;
@@ -4808,15 +4798,18 @@
                         // the folder-order scrambler so hard to diagnose). FOLDERS_KEY is now a READ-ONCE
                         // MIGRATION source (pre-blob installs); its writers are gone; the key itself stays
                         // in place one release as an inert rollback net.
-                        let orgState = null;
-                        try { orgState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
-                        catch (e) { rwLog.log('critical', 'STORE-01', 'Your saved organization could not be read — ReaderWrangler is using a fallback copy.', { error: String(e) }); }
+                        // 7.29.1 - through the one reader (uiHelpers.js readSaved). The organization is DATA, not a
+                        // setting: damaged (unreadable, or not an object), it stays a critical box (STORE-01), never a
+                        // quiet default.
+                        const orgState = readSaved(STORAGE_KEY, null, 'object', { onDamaged: (problem) =>
+                            rwLog.log('critical', 'STORE-01', 'Your saved organization could not be read — ReaderWrangler is using a fallback copy.', { problem }) });
                         const org = (orgState && orgState.organization) || null;
 
+                        // the old-format stores (pre-blob installs) — unguarded until 7.29.1: a damaged one stopped the
+                        // whole library from loading (BOOT-01)
                         let loadedFolders = (org && Array.isArray(org.folders) && org.folders.length > 0) ? org.folders : [];
                         if (loadedFolders.length === 0) {
-                            const savedFolders = localStorage.getItem(FOLDERS_KEY);
-                            loadedFolders = savedFolders ? JSON.parse(savedFolders) : [];
+                            loadedFolders = readSaved(FOLDERS_KEY, [], 'array');
                             if (loadedFolders.length > 0) rwLog.log('info', 'BOOT', 'Folders moved from the old storage format (a one-time move)');
                         }
 
@@ -4826,8 +4819,7 @@
                         if (org && Array.isArray(org.bookLists)) {
                             loadedBookLists = org.bookLists.map(bl => ({ ...bl, bookIds: bl.bookIds || [] }));
                         } else {
-                            const savedBookLists = localStorage.getItem(BOOKLISTS_KEY);
-                            loadedBookLists = savedBookLists ? JSON.parse(savedBookLists) : [];
+                            loadedBookLists = readSaved(BOOKLISTS_KEY, [], 'array');
                         }
 
                         // v6.0.0-alpha.53 - Ensure Inbox exists for fresh installs (memory only — the
@@ -6105,8 +6097,7 @@
                 // only), keeping current by default. Decided here so the confirm isn't stacked on progress.
                 let adoptBackupCreds = false;
                 if (parsedData.relay && parsedData.relay.channelId) {
-                    let currentCreds = null;
-                    try { currentCreds = JSON.parse(localStorage.getItem(RELAY_KEY)); } catch { /* none */ }
+                    const currentCreds = readSaved(RELAY_KEY, null, 'object');
                     const haveCurrent = currentCreds && currentCreds.channelId;
                     if (!haveCurrent || currentCreds.channelId === parsedData.relay.channelId) {
                         adoptBackupCreds = true; // new machine / migration, or same channel — adopt silently
@@ -6381,7 +6372,7 @@
                         // payload serializes — NOT the send time (a wall-clock stamp would be newer than the
                         // blob it was built from and mobile's guest guard would misfire). Same clock lineage
                         // as the blob, so the guard's comparison is exact.
-                        savedAt: (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').savedAt || Date.now(); } catch { return Date.now(); } })(),
+                        savedAt: readSaved(STORAGE_KEY, {}, 'object').savedAt || Date.now(),
                         blankImageBooks: Array.from(blankImageBooks),
                         // v6.12.0 - Deny-list serialization: spread the whole object so a newly-added field
                         // persists automatically. The old allow-list silently dropped sortIndex (bug #3).
@@ -6535,12 +6526,10 @@
                     };
 
                     // v6.0.0 - Include relay credentials in backup
-                    try {
-                        const relayData = JSON.parse(localStorage.getItem(RELAY_KEY));
-                        if (relayData && relayData.channelId) {
-                            exportData.relay = relayData;
-                        }
-                    } catch { /* no relay configured */ }
+                    const relayData = readSaved(RELAY_KEY, null, 'object');
+                    if (relayData && relayData.channelId) {
+                        exportData.relay = relayData;
+                    }
 
                     // v4.15.1.b: Only add collections section if we have real data (fix 0-A bug)
                     if (hasRealCollections) {
@@ -6988,18 +6977,13 @@
                     orgToRestore = organizationFromFile;
                     orgSource = 'backup file';
                 } else {
-                    // Library file - try to restore from localStorage
-                    try {
-                        const saved = localStorage.getItem(STORAGE_KEY);
-                        if (saved) {
-                            const state = JSON.parse(saved);
-                            if (state.organization) {
-                                orgToRestore = state.organization;
-                                orgSource = 'localStorage';
-                            }
-                        }
-                    } catch (e) {
-                        rwLog.log('warning', 'STORE-04', 'Could not read the saved organization while loading a library — the folders were left as they are', { error: String(e) });
+                    // Library file - try to restore from localStorage (7.29.1 - through the one reader; the organization
+                    // is data, so its damage keeps its own message, STORE-04)
+                    const state = readSaved(STORAGE_KEY, null, 'object', { onDamaged: (problem) =>
+                        rwLog.log('warning', 'STORE-04', 'Could not read the saved organization while loading a library — the folders were left as they are', { problem }) });
+                    if (state && state.organization) {
+                        orgToRestore = state.organization;
+                        orgSource = 'localStorage';
                     }
                 }
                 loadNote(orgSource ? `Organization taken from ${orgSource === 'backup file' ? 'the backup' : "this browser's saved copy"}` : 'No saved organization — the books load without one');
@@ -7194,23 +7178,17 @@
 
             const openBookModal = (book, columnId, navList) => {
                 setModalNavOverride(navList && navList.length ? navList : null); // v6.16.0 - explicit nav context (e.g. a preview shelf)
-                try {
-                    const cache = localStorage.getItem(CACHE_KEY);
-                    if (cache) {
-                        const cacheData = JSON.parse(cache);
-                        if (cacheData[book.asin]) {
-                            const cached = cacheData[book.asin];
-                            book = {
-                                ...book,
-                                description: cached.description || book.description,
-                                rating: cached.rating || book.rating,
-                                ratingCount: cached.ratingCount || book.ratingCount,
-                                topReviews: cached.topReviews || book.topReviews
-                            };
-                        }
-                    }
-                } catch (e) {
-                    rwLog.log('warning', 'COVER-01', "The old book-details cache couldn't be read (a leftover from older versions)", { error: String(e) });
+                // the old book-details cache (a leftover from older versions) — 7.29.1: through the one reader (was its
+                // own guard, COVER-01)
+                const cached = readSaved(CACHE_KEY, {}, 'object')[book.asin];
+                if (cached) {
+                    book = {
+                        ...book,
+                        description: cached.description || book.description,
+                        rating: cached.rating || book.rating,
+                        ratingCount: cached.ratingCount || book.ratingCount,
+                        topReviews: cached.topReviews || book.topReviews
+                    };
                 }
 
                 setModalBook(book);
@@ -11697,7 +11675,7 @@
                                 </div>
                                 <div data-select-text data-dialog-body style={{ overflowY: 'auto', flex: 1 }}>
                                     {(() => {
-                                        const stored = (() => { try { return JSON.parse(localStorage.getItem(RELAY_KEY)); } catch { return null; } })();
+                                        const stored = readSaved(RELAY_KEY, null, 'object');
                                         const hasCreds = stored && stored.channelId;
                                         const bookmarklets = hasCreds ? generateRelayBookmarklets(stored.channelId, stored.passphrase) : [];
                                         // v7.21.0 - (local isLocalhost / isDevRepo copies removed: the dev-mode note and the pairing QR ask

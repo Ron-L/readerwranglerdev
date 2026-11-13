@@ -1,6 +1,6 @@
 # Screen test: the phone app's start — its build line, and a library it can't load is shown to the person, not hidden.
 # tags: phone, boot, logging, tier 2
-# covers: mobile.js, logkit/logger.js, logkit-settings.js, storage.js, readerwrangler.html
+# covers: mobile.js, uiHelpers.js, logkit/logger.js, logkit-settings.js, storage.js, readerwrangler.html
 # Run: py tools/run_tests.py --tier 2     (or directly with the venv's Python)
 #
 # 2026-11-09 (7.26.0-alpha.20, the logging switch's PHONE area): a phone-width window loads the phone app (mobile.js;
@@ -73,6 +73,31 @@ with App(relay=True, size=(390, 844)) as app:
         app.stub_outside(refuse_clipboard=False)
     test("PHONE-005", "the credentials' Copy says Copied when it copied, and Couldn't copy when the browser refused",
          credentials_copy)
+
+    # 7.29.1 (TODO "One safe way to read saved settings — a damaged one can blank the phone app today", 20261109-0912):
+    # the phone reads its settings note (sort, view, shelves) at the top of its main screen on every redraw, with no guard
+    # — a damaged note threw there and the whole phone app went blank. Now every saved note goes through the one reader
+    # (uiHelpers.js readSaved): the phone opens to its default view, and ONE warning names the note (decided by Ron:
+    # nothing on screen). The damage is a note cut off mid-write.
+    def damaged_settings_note():
+        menu = page.get_by_role("button", name="Menu").first
+        menu.wait_for(timeout=30_000)                                   # setup: the phone app is up before the damage
+        page.evaluate("""() => localStorage.setItem('readerwrangler-mobile-prefs', '{"sortOption": "titleAZ", "viewMo')""")
+        n0, crashes0 = len(app.console), len(app.crashes)
+        try:
+            app.reload()
+            try:
+                menu.wait_for(timeout=30_000)
+            except Exception:
+                check(False, f"the phone app didn't open (blank) — crashes: {app.crashes[crashes0:][:2]}")
+            check(not app.crashes[crashes0:], f"the page crashed: {app.crashes[crashes0:][:2]}")
+            warned = [x for _, x in app.console[n0:]
+                      if x.startswith('warning · STORE-13 · The saved "readerwrangler-mobile-prefs" couldn\'t be read')]
+            check(len(warned) == 1, f"expected ONE warning naming the note, got {len(warned)}: {warned[:3]}")
+        finally:
+            page.evaluate("() => localStorage.removeItem('readerwrangler-mobile-prefs')")   # the next test starts clean
+    test("PHONE-006", "a damaged phone settings note: the phone opens to its default view (not a blank app), and one "
+         "warning names the note", damaged_settings_note)
 
     def library_unreadable():
         app.expect("PHONE-03")   # caused on purpose

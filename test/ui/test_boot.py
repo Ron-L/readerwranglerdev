@@ -1,7 +1,7 @@
 # Screen test: starting up — the build line; a damaged status note no longer stops the library; a library that can't
 # be loaded is shown to EVERY user, with advice that fits, and Save Backup refuses to save half a library.
 # tags: boot, logging, storage, backup, tier 2
-# covers: readerwrangler.js, storage.js, logkit/logger.js, logkit-settings.js, readerwrangler.html
+# covers: readerwrangler.js, uiHelpers.js, storage.js, logkit/logger.js, logkit-settings.js, readerwrangler.html
 # Run: py tools/run_tests.py --tier 2     (or directly with the venv's Python)
 #
 # 2026-11-09 (7.26.0-alpha.15, the logging switch's BOOT area): when the library didn't load, the app printed one
@@ -9,7 +9,8 @@
 # for every user. Its usual advice ("save a backup now") would be harmful here: a start that fails AFTER the books
 # appear has no folders on screen, and a backup made then would restore as a library with none — so BOOT-01 carries its
 # own advice, and Save Backup refuses until the library has loaded. Found on the way: a damaged library-status note
-# (only "how fresh is your library") stopped the whole load; now it's a warning, BOOT-02. The failures are real ones
+# (only "how fresh is your library") stopped the whole load; now it's a warning, BOOT-02 (7.29.1: the one reader's
+# STORE-13). The failures are real ones
 # (the browser's book store made to fail, before the page's own scripts), not planted messages.
 import os
 import re
@@ -46,11 +47,12 @@ with App() as app:
         page.wait_for_timeout(1500)
         check(all_books > 0 and app.left_count("All Books") == all_books,
               f"the library didn't load: All Books {app.left_count('All Books')}, was {all_books}")
-        check(since(app, n0, r"^warning · BOOT-02 · "), "no BOOT-02 warning for the damaged note")
+        check(since(app, n0, r'^warning · STORE-13 · The saved "readerwrangler-status" couldn.t be read'),
+              "no STORE-13 warning naming the damaged note")
         check(not since(app, n0, r"BOOT-01"), "the damaged note still stopped the library (BOOT-01)")
         check(page.locator(CRITICAL).count() == 0, "a critical box appeared")
-    test("BOOT-002", "a damaged library-status note no longer stops the library from loading — a warning (BOOT-02)",
-         damaged_status_note)
+    test("BOOT-002", "a damaged library-status note no longer stops the library from loading — one warning naming it "
+         "(STORE-13, the one reader; was BOOT-02)", damaged_status_note)
 
     def damaged_filters_note():
         all_books = app.left_count("All Books")
@@ -59,8 +61,10 @@ with App() as app:
         app.reload()
         page.wait_for_timeout(1500)
         check(app.left_count("All Books") == all_books, "the library didn't load")
-        check(since(app, n0, r"^warning · PREF-01 · "), "no PREF-01 warning for the damaged filters note")
-    test("BOOT-005", "a damaged saved-filters note is a warning (PREF-01) and the library still loads", damaged_filters_note)
+        check(since(app, n0, r'^warning · STORE-13 · The saved "readerwrangler-filters" couldn.t be read'),
+              "no STORE-13 warning naming the damaged filters note")
+    test("BOOT-005", "a damaged saved-filters note is one warning naming it (STORE-13; was PREF-01) and the library still "
+         "loads", damaged_filters_note)
 
     def failed_after_the_books():
         # caused on purpose (the end-of-session log check lets exactly these through): the failed save says so itself
@@ -99,6 +103,28 @@ with App() as app:
 
 with App() as app:
     page = app.page
+
+    # 7.29.1 (TODO "One safe way to read saved settings…", 20261109-0912): the old-format folders and Book Lists notes
+    # (read once on a pre-2026 install, when the saved organization has no folders) had no guard at all — damaged, they
+    # stopped the whole library from loading (BOOT-01). Now through the one reader: none + one warning each.
+    def damaged_old_format_notes():
+        page.evaluate("""() => { localStorage.removeItem('readerwrangler-state');            // as on a pre-2026 install
+            localStorage.setItem('readerwrangler-folders', '[{"id": "f1", "name": "Sci');
+            localStorage.setItem('readerwrangler-booklists', '{"not": "a list"}'); }""")
+        n0 = len(app.console)
+        app.reload()
+        for _ in range(300):   # this start's own line (the session's first start logged one too) — a condition, not a sleep
+            if since(app, n0, r"^info · BOOT · A fresh start: created the Inbox|BOOT-01"):
+                break
+            page.wait_for_timeout(100)
+        check(not since(app, n0, r"BOOT-01"), "a damaged old-format note stopped the library from loading (BOOT-01)")
+        for note in ("readerwrangler-folders", "readerwrangler-booklists"):
+            check(len(since(app, n0, rf'^warning · STORE-13 · The saved "{note}" couldn.t be read')) == 1,
+                  f"not one STORE-13 warning naming {note}")
+        check(page.locator(CRITICAL).count() == 0, "a critical box appeared")
+        page.evaluate("() => { localStorage.removeItem('readerwrangler-folders'); localStorage.removeItem('readerwrangler-booklists'); }")
+    test("BOOT-006", "damaged old-format folders / Book Lists notes no longer stop the library from loading — one warning "
+         "each (STORE-13)", damaged_old_format_notes)
 
     def store_wont_open():
         app.expect("BOOT-01")   # caused on purpose
