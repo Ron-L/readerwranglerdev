@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.29.0] - 2026-11-12
+
+### Added
+- **Report a problem, wherever you are.** Help → Report a problem… copies your diagnostics and lets you email us or
+  open a report on GitHub; Help → Known problems lists the ones already reported. If ReaderWrangler can't open, the
+  "Something went wrong" screen and the reset page offer Copy diagnostics and Report this problem right there.
+- **Reset App: a Save Backup… button right in the box**, so you can save a backup before you reset.
+
+### Fixed
+- File → Save Backup… and Save Spreadsheet… say why they're greyed out when your library is empty.
+- The backup's failure message says "Backup Error" (it said "Export Error").
+
 ## [7.28.1] - 2026-11-12
 
 ### Fixed

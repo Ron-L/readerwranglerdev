@@ -497,8 +497,8 @@ after-reset choice offers the button at the right moment. And the "Something wen
 reporting it: a **Copy diagnostics** button works there even when the app didn't start.) Pairs with Law 16: the
 control announces itself where the need arises; this law says the message *is* the control.
 **Enforcement**: the review question for every message and every help text — "is there a step here the person could
-do right now? then it's a button, not a sentence." First users (TODO, after the Delete key): the Reset App box's Save
-Backup… button; Copy diagnostics + Report on the emergency screen and the reset page; Help → Report a problem.
+do right now? then it's a button, not a sentence." First users — built in 7.29.0: the Reset App box's Save Backup…
+button; Copy diagnostics + Report this problem on the emergency screen and the reset page; Help → Report a problem….
 
 ### 21. A button names what it does — never OK, Yes or No (Ron's rule)
 A button that answers a question says the action it takes: **Delete**, **Hide Instead**, **Restore**, **Keep Both** —

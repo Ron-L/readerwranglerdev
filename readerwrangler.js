@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.29.0-alpha.3";  // Build version for this file
+        const ORGANIZER_VERSION = "7.29.0";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];

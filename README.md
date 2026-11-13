@@ -126,6 +126,7 @@ ReaderWrangler is the **only tool specifically designed for Amazon Kindle librar
 <!-- SYNC: Keep "Recent Features" in sync with features.html -->
 ## Recent Features
 
+- **Report a problem, wherever you are (7.29)** — Help → Report a problem… copies your diagnostics and lets you email us or open a report on GitHub; Help → Known problems lists the ones already reported. If ReaderWrangler can't open, the "Something went wrong" screen and the reset page offer the same, right there. And Reset App now has a Save Backup… button right in its box.
 - **Opens in a second (7.27)** — ReaderWrangler no longer prepares its code in your browser on every visit: the app appears in about half a second, and a 3,000-book library is on screen in about two.
 - **See what happened, and restores that put back exactly the backup (7.26)** — **Help → Diagnostics** shows a record of what ReaderWrangler did and what went wrong — read it, filter it, or copy it for us in one click (the phone has Copy diagnostics too); since 7.28, **Send a test message** checks that it's working. Restore now puts back exactly the backup, and a backup it can't restore says everything that's wrong at once, before anything changes.
 - **Your synced copy, locked to you (7.25)** — Every change to your cloud copy is now signed with a key made from your passphrase, so a stranger who learns your Channel ID can no longer change or delete anything.

@@ -3,9 +3,6 @@
 - [TODO](#todo)
   - [🔝 Up next](#up-next)
     - [High priority](#high-priority)
-      - [Reset App: a Save Backup… button where the box says to save a backup](#reset-app-a-save-backup-button-where-the-box-says-to-save-a-backup)
-      - [When the app can't open: Copy diagnostics and Report this problem, right there](#when-the-app-cant-open-copy-diagnostics-and-report-this-problem-right-there)
-      - [Help → Report a problem… and Known problems (the GitHub issues)](#help--report-a-problem-and-known-problems-the-github-issues)
       - [Copy buttons tell the truth: "copied" only when something was copied, and a refusal said](#copy-buttons-tell-the-truth-copied-only-when-something-was-copied-and-a-refusal-said)
       - [One table for every move, copy, paste and delete: what each gesture does in each place](#one-table-for-every-move-copy-paste-and-delete-what-each-gesture-does-in-each-place)
       - [Relay worker: one release of changes (backup alerter, clearer daily email, strict ID check)](#relay-worker-one-release-of-changes-backup-alerter-clearer-daily-email-strict-id-check)
@@ -182,55 +179,6 @@ tasks themselves sit in that order; the numbered "order of work" list that used 
 drifted). To change the order, move the task.
 
 ### High priority
-
-#### Reset App: a Save Backup… button where the box says to save a backup
-<!-- id 20261111-1104 -->
-
-_Why it matters:_ The Reset App box says "Before you reset, save a backup: File → Save Backup." — something the person
-can do that instant, so it should be a button there (Law 20: hand them the action, not directions — Ron, 2026-11-11).
-
-**Decided** (Ron + Claude, 2026-11-11)
-1. A **Save Backup…** button in the Reset App box's tip — the same save File → Save Backup runs; the box stays open so
-   they can then reset (or cancel).
-2. "To get everything back afterwards: File → Restore Backup…" stays as directions: it can't be done from this box (a
-   restore now would replace the library, and the box is gone after the reset). Its button belongs to the after-reset
-   choice ("Restore from Cloud Sync…", item 6).
-3. Keep test/test_reset_words.py passing (the shared sentence stays word for word).
-
-#### When the app can't open: Copy diagnostics and Report this problem, right there
-<!-- id 20261111-1104a -->
-
-_Why it matters:_ A person whose app won't start sees "Something went wrong" and a Reset App button — nothing about
-telling us. The red banner with Copy shows only with "Show a banner when something goes wrong" turned on, and the
-error text only on a local server, so on readerwrangler.com they get neither (Ron, 2026-11-11; Law 20).
-
-**Decided** (Ron + Claude, 2026-11-11)
-1. **The emergency screen** ("Something went wrong") gets a **Copy diagnostics** button and a **Report this problem**
-   link (GitHub issues, as the status bar's Feedback link). The Diagnostics window can't open there — it's part of the
-   app that failed — but the logging module loads first and survives, so Copy works (`rwLog.diagnosticsText`).
-2. **Not on its "Erase and Reset" confirmation** — one place, offered before anyone reaches the reset.
-3. **The reset page** (reset.html) gets the same two — it loads the logging module too, and it's where people land when
-   the app won't open at all.
-4. Checked 2026-11-11: **no reset clears the kept log** (its key is in none of the four resets' lists, nothing clears
-   all storage) — so a copy made after a reset still has the record; offering it before is still the right moment.
-5. A screen test with the load made to fail on purpose (the driver serves a broken copy of the app's code — how
-   7.27.1's screenshots were taken): the button copies a text with the build line and the error.
-
-#### Help → Report a problem… and Known problems (the GitHub issues)
-<!-- id 20261111-1104b -->
-
-_Why it matters:_ The Help menu has nothing for reporting a problem or seeing known ones; only the status bar's small
-"Feedback" link reaches GitHub issues (Ron, 2026-11-11).
-
-**Decided** (Ron + Claude, 2026-11-11)
-1. **Help → Report a problem…** copies the diagnostics (as Diagnostics' Copy does), then opens a new GitHub issue —
-   telling the person the diagnostics are on the clipboard to paste in.
-2. **Help → Known problems** opens the issue list.
-3. **Both — email and GitHub** (Ron, 2026-11-12, agreed before sprint 2; it was "GitHub needs an account to report, and
-   many readers won't have one"): the diagnostics are copied first, then a small choice — **Email us** (opens their
-   mail app to contact@readerwrangler.com with a subject line) or **Report on GitHub** (a new issue) — and either way
-   they're told the diagnostics are on the clipboard to paste in. Not in the email's body (a mail link cuts long text
-   off). ONE shared "report a problem" helper, used here and by "When the app can't open…" (its Report this problem).
 
 #### Copy buttons tell the truth: "copied" only when something was copied, and a refusal said
 <!-- id 20261112-1755 -->

@@ -8,7 +8,12 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-12 (through release 7.28.1)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-12 (through release 7.29.0)** — all sections human-reviewed (§1–21).
+7.29.0: Report a problem — §19 gains "How do I report a problem?" (Help → Report a problem…, Known problems, the
+"Something went wrong" screen's and the reset page's Copy diagnostics / Report this problem); §19's table gains "How do
+I save a backup before I reset?" (Reset App's new Save Backup… button). Comb for "Feedback", "report",
+"Reset App", "Save Backup", "Export", "Something went wrong": the 7.26.0 Diagnostics answer still holds (its "Feedback,
+at the bottom of the window" is still there); no entry quoted "Export Error".
 7.28.1: the Delete key acts on what you selected — §12 gains "The Delete key acts on what you selected" (folders, books
 and folders together, nothing selected, the Inbox, the right-click Delete Folders (2), "it used to delete the folder I
 was in"). Comb for "Delete", "DEL", "Undo", "Redo", "Inbox", "folder": the book-delete paragraph, the Book List DEL line,
@@ -798,6 +803,13 @@ row — the menus are where the power hides.
 
 ## 19. Troubleshooting (symptom → explanation → fix)
 
+**How do I report a problem?** (7.29.0) **Help → Report a problem…** copies your diagnostics, then offers **Email us**
+(your mail program, addressed to contact@readerwrangler.com, the subject already filled in) or **Report on GitHub** (a
+new report — it needs a free GitHub account); paste the diagnostics into your message. If the copy is refused, it says
+so and offers **Try again**. **Help → Known problems** lists what's already been reported. **If ReaderWrangler won't
+open at all**, the "Something went wrong" screen — and the reset page — have **Copy diagnostics** and **Report this
+problem** right there, above Reset App: report it before you reset.
+
 **Something went wrong — how do I tell you exactly what?** (7.26.0) **Help → Diagnostics…** (or **Full log…** at the
 bottom of the 🕐 list) shows ReaderWrangler's record of what it did and what went wrong — the last ~500 lines, kept in
 your browser, newest first. Filter it by kind, area and time; lines with more information show **details ▸**.
@@ -833,6 +845,7 @@ record, the banner and the copy all work.
 | "ReaderWrangler was reset in another tab. This tab's contents are out of date." (7.25.1) | Reset App ran in another tab of the same browser; this tab still shows the library from before, and stopped saving so it can't bring that library back | Press **Reload** |
 | Reset App says "Close your other ReaderWrangler tabs to finish the reset" (7.25.1) | Another tab still holds the library open (usually one running an older version) | Close the other ReaderWrangler tabs — the reset finishes by itself |
 | "I reset the app — is my copy in the cloud safe?" (7.27.1) | The reset itself doesn't change it, and nothing is sent while the library is empty. But once books are back (for example via File → Import from Relay, which brings books without folders), your first change sends the reduced library and replaces the cloud copy | Restore your backup file **before** changing anything after a reset (File → Restore Backup…) |
+| "How do I save a backup before I reset?" (7.29.0) | The Reset App box (Tools → Reset App) has a **Save Backup…** button right in its tip — the same save as File → Save Backup; the box stays open while it saves, and a cancelled save resets nothing | Press **Save Backup…**, then **Reset App** (or Cancel) |
 | Bookmarklet fetches the wrong library / mismatch warning | Bookmarklet carries older credentials than the app | Recreate the bookmarklet from Relay Setup |
 | Import from Relay says "Nothing is on the relay for these credentials yet" (7.26.0) | Either nothing has been sent yet, or the app and the bookmarklet use different credentials — the Relay can't tell the two apart (a mistyped Channel ID is simply an empty channel) | New: on the Amazon library page, bookmarklet → **Download Library** (then **Download Collections**), then Import. Already sent: File → Relay Setup — check the credentials, then update the bookmarklet |
 
