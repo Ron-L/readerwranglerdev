@@ -55,18 +55,18 @@ gesture [survey].
 | Gesture | Verb | Today |
 |---|---|---|
 | **Delete key** | delete (§3) | **built 7.28.1** |
-| Ctrl+X, then Ctrl+V or the menu's Paste | move | [code] ~5464, `pasteClipboard` ~2114 |
-| Ctrl+C, then paste | copy | [code] ~5484 |
-| right-click **Move to >** | move | [survey] book menu ~19364 → `moveItems` |
-| right-click **Copy to >** | copy | [survey] ~19417 → `moveItems(…, {isCopy})` |
-| right-click **Add to Book List >** | copy (to a list) | [survey] ~19455 → `addBooksToBookList` |
+| Ctrl+X, then Ctrl+V or the menu's Paste | move | [code] ~5464, `pasteClipboard` ~2114; [measured] CELL-001–017 |
+| Ctrl+C, then paste | copy | [code] ~5484; [measured] CELL-034–040 |
+| right-click **Move to >** | move | [measured] CELL-018–023 — book menu → `moveItems`; folders only, greyed in All Books |
+| right-click **Copy to >** | copy | [measured] CELL-041–043 → `moveItems(…, {isCopy})` |
+| right-click **Add to Book List >** | copy (to a list) | [measured] CELL-044–046 → `addBooksToBookList` |
 | right-click **Remove from list** / the Delete item in a Book List | remove from list | [code] → `removeBooksFromBookList` (7.28.1: one removal, was three copies) |
 | right-click **Delete** / **Delete Folder** | delete (§3) | [code] |
-| plain drag | move within one kind (folder → folder, list → list); **copy** across kinds (decided "Move and copy books anywhere" 6) | [survey] folders: plain = move, Ctrl = copy (`ctrlKeyRef`); Book List entry: copy unless the source is another list |
+| plain drag | move within one kind (folder → folder, list → list); **copy** across kinds (decided "Move and copy books anywhere" 6) | [measured] folders: plain = move, Ctrl = copy (`ctrlKeyRef`) — CELL-024–026; Book List entry: copy unless the source is another list — CELL-027, 028; a Book List's book dropped on a folder: added, the list keeps it — CELL-030 |
 | Shift-drag | move, always (decided 7) | [survey] Shift is never read today |
-| Ctrl-drag | copy, always (decided 7) | [survey] |
-| drag onto the Trash | delete (= the Delete key's book rows) | [survey] ~15860 → `softDeleteBooks` |
-| drag out of the Trash / Restore | restore | [code] `moveItems` ~4031 (any move out of the Trash restores) |
+| Ctrl-drag | copy, always (decided 7) | [measured] books: a copy (CELL-025, 029); **a folder: moved** (CELL-055, §5) |
+| drag onto the Trash | delete (= the Delete key's book rows) | [measured] CELL-032 → `softDeleteBooks` (the place you're in = its source) |
+| drag out of the Trash / Restore | restore | [code] `moveItems` ~4031 (any move out of the Trash restores); [measured] CELL-031 — but Ctrl+X / Ctrl+C then paste does NOT restore (CELL-014, 040) |
 | left-pane drags (folder onto folder, onto a Book List, between Book List entries) | move folder / add to list / new list (decided 10) | [survey] onto a Book List entry: not accepted today |
 | reordering (folders, pins, Book Lists, Manual order) | reorder — not a membership change; stays outside the table | |
 
@@ -158,39 +158,75 @@ The decided behavior is "Move and copy books anywhere" (TODO, decisions 1–11, 
 | **folder / Inbox** | out of the source, into the destination | onto the list, out of the folder; a book leaving its LAST folder goes to the Inbox and the receipt says so | refuse: "Every book is already in All Books…" | refuse: "Can't paste into the Trash. To put books in the Trash, press Delete." (a drag there = Delete) |
 | **All Books / a Search** (no container) | **re-filed:** leaves its other folders (ask first, listing them, when 2+) | just added (lists don't file books) | refuse (as above) | as above |
 | **Book List** | off the list, into the folder | off the first list, onto the second | refuse | as above |
-| **Trash** | a **restore** into that folder (proposed — Q6) | proposed: restore + add | refuse | — |
-| **the same place** | proposed: nothing changes, and says "already here" (Q7) | same | — | — |
+| **Trash** | a **restore** into that folder (decided, §6 item 6) | restore + add (§6 item 6: "for every gesture") | refuse | — |
+| **the same place** | nothing changes, and says so: "Nothing moved — those books are already in 'Sci-Fi'" (decided, §6 item 7.5) | same, "on the list" | — | — |
 
-**Today, against it:**
-1. folder → folder by Ctrl+X → paste: moves [code ~2132]; **into the folder it came from, it takes the books OUT and puts
-   them nowhere** while saying "Pasted…" [code — the source branch runs first, the target branch never; a harmful cell].
-2. folder → Book List: cut → paste moves, last folder → Inbox (7.25.1) [measured PASTE-002/003]; a plain drag copies;
-   the book menu's Move to lists folders only [survey].
-3. All Books → anywhere: Ctrl+X and menu Cut / Move to refuse there [code ~5468]; a **drag** from All Books goes through
-   `moveItems`, adds to the target and says "Moved" — really a copy [survey].
-4. Book List / Search → folder: Cut, Move to and drag remove nothing from the list yet say "moved" [survey; the TODO's
-   own finding 2026-11-06].
-5. Trash → elsewhere: a drag restores [code ~4031]; Ctrl+X / Ctrl+C work in the Trash although the menu hides Cut /
-   Copy there, and a paste files the book while it stays in the Trash [survey].
-6. Shift is never read for a drag; there is no live "Copy to… — hold Shift to move" label [survey].
+**Today, against it** (measured 2026-11-13 by `test/ui/test_cells.py`, CELL-001–058 — every cell asserts the decided
+behavior; where today differs, the file's TODAY table holds what was measured):
+1. folder → folder by Ctrl+X → paste: moves, saying *"Pasted 'X' into 'Fantasy' — moved from the original folder"*
+   [measured CELL-001–004, 015 — the Inbox and a subfolder alike]; **into the folder it came from, it takes the books
+   OUT and puts them nowhere** while saying "Pasted…" [measured CELL-007 — a harmful cell].
+2. folder → Book List: cut → paste moves, last folder → Inbox (7.25.1) [measured PASTE-002/003]; a plain drag copies
+   [measured CELL-027]; the book menu's Move to lists folders only [measured CELL-023].
+3. All Books → anywhere: Ctrl+X refuses there ("Can't cut from this view…"), so a paste afterwards does nothing
+   [measured CELL-012]; Move to is greyed ("Cannot move books from virtual folders") [measured CELL-022]; menu Cut is
+   greyed [code ~19612]; a **drag** from All Books goes through `moveItems`, adds to the target and says "Moved" —
+   really a copy [measured CELL-033].
+4. Book List → folder: Cut [measured CELL-009], Move to [measured CELL-021] and a plain drag [measured CELL-030] remove
+   nothing from the list yet say "Pasted… — moved" / "Moved" (for the drag, a copy IS the decided result — only its
+   word is wrong). **Corrected — a Search is not a place:** clicking one applies its filter where you are (§1); with a
+   Search applied in All Books, Ctrl+X is refused exactly as in All Books [measured CELL-013].
+5. Trash → elsewhere: a drag restores (*"Restored 'A Book in the Trash' to 'Fantasy'"*) [measured CELL-031]; Ctrl+X /
+   Ctrl+C work in the Trash although the menu hides Cut / Copy there [code ~19467]; Ctrl+C says only *"Copied 'X'"*
+   [measured CELL-039], and a paste files the book while it stays in the Trash [measured CELL-014 cut, CELL-040 copy].
+6. Shift is never read for a drag; there is no live "Copy to… — hold Shift to move" label [survey — the new drag
+   gestures, "Move and copy books anywhere"].
+7. **Found by the measurement (2026-11-13) — not in the design above; for Ron before anything is built on them:**
+   1. **A book already in the destination, moved:** the move is right (it leaves the source), but the **Ctrl+Z is
+      wrong both ways** — after Ctrl+X → paste, Ctrl+Z takes the book OUT of the destination it was in before
+      (Fantasy loses Good Omens) [measured CELL-005, 006]; after Move to or a plain drag, Ctrl+Z doesn't put it back in
+      the source (Science Fiction loses Good Omens) [measured CELL-019, 026]. No receipt mentions "already there".
+   2. **Ctrl+Z of a move loses the book's place:** a cut → paste's Ctrl+Z puts the book back FIRST in the folder it
+      came from (Science Fiction 17 18 5 → 18 17 5) [measured CELL-001, 002, 004, 015]; a Book List → Book List move's
+      (cut or drag) puts it LAST on the list it came from [measured CELL-010, 028]. Move to's and the drag's Ctrl+Z
+      between folders put it back in place [measured CELL-018, 024].
+   3. **The second keyboard listener, measured:** after a cut book is pasted, a second Ctrl+V elsewhere moves the
+      FOLDER the book was cut from (*"Moved "Science Fiction" into "Every Ownership Kind""*) [measured CELL-016];
+      Ctrl+X with nothing selected cuts the folder you're in, and Ctrl+V moves it [measured CELL-017]. **And a race:**
+      Ctrl+X pressed right after clicking a book (before the click's selection reaches the key listener) cuts the
+      FOLDER instead of the book, and the next Ctrl+V moves the whole folder — seen once in three quick tries
+      (2026-11-13 probe; the tests wait for the selection to settle, so they don't hit it).
+   4. **Receipts:** no move receipt names its source except the Book List paste's (7.25.1) and the Book List cut's;
+      a copy says "Pasted" (keys) or "Copied" (Copy to, Ctrl-drag) — "Added" only onto a Book List; "already there"
+      reads *"Book already in folder"* (Move to the same folder, CELL-020), *"Already on 'Read Next'"* (a list's cut
+      pasted back, CELL-011), *"Added 1 book to 'Read Next' (1 already there)"* / *"All 1 book already in 'Read Next'"*
+      (Add to Book List, CELL-045, 046); drag receipts onto a Book List put its name in double quotes.
 
 ### 4.2 Copy (Ctrl+C → paste; Copy to >; Add to Book List >; Ctrl-drag; a plain drag across kinds)
 
-Copy only adds — the source never changes. Into All Books or the Trash: refuse, with words. **Already there:** its own
-words ("'Good Omens' is already in 'Fantasy'") — today it says "Pasted 'Good Omens' into 'Fantasy'" and
-changes nothing [the TODO's finding 2026-11-06].
+Copy only adds — the source never changes. Into All Books or the Trash: refuse, with words [measured PASTE-005, 007].
+**Already there:** its own words ("'Good Omens' is already in 'Fantasy'") — today it says "Pasted 'Good Omens' into
+'Fantasy'" and changes nothing [measured CELL-036; the TODO's finding 2026-11-06].
+
+**Today, against it** (measured 2026-11-13): a copy adds and the source keeps the book, by every gesture — Ctrl+C →
+paste [CELL-034, 038], Copy to [CELL-041–043], Add to Book List [CELL-044], Ctrl-drag [CELL-025, 029]; the words are
+the receipts item of §4.1 item 7. **Found by the measurement — not in the design; for Ron:** a copy-paste's Ctrl+Z
+takes EVERY pasted book out of the destination, including the ones that were already there: Ctrl+C → Ctrl+V of Good
+Omens into Fantasy (where it already was) changes nothing, but the Ctrl+Z after it takes Good Omens out of Fantasy
+[measured CELL-035, 036]; pasted back into the folder it was copied from, the Ctrl+Z after it leaves the book in NO
+folder [measured CELL-037 — a harmful cell]. (Copy to's Ctrl+Z is right: it takes back only what it added, CELL-042.)
 
 ## 5. FOLDERS moved, copied, pasted — DESIGN ONLY
 
 | Gesture | Decided / proposed | Today |
 |---|---|---|
-| Move a folder (Move to >, drag, Ctrl+X → Ctrl+V on the folder clipboard) | reparent; never into itself or below itself; the Inbox never moves | `reparentFolder` refuses both [survey]; `moveItems` can set a folder's parent to `__inbox__` or `__library__` on a mixed drag [survey] |
-| Copy a folder | proposed: a deep copy named "X (Copy)" — **do the books get copied into it, or only the folders?** (Q8) | the folder clipboard's copy keeps each folder's books [survey]; a **Ctrl-drag moves** the folder but the receipt and undo say "Copied" [survey] |
+| Move a folder (Move to >, drag, Ctrl+X → Ctrl+V on the folder clipboard) | reparent; never into itself or below itself; the Inbox never moves | moves, by Move to [measured CELL-047], the folder menu's Cut → Paste [measured CELL-048] and a drag [measured CELL-054]; `reparentFolder` refuses a folder into its own subfolder (*"Can't move folder into itself or its subfolder"*) [measured CELL-053] and the Inbox [code]; `moveItems` can set a folder's parent to `__inbox__` or `__library__` on a mixed drag [survey]; a book and a folder dragged together both move [measured CELL-057 — no decided row] |
+| Copy a folder | DECIDED (§6 item 8): the whole tree as "X (Copy)", every book filed in the copy too | the folder menu's Copy → Paste copies the tree with each folder's books — the decided result — but says nothing [measured CELL-049]; a **Ctrl-drag moves** the folder and says *"Copied folder 'Space Opera' to 'Fantasy'"* [measured CELL-055] |
 | A folder onto a Book List entry (left pane) | adds the folder's books to the list (decided 10) | not accepted [survey] |
 | Between two Book List entries | a new list there (decided 10) | not built |
-| **The two keyboard listeners** | ONE: the keys read the selection, not "the folder you're in" — as Delete now does | Ctrl+X / Ctrl+C with books selected ALSO put the folder you're in on a separate folder clipboard, and a later Ctrl+V can paste that folder too [code ~5579–5662; the TODO's finding 2026-11-06]. The screen test DELKEY-008 builds its setup from a file for exactly this reason. |
-| Receipts | every move / copy says what happened | folder cut / copy / copy-paste say nothing [survey] |
-| "Into itself or below" checks | one check | the folder menu's Paste walks down instead of up and lets a folder be copied into its own subfolder; the key refuses it [survey] |
+| **The two keyboard listeners** | ONE: the keys read the selection, not "the folder you're in" — as Delete now does | Ctrl+X / Ctrl+C with books selected ALSO put the folder you're in on a separate folder clipboard, and a later Ctrl+V can paste that folder too [code ~5579–5662; the TODO's finding 2026-11-06; measured CELL-016, 017 and §4.1 item 7.3]. With a FOLDER selected in the right pane, Ctrl+X / Ctrl+C take the folder you're IN: Ctrl+X → Ctrl+V moved Science Fiction (not the selected Space Opera) into Fantasy [measured CELL-050]; Ctrl+C → Ctrl+V copied all of Science Fiction, books and subfolders, as "Science Fiction (Copy)", saying nothing [measured CELL-051]. A book and a folder selected: Ctrl+X → Ctrl+V moves the book only [measured CELL-056 — no decided row]. The screen test DELKEY-008 builds its setup from a file for exactly this reason. |
+| Receipts | every move / copy says what happened | **Corrected:** a folder's cut → paste says *"Moved "Space Opera" into "Fantasy""* (`reparentFolder`'s receipt) [measured CELL-048]; a folder copy → paste says nothing — menu or keys [measured CELL-049, 051] |
+| "Into itself or below" checks | one check | the folder menu's Paste walks down instead of up and lets a folder be copied into its own subfolder: Copy Science Fiction → Paste on Space Opera made "Science Fiction (Copy)" inside Space Opera, with its books and copies of its subfolders, saying nothing [measured CELL-052]; the folder menu's Cut → Paste there is refused [measured CELL-053]; the key refuses it [code ~5745] |
 
 ## 6. Questions for Ron (the review queue holds the same, with costs)
 
@@ -264,10 +300,15 @@ book, "Written Together", read as something the app did (Ron, 2026-11-13) — re
 4. Tests: TABLE-003 (changed), 009, 010; DELKEY-009 (changed), 012–016.
 
 **The table's own task — sprint 4 (Ron, 2026-11-13: "Word!"):**
-1. The test library's "Written Together" → "Good Omens" (the fixture, its screen tests, these notes).
+1. The test library's "Written Together" → "Good Omens" (the fixture, its screen tests, these notes). — done.
 2. A screen test that tries every cell of §4–§5 and records today's answer (the LOGGING.md pattern; PASTE-001–009 were
    its first slice) — turning every [survey] above into [measured]. **A cell that works differently from this design,
    beyond what's already listed here, goes to Ron for discussion before anything is built on it** (Ron, 2026-11-13).
+   — done: `test/ui/test_cells.py`, CELL-001–058 (each asserts the decided behavior; today's differences are its TODAY
+   table, reported by `differs_today` in test/ui/harness.py — so the file passes until a row is built, and FAILS when a
+   cell changes in any other way). Left [survey]: Shift-drag and the left pane's own drags (the new gestures — "Move and
+   copy books anywhere"), a mixed drag setting a folder's parent to the Inbox, the phone. The differences found beyond
+   this design: §4.1 item 7, §4.2's "Found by the measurement".
 3. ~~Ron's red pen on §4–§6~~ — done: Q-019 (read and approved), §6 items 6–9 decided 2026-11-13.
 4. `decide('move' | 'copy' | 'paste', …)` rows; every gesture that exists today asks them — the keys, the menus (their
    greyed items and "why" tooltips), today's drags.
