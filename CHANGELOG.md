@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.29.1] - 2026-11-13
+
+### Fixed
+- **Every Copy button tells the truth.** Copy Title, Copy Author, Copy Amazon Link, Share by Email's Copy to clipboard,
+  Copy diagnostics (in Diagnostics and on the phone), the red error bar's Copy and the problem box's Copy details now
+  say they couldn't copy when your browser won't allow it — instead of claiming "copied" or saying nothing.
+- **Restore Backup counts a backup's age in calendar days:** a backup from late last night says "yesterday", not
+  "today".
+- **A damaged saved setting can no longer blank the phone app or stop your library from loading** — ReaderWrangler
+  quietly uses the default and notes it in Diagnostics.
+
 ## [7.29.0] - 2026-11-12
 
 ### Added

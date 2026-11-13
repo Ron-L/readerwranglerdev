@@ -8,7 +8,11 @@ and page implies a question; (2) **real usage** — the working-session transcri
 **any support-shaped answer lands here (facts/fixes) or in WORKFLOW-PATTERNS.md (usage
 patterns) in the same breath as answering.** The Release Checklist backstops it._
 
-_**Up to date as of 2026-11-12 (through release 7.29.0)** — all sections human-reviewed (§1–21).
+_**Up to date as of 2026-11-13 (through release 7.29.1)** — all sections human-reviewed (§1–21).
+7.29.1: every Copy button tells the truth — §19's table gains the "couldn't be copied" / "Couldn't copy" row (UI-06);
+"Title copied!" lost its "!"; Share by Email's Copy to clipboard no longer promised "always works". Restore's day words
+(calendar days) and the safe reading of saved settings change nothing the notes quoted. Comb for "copied", "Copy",
+"clipboard", "today", "yesterday", "setting": no other entry changed.
 7.29.0: Report a problem — §19 gains "How do I report a problem?" (Help → Report a problem…, Known problems, the
 "Something went wrong" screen's and the reset page's Copy diagnostics / Report this problem); §19's table gains "How do
 I save a backup before I reset?" (Reset App's new Save Backup… button). Comb for "Feedback", "report",
