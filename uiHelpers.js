@@ -114,23 +114,27 @@ const calculateFreshness = (fetchDate) => {
     return 'obsolete';
 };
 
-// Format relative time for display
-const formatRelativeTime = (dateString) => {
-    if (!dateString) return 'Unknown';
+// 7.29.1 (TODO "Restore dialog calls yesterday's backup 'today'", 20260922-0000a) - THE day words, for every place that
+// turns a date into "today" / "yesterday" / "… ago" (today: the Restore Backup box). CALENDAR days in local time (Ron: at
+// 12:01 AM, a backup from 11:59 PM is "yesterday") — never 24-hour blocks, which called a 6:54 PM backup "today" until
+// 6:54 PM the next day. Each date becomes its local calendar day's number (its local year / month / day, counted as if
+// in UTC), so a 23- or 25-hour day at a clock change counts as one day. Replaces the restore box's own arithmetic and
+// the unused formatRelativeTime, which had the same 24-hour bug. Tests: test/dayWords.test.js (DAYS-).
+const localDayNumber = (d) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
 
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+// Whole local calendar days from `earlier` to `later` (Date, date string or milliseconds): 0 = the same day.
+const calendarDaysBetween = (earlier, later) => localDayNumber(new Date(later)) - localDayNumber(new Date(earlier));
 
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    return `${diffDays}d ago`;
+// The words (Ron, 2026-11-13): today / yesterday / 2–6 days ago / 1 week ago (7–13 days) / N weeks ago. A date after
+// now (another computer's clock) reads "today"; no date or an unreadable one gives '' (the caller shows no words).
+const daysAgoWords = (date, now = new Date()) => {
+    if (date == null || isNaN(new Date(date).getTime())) return '';
+    const days = calendarDaysBetween(date, now);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days} days ago`;
+    const weeks = Math.floor(days / 7);
+    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
 };
 
 // v7.21.2 - THE "Date Added" filter presets, shared by desktop + phone: the choices, their date ranges, their labels.
@@ -197,7 +201,7 @@ const datePresetEarlierYears = (books, today = new Date()) => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         parsePrice, getAmazonUrl, isWishlisted, normalizeBook,
-        calculateFreshness, formatRelativeTime,
+        calculateFreshness, calendarDaysBetween, daysAgoWords,
         datePresetRange, datePresetLabel, datePresetOptions, datePresetEarlierYears, bookAcquiredYear,
     };
 }

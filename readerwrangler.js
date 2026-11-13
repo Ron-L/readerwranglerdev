@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.29.1-alpha.1";  // Build version for this file
+        const ORGANIZER_VERSION = "7.29.1-alpha.2";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -259,7 +259,7 @@
         document.title = IS_CONTRIBUTOR ? "ReaderWrangler (local · contributor)" : IS_LOCAL_HOST ? "ReaderWrangler (local)" : "ReaderWrangler";
         // Constants and helper functions moved to uiHelpers.js and storage.js (v5.0.0)
         // saveBooksToIndexedDB, saveBooksIfChanged, loadBooksFromIndexedDB, deleteBookStore, onBookStoreGone - see storage.js
-        // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, formatRelativeTime - see uiHelpers.js
+        // normalizeBook, parsePrice, getAmazonUrl, calculateFreshness, daysAgoWords - see uiHelpers.js
         // clearCoverCache - see storage.js (7.27.0: the desktop keeps no cover copies; buildCoverUrlMap and
         // populateCoverCache serve the phone)
 
@@ -4709,20 +4709,6 @@
                     month: 'short',
                     day: 'numeric'
                 });
-            };
-
-            const getRelativeTime = (timestamp) => {
-                if (!timestamp) return '';
-                const now = Date.now();
-                const diff = now - timestamp;
-                const minutes = Math.floor(diff / 60000);
-                const hours = Math.floor(diff / 3600000);
-                const days = Math.floor(diff / 86400000);
-
-                if (minutes < 1) return 'just now';
-                if (minutes < 60) return `${minutes}m ago`;
-                if (hours < 24) return `${hours}h ago`;
-                return `${days}d ago`;
             };
 
             // checkManifest function removed in v3.6.1 - replaced with IndexedDB manifests
@@ -12586,9 +12572,7 @@
                         hatch is capturing the PRESENT (back up current first), not merging the past. */}
                     {restoreConfirm && (() => {
                         const { lostLists, lostSearches, backupDate } = restoreConfirm;
-                        const ageDays = backupDate ? Math.floor((Date.now() - new Date(backupDate).getTime()) / 86400000) : null;
-                        const ageLabel = ageDays == null ? '' : ageDays <= 0 ? 'today' : ageDays === 1 ? 'yesterday'
-                            : ageDays < 14 ? `${ageDays} days ago` : `${Math.round(ageDays / 7)} weeks ago`;
+                        const ageLabel = daysAgoWords(backupDate); // 7.29.1 - calendar days, local time (uiHelpers.js); was 24-hour blocks
                         const nameList = (arr) => {
                             const names = arr.map(x => `“${x.name || '(unnamed)'}”`);
                             return names.length > 5 ? `${names.slice(0, 5).join(', ')} and ${names.length - 5} more` : names.join(', ');
