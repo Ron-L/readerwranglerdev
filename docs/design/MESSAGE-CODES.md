@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-89 numbered codes. (208 general lines — info and debug, coded by their area alone — not listed.)
+86 numbered codes. (208 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -15,9 +15,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | BACKUP-07 | warning | That file can't be restored: … | readerwrangler.js |
 | BACKUP-08 | warning | Save Backup refused: the library hasn't finished loading | readerwrangler.js |
 | BOOT-01 | critical | Your library couldn't be loaded. | readerwrangler.js |
-| BOOT-02 | warning | The saved library status couldn't be read — it shows as unknown until the next fetch | readerwrangler.js |
-| BOOT-03 | warning | The saved view settings couldn't be read — the defaults are used | readerwrangler.js |
-| COVER-01 | warning | The old book-details cache couldn't be read (a leftover from older versions) | readerwrangler.js |
+| BOOT-03 | warning | A saved view setting had the wrong shape — the defaults are used for the rest | readerwrangler.js |
 | COVER-02 | warning | The cover cache couldn't be read — covers load from Amazon instead | storage.js |
 | COVER-03 | warning | Saving covers in this browser's cache failed — they load from Amazon each time instead | storage.js |
 | COVER-04 | warning | The old cover copies couldn't be removed — they only take storage space | storage.js |
@@ -52,9 +50,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | PHONE-04 | warning | The scanned code isn't a ReaderWrangler pairing code | mobile.js |
 | PHONE-05 | warning | The camera couldn't start for scanning (permission refused?): … | mobile.js |
 | PHONE-06 | critical | Your library couldn't be loaded on this phone after pairing. | mobile.js |
-| PREF-01 | warning | Your saved filters couldn't be read — they start empty | readerwrangler.js |
 | PREF-02 | warning | Your filters couldn't be saved (is the browser's storage full?) | readerwrangler.js |
-| PREF-03 | warning | Your saved Auto-Organize settings couldn't be read — the defaults are used | readerwrangler.js |
 | PREF-04 | warning | Your Auto-Organize settings couldn't be saved (is the browser's storage full?) | readerwrangler.js |
 | STORE-01 | critical | Your saved organization could not be read — ReaderWrangler is using a fallback copy. | readerwrangler.js |
 | STORE-02 | critical | Your library organization could not be saved — browser storage may be full. | readerwrangler.js |
@@ -68,6 +64,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | STORE-10 | error | Your library organization still can't be saved | readerwrangler.js |
 | STORE-11 | error | A "reset in another tab" listener failed: … | storage.js |
 | STORE-12 | error | The emergency reset failed: … | reset.js |
+| STORE-13 | warning | The saved "…" couldn't be read (…) — the default is used | uiHelpers.js |
 | SYNC-01 | warning | A permanent delete worked here, but telling the relay failed — if the book comes back after a fetch, delete it again | readerwrangler.js |
 | SYNC-02 | warning | Couldn't check the relay for news: … | readerwrangler.js |
 | SYNC-03 | warning | The background relay poll failed: … | readerwrangler.js |

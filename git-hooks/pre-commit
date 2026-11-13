@@ -70,3 +70,12 @@ fi
 if git diff --cached --name-only --diff-filter=ACMD | grep -qE '^(readerwrangler|mobile)\.js$|^dist/'; then
     python tools/build.py --check-staged || exit 1
 fi
+
+# 10. Saved values read through the one reader (7.29.1, TODO 20261109-0912 — decided "Must" by Ron): refuses a bare
+#     JSON.parse of a saved value (a storage .getItem, directly or through a variable) in the scripts that can call
+#     uiHelpers.js readSaved — the apps, and every script readerwrangler.html loads from uiHelpers.js on. A read that truly
+#     can't use it says why on the line above: // not-readSaved: <why>. Checks the STAGED copies.
+#     (git-hooks/check-saved-reads.py → saved-reads-js.js; tests: test/test_check_saved_reads.py; --all lists the allowed)
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '\.js$|^readerwrangler\.html$'; then
+    python git-hooks/check-saved-reads.py || exit 1
+fi

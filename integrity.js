@@ -108,13 +108,11 @@ const saveIntegrityResults = ({ autoFixed, needsReview, checkedAt }) => {
     }
 };
 
-// Load persisted integrity results. Returns null if none saved or parse fails.
+// Load persisted integrity results. Returns null if none saved or they can't be used.
 // Caller should NOT clear previous results on check failure (per design).
+// 7.29.1 - through the one reader (uiHelpers.js readSaved). The two lists are checked too: the Data Status window reads
+// their .length while it draws, so results without them would break the screen the moment it opened.
 const loadIntegrityResults = () => {
-    try {
-        const saved = localStorage.getItem(INTEGRITY_KEY);
-        return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-        return null;
-    }
+    const saved = readSaved(INTEGRITY_KEY, null, 'object');
+    return saved && Array.isArray(saved.autoFixed) && Array.isArray(saved.needsReview) ? saved : null;
 };

@@ -199,6 +199,7 @@
    */
   function initFromStorage() {
     try {
+      // not-readSaved: this module also runs on Amazon's page (the bookmarklets), where uiHelpers.js isn't loaded
       const stored = JSON.parse(localStorage.getItem(RELAY_STORAGE_KEY));
       if (stored) {
         _channelId = stored.channelId || null;

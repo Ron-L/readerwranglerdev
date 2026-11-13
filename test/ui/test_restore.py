@@ -1,7 +1,7 @@
 # Screen test: Restore Backup's messages — a file we refuse on purpose is the person's file (a warning, BACKUP-07),
 # never our bug (an error); a restore that works says what it brought back.
 # tags: restore, backup, logging, tier 2
-# covers: readerwrangler.js, logkit/logger.js, logkit-settings.js
+# covers: readerwrangler.js, uiHelpers.js, logkit/logger.js, logkit-settings.js
 # Run: py tools/run_tests.py --tier 2     (or directly with the venv's Python)
 #
 # 2026-11-08 (7.26.0-alpha.12, the logging switch's BACKUP area): Restore's failures were three console.error lines
@@ -98,5 +98,25 @@ with App() as app:
         check(not repairs, "a repair was reported: " + str(repairs))
     test("BACKUP-004", "a backup with no folders, Book Lists or Searches restores with none — every book in the Inbox, "
          "no repair reported", missing_parts_restore_as_none)
+
+    # 7.29.1 (TODO "Restore dialog calls yesterday's backup 'today'", 20260922-0000a): the "Restore backup?" box counted
+    # the backup's age in 24-hour blocks — a backup from 11:59 PM yesterday read "today" all day today. Ron's check: a
+    # backup saved yesterday reads "yesterday". The date is made in the browser's own time zone, so the row holds at any
+    # hour the test runs (the logic's midnight and clock-change rows: test/dayWords.test.js, DAYS-).
+    def yesterday_reads_yesterday():
+        late_yesterday = app.page.evaluate("() => { const d = new Date(); d.setHours(0, 0, 0, 0); return new Date(d.getTime() - 60000).toISOString(); }")
+        path = fixture_without(lambda d: d["organization"].__setitem__("exportDate", late_yesterday))
+        item = app.menu("File", "Restore Backup")
+        with app.page.expect_file_chooser() as fc:
+            item.click()
+        fc.value.set_files(path)
+        box = app.page.get_by_text("Restore backup?", exact=True).locator("xpath=ancestor::*[.//button][1]")
+        box.wait_for(timeout=30_000)
+        text = box.inner_text()
+        check(re.search(r"This backup is from .+ — yesterday\.", text), "the box doesn't say yesterday: " + text[:200])
+        box.get_by_role("button", name="Cancel", exact=True).click()
+        box.wait_for(state="detached", timeout=5000)
+    test("BACKUP-005", "the Restore box calls a backup from 11:59 PM yesterday \"yesterday\" — calendar days, not 24-hour blocks",
+         yesterday_reads_yesterday)
 
 done()
