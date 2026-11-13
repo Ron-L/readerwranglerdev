@@ -263,6 +263,10 @@ Bypass (Ron's call only): `git commit --no-verify`.
   the local loop is still edit → refresh. **Never edit `dist/`.** A changed `dist/tailwind.css` moves its `?v=` stamp in
   every page that links it (the version guard reads the pages).
   Load time: `.venv\Scripts\python tools/time_load.py [--large]` (was ~50 s; 0.7 s to the app, 1.3 s to 3,270 books).
+- **Saved-value reads** (`git-hooks/check-saved-reads.py` → `saved-reads-js.js`, pre-commit step 10; 7.29.1): in the
+  scripts that can call `readSaved` (uiHelpers.js), refuses a bare `JSON.parse` of a localStorage / sessionStorage read —
+  a damaged setting must fall back, not blank a screen; a read that truly can't use it says `// not-readSaved: <why>`;
+  `--all` lists them (Ron, 2026-11-13).
 - **No task leaves TODO.md silently** (`git-hooks/check-removed-tasks.py`, from `git-hooks/commit-msg` — it needs the
   message): a commit that removes a task must show why — it had a ✅, another task lists it as merged
   (`<!-- id … ; merged <id> -->`), or the message says **`done <id>`** (finished, shipped without a ✅ — the backlog

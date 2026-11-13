@@ -49,6 +49,7 @@
         - [Stray double spaces in author names create duplicate authors](#stray-double-spaces-in-author-names-create-duplicate-authors)
       - [Tag from Collections, round 2: clearer window, safer tags (decided 2026-10-20)](#tag-from-collections-round-2-clearer-window-safer-tags-decided-2026-10-20)
     - [Polish](#polish)
+      - [A saved setting that reads fine but holds nonsense inside — check each value, not just the note](#a-saved-setting-that-reads-fine-but-holds-nonsense-inside--check-each-value-not-just-the-note)
       - ["N now owned" after an import: a Show them button, and each column reads its date from one place](#n-now-owned-after-an-import-a-show-them-button-and-each-column-reads-its-date-from-one-place)
       - [Phone: Report a problem in the ⋮ menu, like the desktop's Help](#phone-report-a-problem-in-the--menu-like-the-desktops-help)
       - [Buttons name their action: replace the remaining OK, Yes and No buttons](#buttons-name-their-action-replace-the-remaining-ok-yes-and-no-buttons)
@@ -1563,6 +1564,18 @@ before building; this task is the plan. One concern per alpha (Law 6), smallest 
    fields: the hidden 'seen' flag and the old price-goal field" (one data round for both).
 
 ### Polish
+
+#### A saved setting that reads fine but holds nonsense inside — check each value, not just the note
+<!-- id 20261113-1120 -->
+
+_Why it matters:_ Since 7.29.1 every saved setting is read through `readSaved`, which checks the note's KIND (an object,
+a list) — not each value inside it. So a damaged note that still reads (a number where the search text belongs, column
+widths saved as text) gets past it into the app. The cases that crashed a screen were fixed then; the rest can still
+show odd values (found by both sprint-3 agents, 2026-11-13).
+
+**To do:** a per-setting shape for the notes whose inside matters (the filters, the view settings, the phone's settings
+note) — each value checked against what it should be, a wrong one replaced by its default with the same one STORE-13
+warning. Function tests first (a planted wrong value per field).
 
 #### "N now owned" after an import: a Show them button, and each column reads its date from one place
 <!-- id 20261112-1926 -->
