@@ -194,8 +194,9 @@ behavior; where today differs, the file's TODAY table holds what was measured):
       FOLDER the book was cut from (*"Moved "Science Fiction" into "Every Ownership Kind""*) [measured CELL-016];
       Ctrl+X with nothing selected cuts the folder you're in, and Ctrl+V moves it [measured CELL-017]. **And a race:**
       Ctrl+X pressed right after clicking a book (before the click's selection reaches the key listener) cuts the
-      FOLDER instead of the book, and the next Ctrl+V moves the whole folder — seen once in three quick tries
-      (2026-11-13 probe; the tests wait for the selection to settle, so they don't hit it).
+      FOLDER instead of the book, and the next Ctrl+V moves the whole folder — seen in one 2026-11-13 probe run (a
+      click, then Ctrl+X at once; another such run cut the book). The tests wait for the selection to settle, so they
+      don't hit it; no test reproduces the race itself.
    4. **Receipts:** no move receipt names its source except the Book List paste's (7.25.1) and the Book List cut's;
       a copy says "Pasted" (keys) or "Copied" (Copy to, Ctrl-drag) — "Added" only onto a Book List; "already there"
       reads *"Book already in folder"* (Move to the same folder, CELL-020), *"Already on 'Read Next'"* (a list's cut
