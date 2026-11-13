@@ -153,7 +153,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.29.1-alpha.3"; // Build version for this file
+var ORGANIZER_VERSION = "7.29.1-alpha.4"; // Build version for this file
 // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
 // problem… (7.29.0: one copy, so the two can't drift)
 var DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -7256,8 +7256,8 @@ function ReaderWrangler() {
       if (!modalBook.asin) {
         rwLog.log('info', 'SHARE', 'No Amazon link available for this book', null, { toast: true });
       } else {
-        navigator.clipboard.writeText(getAmazonUrl(modalBook.asin));
-        rwLog.log('info', 'SHARE', 'Link copied!', null, { toast: true });
+        // 7.29.1 - through the logging kit's one copy routine: "copied" only when it was (Law 22)
+        rwLog.copyText(getAmazonUrl(modalBook.asin), { what: 'Link', toast: true });
       }
       setShareDropdownOpen(false);
     } }, /*#__PURE__*/
@@ -11967,11 +11967,13 @@ function ReaderWrangler() {
       React.createElement('div', null, React.createElement('span', { style: { color: 'var(--text-muted)' } }, 'Passphrase: '), stored.passphrase)
       ),
       React.createElement('button', {
+        // 7.29.1 - the one copy routine; the button says what happened ("Couldn't copy"
+        // on a refusal — it said nothing before), as the phone's and the alerts' Copy do
         onClick: () => {
           var text = `Channel ID: ${stored.channelId}\nPassphrase: ${stored.passphrase}`;
-          navigator.clipboard.writeText(text).then(() => {
+          rwLog.copyText(text, { what: 'Credentials', where: 'Relay Setup' }).then((ok) => {
             var btn = document.getElementById('relay-copy-creds-btn');
-            if (btn) {btn.textContent = 'Copied!';setTimeout(() => {btn.textContent = 'Copy';}, 2000);}
+            if (btn) {btn.textContent = ok ? 'Copied' : "Couldn't copy";setTimeout(() => {btn.textContent = 'Copy';}, 2000);}
           });
         },
         id: 'relay-copy-creds-btn',
@@ -12540,7 +12542,7 @@ function ReaderWrangler() {
     React.createElement("pre", { className: "text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded p-3", style: { whiteSpace: 'pre-wrap', fontFamily: 'inherit' } }, window.RW_RECOVERY_NUMBERED || 'Save a backup (File → Save Backup…), then re-download your library and collections from Amazon with the bookmarklet, then File → Import from Relay.')
     ), /*#__PURE__*/
     React.createElement("div", { className: "p-4 border-t border-gray-200 flex justify-end gap-2" }, /*#__PURE__*/
-    React.createElement("button", { onClick: () => {navigator.clipboard.writeText(window.RW_RECOVERY_STEPS || '');rwLog.log('info', 'SYNC', 'Recovery steps copied', null, { toast: true });}, className: "px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors" }, "Copy instructions"), /*#__PURE__*/
+    React.createElement("button", { onClick: () => rwLog.copyText(window.RW_RECOVERY_STEPS || '', { what: 'Recovery steps', toast: true }), className: "px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors" }, "Copy instructions"), /*#__PURE__*/
     React.createElement("button", { onClick: () => setCorruptionRecovery(false), className: "px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors" }, "OK")
     )
     ),
@@ -13972,7 +13974,7 @@ function ReaderWrangler() {
       className: "text-3xl font-bold text-gray-900 hover:text-blue-700 transition-colors",
       title: "View on Amazon" }, modalBook.title), /*#__PURE__*/
     React.createElement("button", {
-      onClick: () => {navigator.clipboard.writeText(modalBook.title);rwLog.log('info', 'SHARE', 'Title copied!', null, { toast: true });},
+      onClick: () => rwLog.copyText(modalBook.title, { what: 'Title', toast: true }),
       className: "ml-2 align-middle text-base opacity-40 hover:opacity-90 transition-opacity",
       style: { background: 'none', border: 'none', cursor: 'pointer', padding: '2px' },
       title: "Copy title", "aria-label": "Copy title" }, "\uD83D\uDCCB")
@@ -14035,7 +14037,7 @@ function ReaderWrangler() {
        random passwords; one chip would make this line look like it forgot its own */
     React.createElement("p", { className: "text-xl text-gray-700 mb-4" }, "by ", modalBook.author, /*#__PURE__*/
     React.createElement("button", {
-      onClick: () => {navigator.clipboard.writeText(modalBook.author || '');rwLog.log('info', 'SHARE', 'Author copied!', null, { toast: true });},
+      onClick: () => rwLog.copyText(modalBook.author || '', { what: 'Author', toast: true }),
       className: "ml-2 align-middle text-sm opacity-40 hover:opacity-90 transition-opacity",
       style: { background: 'none', border: 'none', cursor: 'pointer', padding: '2px' },
       title: "Copy author", "aria-label": "Copy author" }, "\uD83D\uDCCB")
@@ -19742,15 +19744,13 @@ function ReaderWrangler() {
             var booksWithAsin = selectedBooksArray.filter((b) => b.asin);
             if (booksWithAsin.length === 0) {
               rwLog.log('info', 'SHARE', count === 1 ? 'No Amazon link available for this book' : 'No Amazon links available for selected books', null, { toast: true });
-            } else if (count === 1) {
-              navigator.clipboard.writeText(getAmazonUrl(booksWithAsin[0].asin));
-              rwLog.log('info', 'SHARE', 'Link copied!', null, { toast: true });
-            } else if (booksWithAsin.length === count) {
-              navigator.clipboard.writeText(booksWithAsin.map((b) => getAmazonUrl(b.asin)).join('\n'));
-              rwLog.log('info', 'SHARE', `${count} Amazon links copied!`, null, { toast: true });
             } else {
-              navigator.clipboard.writeText(booksWithAsin.map((b) => getAmazonUrl(b.asin)).join('\n'));
-              rwLog.log('info', 'SHARE', `${booksWithAsin.length} of ${count} links copied (${count - booksWithAsin.length} books have no Amazon link)`, null, { toast: true });
+              // 7.29.1 - one copy for the three cases, through the logging kit's one copy routine
+              var missing = count - booksWithAsin.length;
+              rwLog.copyText(booksWithAsin.map((b) => getAmazonUrl(b.asin)).join('\n'), {
+                what: count === 1 ? 'Link' : missing ? `${booksWithAsin.length} of ${count} links` : `${count} Amazon links`,
+                next: missing ? `${missing} book${missing === 1 ? ' has' : 's have'} no Amazon link` : undefined,
+                toast: true });
             }
             setExplorerBookContextMenu(null);
             setContextSubmenu(null);
@@ -19799,8 +19799,8 @@ function ReaderWrangler() {
           role: "menuitem",
           onClick: () => {
             var titles = selectedBooksArray.map((book) => book.title).join('\n');
-            navigator.clipboard.writeText(titles);
-            rwLog.log('info', 'SHARE', count !== 1 ? `${count} titles copied!` : 'Title copied!', null, { toast: true }); // v7.13.0-alpha.1 - receipt (clipboard family, non-undoable by doctrine)
+            // v7.13.0-alpha.1 - receipt (clipboard family, non-undoable by doctrine); 7.29.1 - an honest one
+            rwLog.copyText(titles, { what: count !== 1 ? `${count} titles` : 'Title', toast: true });
             setExplorerBookContextMenu(null);
             setContextSubmenu(null);
           } }, /*#__PURE__*/
@@ -19818,8 +19818,8 @@ function ReaderWrangler() {
               className: "px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3",
               role: "menuitem",
               onClick: () => {
-                navigator.clipboard.writeText(uniqueAuthors.join('\n'));
-                rwLog.log('info', 'SHARE', uniqueAuthors.length !== 1 ? `${uniqueAuthors.length} authors copied!` : 'Author copied!', null, { toast: true });
+                rwLog.copyText(uniqueAuthors.join('\n'),
+                { what: uniqueAuthors.length !== 1 ? `${uniqueAuthors.length} authors` : 'Author', toast: true });
                 setExplorerBookContextMenu(null);
                 setContextSubmenu(null);
               } }, /*#__PURE__*/
@@ -20580,9 +20580,10 @@ function ReaderWrangler() {
     React.createElement("button", {
       className: "w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-sm font-medium",
       onClick: () => {
-        navigator.clipboard.writeText(`Subject: ${shareEmailChoice.subject}\n\n${shareEmailChoice.body}`);
-        rwLog.log('info', 'SHARE', 'Email content copied — paste into your email app', null, { toast: true });
-        setShareEmailChoice(null);
+        // 7.29.1 - the one copy routine; a refusal keeps this window open, its other ways in reach
+        rwLog.copyText(`Subject: ${shareEmailChoice.subject}\n\n${shareEmailChoice.body}`,
+        { what: 'Email content', next: 'paste into your email app', toast: true }).
+        then((ok) => {if (ok) setShareEmailChoice(null);});
       } }, "\uD83D\uDCCB Copy to clipboard"
 
     ), /*#__PURE__*/

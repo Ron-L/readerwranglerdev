@@ -457,7 +457,7 @@ include "shoes"). Free text with suggestions from your library's vocabulary; **b
 unknown**.
 
 **How do I copy the title or author?** Click the small 📋 chip after each — one click,
-"Title copied!" / "Author copied!" (the title is a link, so drag-selecting it fights you;
+"Title copied" / "Author copied" (the title is a link, so drag-selecting it fights you;
 the chip is the intended path). Outside the dialog: right-click → **Copy Title(s)** /
 **Copy Author(s)** work in every view — authors dedupe across a selection.
 
@@ -465,7 +465,8 @@ the chip is the intended path). Outside the dialog: right-click → **Copy Title
 (up to 20 selected). In the book window it's the **Share ▾** button next to **View on Amazon**
 (7.18.0; was an easy-to-miss icon); elsewhere, right-click a book. "Email a friend" opens a **Share by Email** dialog with three choices:
 **Open in email app** (opens your default mail client — Outlook, etc. — prefilled), **Copy to
-clipboard** (always works — paste anywhere), and **Open in Gmail (web)**. See §19 if the Gmail
+clipboard** (paste anywhere; if the browser refuses the clipboard it says so and the dialog stays open — 7.29.1), and
+**Open in Gmail (web)**. See §19 if the Gmail
 option shows a "redirect error."
 
 There's also a third Share item on some devices — **Share…** — which hands off to your
@@ -838,6 +839,7 @@ record, the banner and the copy all work.
 | Series mixes Sample and Wishlist states | Historical accretion (sampled before adopting the wishlist habit) | Override to Wishlist, or the truth path; then keep one habit |
 | App shows an old version after update | Browser cache | Hard refresh (Ctrl+Shift+R); verify in Help → About |
 | "Open in Gmail (web)" shows ERR_TOO_MANY_REDIRECTS | A browser boundary: navigating to Gmail from another site withholds some Google auth cookies, so Gmail loops trying to re-auth (can't be fixed from a link) | Best on Windows: use **Share… → Gmail** (the OS share sheet's Gmail tile opens cleanly). Or, in the looping tab, click the address bar and press **Enter** — a top-level navigation composes cleanly. Or use **Open in email app** / **Copy to clipboard**. |
+| "… couldn't be copied — the browser refused the clipboard" (a toast), or "Couldn't copy" on a Copy button (UI-06) (7.29.1) | The browser said no to the clipboard: a permission turned off for the site, or a page opened on an insecure address (a home-network address, not https) has no clipboard at all. Nothing was copied — every Copy button says so instead of "copied" | Press Copy again; check the site's clipboard permission (the icon left of the address); open the app at its https address. Help → Diagnostics shows the browser's reason under the UI-06 line |
 | Share "email a friend" doesn't open my mail app | No default mail app / mailto handler set (or it points at the browser) | Set your default mail app: Windows Settings → Apps → Default apps → MAILTO → choose your client (e.g. Outlook); then "Open in email app" opens it prefilled |
 | Loading takes more than a few seconds | Since 7.27.0 the app opens in about a second — a long wait means something went wrong | Reload (Ctrl+Shift+R); if it happens again, open Help → Diagnostics and press Copy diagnostics for us |
 | "Sync data check failed / checksum mismatch" | A Relay write was interrupted (rare since v7's sealed-packet sync) | Follow the dialog: full fetch rebuilds, then import — local data is intact |
