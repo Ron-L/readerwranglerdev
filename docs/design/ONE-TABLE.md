@@ -1,6 +1,7 @@
 # The one table — what each gesture does in each place
 
-_Status: **design, for Ron's red pen** (written 2026-11-12, autonomous-mode trial). Two TODO tasks meet here: "One table
+_Status: **design, approved** (written 2026-11-12, autonomous-mode trial; Ron read and approved it, review queue Q-019;
+its last open questions decided 2026-11-13, §6). Two TODO tasks meet here: "One table
 for every move, copy, paste and delete: what each gesture does in each place" (id 20261106-1237) and its first user, "The
 Delete key deletes the folder you're in — not the folders you selected" (id 20261014-1030ay)._
 
@@ -207,19 +208,40 @@ Decided in 7.28.1 without asking (autonomous mode — each is cheap to reverse):
    only).
 5. **Drag onto the Trash** keeps today's book-only behavior; a folder dragged onto the Trash is not accepted.
 
-Open for the move / copy / paste rows (§4–§5):
+**Decided (Ron + Claude, 2026-11-13) — the move / copy / paste rows (§4–§5) and the right-click Delete:**
 
-6. A move OUT of the Trash = a restore into the destination, for every gesture (today only a drag does)?
-7. Pasting where the books already are: nothing, with "already here" words — or refuse?
-8. Copying a folder: copies its books' memberships too (today's folder clipboard), or only the folder tree?
+6. **Out of the Trash = a restore into the destination, for every gesture** — a copy too (a book can't be both thrown
+   away and filed). Because a copy that turns into a restore is unexpected, it's said at **both ends**:
+   - at **Ctrl+C in the Trash** (where you decide, and where you're looking): *"Copied 2 books from the Trash. Pasting
+     them will restore them — they'll leave the Trash."*;
+   - at the **paste**, the receipt's verb changes: *"Restored 2 books from the Trash into 'Fantasy'"* — never "Pasted";
+   - **a warning looks like a warning**, app-wide: amber, and it stays where it appeared ~4 s (was 1.5 s) before flying
+     to the status bar. The logger already tells the app each message's level; the app's hookup
+     (`setToaster`, readerwrangler.js ~3002) folded warning into normal — 14 warning toasts were drawn as ordinary ones.
+   No confirmation box (it would stop you to approve the only sensible result — Law 18), no refusal; Ctrl+Z undoes.
+7. **Already there — nothing changes for that book, and the words say so; never a refusal.** A selection often mixes
+   books already in the destination with books that aren't (books live in several folders):
+   1. copy, some there: *"Added 2 books to 'Fantasy' (1 was already there)."*;
+   2. copy, all there: *"Nothing to add — all 3 are already in 'Fantasy'."* (one book: *"'Dune' is already in
+      'Fantasy'."*);
+   3. move from 'Sci-Fi', some there: all leave Sci-Fi — *"Moved 3 books from 'Sci-Fi' to 'Fantasy' (1 was already
+      there)."*;
+   4. move, all there: they still leave the source — *"Moved 3 books out of 'Sci-Fi' — all 3 were already in
+      'Fantasy'."*;
+   5. cut, then paste back into the same folder: *"Nothing moved — those books are already in 'Sci-Fi'."* (today: the
+      books end up in NO folder — §4.1 item 1);
+   6. into a Book List: the same pattern, "on the list".
+   The drags' "(3 were already there)" (decision 9 of "Move and copy books anywhere") is the same pattern.
+8. **ANY operation on a folder includes its books and subfolders, recursively** (Ron: a rule, not just the copy's
+   answer). Copying a folder copies the whole tree as "X (Copy)", and every book in it is filed in the copy too (a book
+   gains a folder; it is never duplicated). Receipt: *"Copied 'Sci-Fi' (12 books, 2 subfolders) as 'Sci-Fi (Copy)'."*
+   A Ctrl-drag of a folder that moves it while saying "Copied" (§5) is fixed by its row.
+9. **The right-click Delete with books AND folders selected:** one item, *"Delete 2 Books and 1 Folder"*, in both the
+   book and the folder menu, through the same operation as the key (File Explorer's right-click Delete takes the whole
+   selection).
 
-Open for the Delete rows (7.28.1-alpha.2):
-
-9. **The right-click Delete with books AND folders selected.** The key now takes both; the book menu's Delete ("Delete 2
-   Books", showing "Del" as its key) still takes the books only, and the folder menu's "Delete Folders (2)" the folders
-   only. Each item's words say what it acts on, so neither misleads — but the book item's "Del" promises the key's
-   behavior. Proposed: when both are selected, one item "Delete 2 Books and 1 Folder" in both menus, through the same
-   operation as the key (File Explorer's right-click Delete takes the whole selection).
+**Example titles** in this doc, the TODO and every message: real-looking titles ("Dune"). The test library's co-authored
+book, "Written Together", read as something the app did (Ron, 2026-11-13) — renamed "Good Omens" in sprint 4.
 
 ## 7. Build list
 
@@ -241,10 +263,17 @@ Open for the Delete rows (7.28.1-alpha.2):
 3. Redo of a book delete takes the books out of the folders they left only (was: every folder).
 4. Tests: TABLE-003 (changed), 009, 010; DELKEY-009 (changed), 012–016.
 
-**The table's own task — next:**
-1. A screen test that tries every cell of §4–§5 and records today's answer (the LOGGING.md pattern; PASTE-001–009 were
-   its first slice) — turning every [survey] above into [measured].
-2. Ron's red pen on §4–§6.
-3. `decide('move' | 'copy' | 'paste', …)` rows; every gesture in §2 asks them; the menus' greyed items and tooltips and
-   the drag label read them.
-4. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
+**The table's own task — sprint 4 (Ron, 2026-11-13: "Word!"):**
+1. The test library's "Written Together" → "Good Omens" (the fixture, its screen tests, these notes).
+2. A screen test that tries every cell of §4–§5 and records today's answer (the LOGGING.md pattern; PASTE-001–009 were
+   its first slice) — turning every [survey] above into [measured]. **A cell that works differently from this design,
+   beyond what's already listed here, goes to Ron for discussion before anything is built on it** (Ron, 2026-11-13).
+3. ~~Ron's red pen on §4–§6~~ — done: Q-019 (read and approved), §6 items 6–9 decided 2026-11-13.
+4. `decide('move' | 'copy' | 'paste', …)` rows; every gesture that exists today asks them — the keys, the menus (their
+   greyed items and "why" tooltips), today's drags.
+5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
+6. §6 item 6's words and the amber warning look; item 7's "already there" words; item 8 (folders recursive); item 9.
+
+**Later, in "Move and copy books anywhere" (its own sprint):** the NEW drag gestures — Shift-drag to move, the live
+"Copy to 'Sci-Fi' — hold Shift to move" label, a folder dropped on a Book List entry, a drop between two Book List
+entries making a new list. They read the same table.
