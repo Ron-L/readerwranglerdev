@@ -1,8 +1,8 @@
 // Unit tests for the logging module (logkit/logger.js) with ReaderWrangler's settings (logkit-settings.js) — run:
 // node test/logger.test.js
 // tags: logging, tier 1
-// covers: logkit/logger.js, logkit-settings.js, logkit/diagnostics-window.js, mobile.js, reportProblem.js, readerwrangler.js
-// (the last three for LOG-044: no shipped script keeps its own clipboard copy — Law 22)
+// covers: logkit/logger.js, logkit-settings.js, logkit/diagnostics-window.js, mobile.js, reportProblem.js, readerwrangler.js, readerwrangler.html, reset.html, index.html, features.html, tutorials.html, changelog.html, security.html
+// (from mobile.js on, for LOG-044: no shipped script or page keeps its own clipboard copy — Law 22)
 // The logging module (docs/design/LOGGING.md §1, §2, §2b, §6 — Ron + Claude, 2026-11-05/07): one call
 // rwLog.log(level, code, text, data, { test }), five levels, codes 'AREA' or 'AREA-NN' (numbered required for warning and
 // above), the kept log (info and up, the last 500, repeats counted, batched saves, page loads), the scrubber, test
@@ -536,15 +536,13 @@ test('LOG-043', 'copyText with no "what" still says something true ("Text copied
 });
 
 // Law 22 as a check, not a promise: the clipboard is written in ONE place — copyText in logkit/logger.js. Every other
-// shipped script calls it. readerwrangler.js still holds its own Copy buttons (a title, an author, Amazon links, the email
-// text, the recovery steps…) — found in 7.29.1, still to move: it may hold AT MOST the number it has today, so a new
-// copy is refused and moving them never trips this.
-const STILL_TO_MOVE = { 'readerwrangler.js': 11 };
-test('LOG-044', 'the clipboard is written in ONE place (logkit/logger.js copyText) — no shipped script keeps its own copy', () => {
+// shipped script, and every page's own inline script, calls it. (7.29.1-alpha.1 let readerwrangler.js keep its 11 Copy
+// buttons for a while; alpha.4 moved them all — the allowance is gone: 0, anywhere but the kit.)
+test('LOG-044', 'the clipboard is written in ONE place (logkit/logger.js copyText) — no shipped script or page keeps its own copy', () => {
     const fs = require('fs');
     const path = require('path');
     const root = path.join(__dirname, '..');
-    const scripts = [...fs.readdirSync(root).filter(f => f.endsWith('.js')),
+    const scripts = [...fs.readdirSync(root).filter(f => f.endsWith('.js') || f.endsWith('.html')),
         ...fs.readdirSync(path.join(root, 'logkit')).filter(f => f.endsWith('.js')).map(f => `logkit/${f}`)];
     const WRITE = /\bwriteText\s*\(|\bexecCommand\(\s*['"]copy|\bClipboardItem\b|\bclipboard\.write\s*\(/g;
     const found = [];
@@ -552,10 +550,11 @@ test('LOG-044', 'the clipboard is written in ONE place (logkit/logger.js copyTex
         const code = fs.readFileSync(path.join(root, file), 'utf8').split('\n')
             .filter(l => !/^\s*(\/\/|\*)/.test(l)).map(l => l.replace(/\s+\/\/\s.*$/, '')).join('\n');
         const n = (code.match(WRITE) || []).length;
-        const allowed = file === 'logkit/logger.js' ? 1 : (STILL_TO_MOVE[file] || 0);
+        const allowed = file === 'logkit/logger.js' ? 1 : 0;
         if (n > allowed) found.push(`${file}: ${n} clipboard write(s) of its own (allowed ${allowed}) — call rwLog.copyText`);
     }
-    assert.ok(scripts.includes('reportProblem.js') && scripts.includes('mobile.js'), `the scan missed the app's scripts: ${scripts}`);
+    assert.ok(['reportProblem.js', 'mobile.js', 'readerwrangler.js', 'readerwrangler.html', 'reset.html'].every(f => scripts.includes(f)),
+        `the scan missed the app's scripts or pages: ${scripts}`);
     assert.deepStrictEqual(found, []);
 });
 
