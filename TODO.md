@@ -49,6 +49,7 @@
       - [Restore dialog calls yesterday's backup "today"](#restore-dialog-calls-yesterdays-backup-today)
       - [One safe way to read saved settings — a damaged one can blank the phone app today](#one-safe-way-to-read-saved-settings--a-damaged-one-can-blank-the-phone-app-today)
     - [Polish](#polish)
+      - ["N now owned" after an import: a Show them button, and each column reads its date from one place](#n-now-owned-after-an-import-a-show-them-button-and-each-column-reads-its-date-from-one-place)
       - [Phone: Report a problem in the ⋮ menu, like the desktop's Help](#phone-report-a-problem-in-the--menu-like-the-desktops-help)
       - [Buttons name their action: replace the remaining OK, Yes and No buttons](#buttons-name-their-action-replace-the-remaining-ok-yes-and-no-buttons)
       - [Move and copy books anywhere — folders, Book Lists, All Books, Searches](#move-and-copy-books-anywhere--folders-book-lists-all-books-searches)
@@ -143,6 +144,7 @@
     - [Undo history sometimes empties by itself](#undo-history-sometimes-empties-by-itself)
     - [Find out why some books end up in no folder](#find-out-why-some-books-end-up-in-no-folder)
     - [A screen test that failed once: the File menu not found after the start-up test](#a-screen-test-that-failed-once-the-file-menu-not-found-after-the-start-up-test)
+    - [Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced](#books-just-bought-werent-at-the-top-of-all-books-sorted-by-date-added--once-not-reproduced)
   - [🧊 Someday](#someday)
     - [Formats other than Kindle: undo my Kindle-only preference](#formats-other-than-kindle-undo-my-kindle-only-preference)
     - [Find out whether reading progress can be fetched from Amazon](#find-out-whether-reading-progress-can-be-fetched-from-amazon)
@@ -1546,6 +1548,24 @@ approximate)
    load", done in the logging switch's PHONE area (7.26.0).
 
 ### Polish
+
+#### "N now owned" after an import: a Show them button, and each column reads its date from one place
+<!-- id 20261112-1926 -->
+
+_Why it matters:_ After buying wishlist or sample books, the import says "(4 now owned)" and offers to clear their price
+goals — but there's no way to SEE which four, to put them in a Book List (Ron, 2026-11-12: he had to look them up on
+Amazon's site; "RW is not making this easier"). Law 20: hand them the action.
+
+**Decided** (Ron + Claude, 2026-11-12)
+1. **Show them** on the import's finish message whenever books became owned — it puts exactly those books on screen,
+   selected, ready for Add to Book List (the import already knows them: `upgradedGoalIds` and the "now owned" count).
+2. **One value per column:** today the Date Added column's display, its sort and the filter / grouping each write their
+   own expression for the date (they agree in practice — `dateAdded` is empty everywhere — but three copies is how they'd
+   drift). Each column in `COLUMN_CONFIG` gets one function giving its value; showing, sorting, grouping and filtering
+   all use it. The dead `dateAdded` field goes.
+3. **"Date Added" = the date it became what it is now** (wishlisted, sampled, or bought) — already true. A separate
+   "First Added" (never changes) was discussed and set aside: the original dates of books already bought were
+   overwritten, so it could only start from the day it's built — optional, not part of this task.
 
 #### Phone: Report a problem in the ⋮ menu, like the desktop's Help
 <!-- id 20261112-1756 -->
@@ -3908,6 +3928,26 @@ failed once is watched, not forgotten. (Moved here from "Logging as its own modu
 - **Read it before fixing it** (TESTING.md §7): what was on screen (the failure screenshot) — was the menu bar covered,
   or not yet drawn?
 - **Set it aside the same day** (with a TODO) rather than re-run past it.
+
+### Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced
+<!-- id 20261112-1925 -->
+
+_Why it matters:_ "What did I just buy?" is answered by sorting by Date Added — if a fresh purchase isn't at the top, the
+reader has to hunt for it on Amazon's site (Ron, 2026-11-12).
+
+**What happened** (2026-11-12): four wishlist/sample books with price goals were bought; in All Books they weren't at the
+top. The Date Added FILTER (this week) found them; an hour later All Books sorted by Date Added showed them at the top.
+
+**What we know** (checked that evening): the column, the sort and the filter all read the same date in practice — the
+acquisition date, which the library fetcher sets to the ORDER date when a sample or wishlist book is bought (v4.11.8);
+`dateAdded` is empty on every book (Ron's 10-31 backup: 2,625 of 2,629 owned books carry an acquisition date, none a
+`dateAdded`); organizing doesn't touch dates. **Candidates:** All Books' remembered sort wasn't Date Added at the time;
+or the fetch that promoted them was imported between the first look and the filter (until then the app still had them
+as wishlist / sample books with their old dates).
+
+**Next time it happens**
+- Note the folder's sort (the column header's arrow) before changing anything.
+- Open Help → Diagnostics…: when was the last import (its "N now owned" line), against when you looked?
 
 ---
 
