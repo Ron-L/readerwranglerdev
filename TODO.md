@@ -251,7 +251,7 @@ Also ONE-TABLE.md §6 item 9: the right-click Delete with books and folders both
   Ctrl+C on a selected book was seen copying the current folder as well (timing-dependent; no harm reproduced); and the
   main keyboard listener's dependency list omits the clipboard (stale-closure risk — paste now reads it through a ref).
   And a receipt that claims what didn't happen: Ctrl+V of a book into a folder it's already in changes nothing but says
-  *"Pasted 'Written Together' into 'Fantasy'"* (seen 2026-11-06) — an "already there" row needs its own words.
+  *"Pasted 'Good Omens' into 'Fantasy'"* (seen 2026-11-06) — an "already there" row needs its own words.
 - **Built ahead of the table, in 7.25.1** (the stopgap it replaces — the operations stay): one paste for Ctrl+V and the
   menu (`pasteClipboard`), one answer to "can books be pasted here?" (`pasteRefusal`: a real folder — the Inbox included
   — or a Book List), and the Book List paste (`pasteBooksIntoBookList`: copy adds; cut moves, last folder → Inbox, one

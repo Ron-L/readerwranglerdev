@@ -61,7 +61,7 @@ with App() as app:
         # The other tab tries a change that saves (copy a book in Fantasy, paste it into An Empty Folder) — its old
         # library must not come back. (2026-11-06: with a real save, the reset tab's reload hung and the folders returned.)
         click_label(B, "Fantasy")
-        click_label(B, "Written Together")
+        click_label(B, "Good Omens")
         B.keyboard.press("Control+c")
         click_label(B, "An Empty Folder")
         B.keyboard.press("Control+v")

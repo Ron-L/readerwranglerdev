@@ -325,28 +325,28 @@ with App() as app:
             app.restore(FIXTURE)
             app.menu("View", "List View").click()
 
-    # "Written Together" (TST0000005) is in Fantasy too, so leaving Science Fiction isn't its last folder (no Trash, no
+    # "Good Omens" (TST0000005) is in Fantasy too, so leaving Science Fiction isn't its last folder (no Trash, no
     # owned-book question). Space Opera holds a subfolder (Old Favorites, 2 books).
     def books_and_folders():
         before = state(app)
         try:
             baseline()
             open_left(app, "Science Fiction")
-            select(app, "Space Opera", "Written Together")
+            select(app, "Space Opera", "Good Omens")
             press_delete(app)
             words = box(app)
             check(words is not None, "no confirmation came up — with books AND folders selected, Delete should ask once, "
                                      "naming both (was: the books went, the folder stayed)")
-            check("Space Opera" in words and "Written Together" in words,
+            check("Space Opera" in words and "Good Omens" in words,
                   f"the confirmation should name the folder and the book: {words!r}")
             answer(app, "Delete")
             check(not exists(app, "Space Opera"), "the selected folder is still there after Delete")
             rows = right_rows(app)
-            check(not any("Written Together" in r for r in rows), "the selected book didn't leave the folder")
+            check(not any("Good Omens" in r for r in rows), "the selected book didn't leave the folder")
             check(any("Deep in the Folders" in r for r in rows),
                   "Old Favorites' books should have returned to Science Fiction (the folder you're in)")
             said = toast(app)
-            check("Space Opera" in said and "Written Together" in said, f"the receipt should say both went: {said!r}")
+            check("Space Opera" in said and "Good Omens" in said, f"the receipt should say both went: {said!r}")
         finally:
             back_to_fixture(before)
     test("DELKEY-009", "books and folders selected in a folder: ONE confirmation naming both, Delete removes both "
@@ -358,7 +358,7 @@ with App() as app:
         try:
             baseline()
             open_left(app, "Science Fiction")
-            select(app, "Space Opera", "Written Together")
+            select(app, "Space Opera", "Good Omens")
             press_delete(app)
             check(box(app) is not None, "no confirmation came up for books and folders selected together")
             answer(app, "Cancel")
@@ -373,14 +373,14 @@ with App() as app:
         try:
             baseline()
             open_left(app, "Science Fiction")
-            select(app, "Space Opera", "Written Together")
+            select(app, "Space Opera", "Good Omens")
             press_delete(app)
             check(box(app) is not None, "no confirmation came up for books and folders selected together")
             answer(app, "Delete")
             after = state(app)
             check("f-space" not in after["folders"] and "f-old" not in after["folders"],
                   "Space Opera and its subfolder should be gone")
-            check("TST0000005" not in after["folders"]["f-scifi"]["books"], "Written Together is still in Science Fiction")
+            check("TST0000005" not in after["folders"]["f-scifi"]["books"], "Good Omens is still in Science Fiction")
             undo(app)                              # ONE Ctrl+Z for the lot
             changed = differences(before, state(app))
             check(not changed, f"one Ctrl+Z should put everything back exactly — still different: {changed}")
@@ -442,12 +442,12 @@ with App() as app:
         try:
             baseline()
             open_left(app, "Science Fiction")
-            select(app, "Written Together")       # in Fantasy too: Delete takes it out of Science Fiction only
+            select(app, "Good Omens")       # in Fantasy too: Delete takes it out of Science Fiction only
             press_delete(app)
             after = state(app)
             check("TST0000005" not in after["folders"]["f-scifi"]["books"]
                   and "TST0000005" in after["folders"]["f-fantasy"]["books"],
-                  "setup: Delete should take Written Together out of Science Fiction and leave it in Fantasy")
+                  "setup: Delete should take Good Omens out of Science Fiction and leave it in Fantasy")
             undo(app)
             app.page.keyboard.press("Control+y")
             app.page.wait_for_timeout(600)

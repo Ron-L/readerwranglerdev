@@ -10,7 +10,7 @@
 # books anywhere", decisions 2-4, re-checked 2026-11-06): a copy into a Book List adds; a cut MOVES (out of the folder
 # it came from, onto the list), and a book leaving its LAST folder goes to the Inbox, which the receipt says.
 # Each paste row is undone with Ctrl+Z and checked back — so every row also tests its undo, and rows stay independent.
-# The fixture: "A Book With No Description" is filed only in Science Fiction; "Written Together" in Fantasy AND Science
+# The fixture: "A Book With No Description" is filed only in Science Fiction; "Good Omens" in Fantasy AND Science
 # Fiction (test/fixtures/make-small-fixture.js).
 import os
 import sys
@@ -21,7 +21,7 @@ from rw import FIXTURE, App              # noqa: E402
 
 PLACES = ["All Books", "Inbox", "Fantasy", "Science Fiction", "Read Next", "Trash"]
 ONLY_SCIFI = "A Book With No Description"
-TWO_FOLDERS = "Written Together"
+TWO_FOLDERS = "Good Omens"
 
 
 def open_(app, label):
@@ -91,7 +91,7 @@ with App() as app:
 
     test("PASTE-001", "copy → a Book List adds the book; the folder keeps it; Ctrl+Z takes it off",
          row("c", TWO_FOLDERS, "Fantasy", "Read Next", {"Read Next": (3, 4)},
-             ["Added 'Written Together' to 'Read Next'"]))
+             ["Added 'Good Omens' to 'Read Next'"]))
     test("PASTE-002", "cut → a Book List moves a book out of its LAST folder: onto the list, into the Inbox — and says so",
          row("x", ONLY_SCIFI, "Science Fiction", "Read Next",
              {"Inbox": (2, 3), "Science Fiction": (5, 4), "Read Next": (3, 4)},
@@ -99,7 +99,7 @@ with App() as app:
               "It wasn't in any other folder, so it went to the Inbox."]))
     test("PASTE-003", "cut → a Book List from one of a book's TWO folders: it leaves that folder only, no Inbox",
          row("x", TWO_FOLDERS, "Fantasy", "Read Next", {"Fantasy": (5, 4), "Read Next": (3, 4)},
-             ["Moved 'Written Together' from 'Fantasy' to 'Read Next'."]))
+             ["Moved 'Good Omens' from 'Fantasy' to 'Read Next'."]))
     test("PASTE-004", "cut → the Trash changes nothing and says why (was: the book left its folder for nowhere)",
          row("x", ONLY_SCIFI, "Science Fiction", "Trash", {},
              ["Can't paste into the Trash. To put books in the Trash, press Delete."]))

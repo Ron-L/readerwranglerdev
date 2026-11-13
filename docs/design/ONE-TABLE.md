@@ -121,7 +121,7 @@ the table still holds a row for it, saying so.
 | The Inbox selected | nothing, silently | says it can't be deleted; others still go | DELKEY-006 |
 | Right-click Delete on one of several selected folders | only the clicked one | all the selected ones | DELKEY-007 |
 | Ctrl+Z after deleting a subfolder whose book is also in its parent | the book left the parent too | the parent is as it was | DELKEY-008 |
-| Books and folders selected | the books | **7.28.1-alpha.2: both** — one confirmation naming both ("Delete 1 book and 1 folder from "Science Fiction"? • 'Written Together' • "Space Opera" — 2 books, 1 subfolder …"), one receipt (alpha.1: the books only) | DELKEY-009 |
+| Books and folders selected | the books | **7.28.1-alpha.2: both** — one confirmation naming both ("Delete 1 book and 1 folder from "Science Fiction"? • 'Good Omens' • "Space Opera" — 2 books, 1 subfolder …"), one receipt (alpha.1: the books only) | DELKEY-009 |
 | … Cancel at that confirmation | — | nothing changes | DELKEY-012 |
 | … then Ctrl+Z, Ctrl+Y | — | one Ctrl+Z puts it all back exactly (the books where they were, the folders with their books, nothing extra); Ctrl+Y does it all again | DELKEY-013 |
 | … a selected book also inside the selected folder, in no other folder | — | the folder goes, then the book — to the Trash (books first, the folder's delete would have put it back); the box says it's owned, with Hide Instead; one Ctrl+Z | DELKEY-014, 015 |
@@ -177,7 +177,7 @@ The decided behavior is "Move and copy books anywhere" (TODO, decisions 1–11, 
 ### 4.2 Copy (Ctrl+C → paste; Copy to >; Add to Book List >; Ctrl-drag; a plain drag across kinds)
 
 Copy only adds — the source never changes. Into All Books or the Trash: refuse, with words. **Already there:** its own
-words ("'Written Together' is already in 'Fantasy'") — today it says "Pasted 'Written Together' into 'Fantasy'" and
+words ("'Good Omens' is already in 'Fantasy'") — today it says "Pasted 'Good Omens' into 'Fantasy'" and
 changes nothing [the TODO's finding 2026-11-06].
 
 ## 5. FOLDERS moved, copied, pasted — DESIGN ONLY
