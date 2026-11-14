@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-84 numbered codes. (174 general lines — info and debug, coded by their area alone — not listed.)
+83 numbered codes. (169 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -39,7 +39,6 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-02 | error | That move didn't work. | readerwrangler.js |
 | MOVE-03 | error | That move didn't work. | readerwrangler.js |
 | MOVE-04 | error | That move didn't work. | readerwrangler.js |
-| MOVE-05 | error | That move didn't work. | readerwrangler.js |
 | MOVE-06 | warning | … | readerwrangler.js |
 | MOVE-07 | warning | Inbox cannot be moved | readerwrangler.js |
 | MOVE-10 | warning | … | readerwrangler.js |

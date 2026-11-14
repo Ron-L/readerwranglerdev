@@ -369,7 +369,7 @@ hadn't listed, and the cells whose answer wasn't clear:
    | Where | Before alpha.2 | Now |
    |---|---|---|
    | Left pane: a folder's drop (~15396, its book fallback ~15500) | `moveItems` | `dropItems` |
-   | Left pane: the Inbox's drop (~15121, ~15187) | `moveItems`; a fallback with its own restore | `dropItems` (the fallback's restore is unreachable — every right-pane drag carries `x-rw-items` — and is left) |
+   | Left pane: the Inbox's drop (~15121, ~15187) | `moveItems`; a fallback with its own restore | `dropItems` (the fallback's restore is unreachable — every right-pane drag carries `x-rw-items`; removed in alpha.5) |
    | Left pane: a Book List entry's drop (~14900) | its own list move (COMPOUND of BOOKLIST_ADD + _REMOVE) / `addBooksToBookList` | `dropItems` (books only — a folder dropped there is the drag task's) |
    | Left pane: the Trash's drop (~15763) | `softDeleteBooks` | unchanged (§6 Q5) |
    | Left pane: the Folders header's drop (~14979) | `reparentFolder(…, null)` (folders only) | unchanged |
@@ -414,6 +414,17 @@ hadn't listed, and the cells whose answer wasn't clear:
    **The "New…" boxes in the Trash** (CELL-082–084, TABLE-025): `gestureTable.newPlaceWords`, from the table's act —
    *"Create a folder and restore 1 book from the Trash into it."*, *"Restore 1 book from the Trash and add it to a new
    Book List."* (were "…and move / copy 1 book into it", "Add 1 book to a new Book List.").
+
+   — **7.30.0-alpha.5, the dead drop branches — removed (Law 22).** The left pane's Inbox and folder drops, and the folder
+   path's, each still held a book drop of its own after the `x-rw-items` branch (the Inbox's and the folder's with their
+   own restore from the Trash and "All Books is view-only"; the folder path's MOVE-05). They could never run: books travel
+   as `x-readerwrangler`, which is only ever set together with `x-rw-items` (all four right-pane dragstarts — the list and
+   cover views' book and folder rows); the `x-rw-items` branch returns — on a left-pane folder except for a 'reorder'
+   target, which its onDragOver sets only for a drag WITHOUT books (a mixed drag is always 'reparent'). What's left after
+   that branch handles the one drag without `x-rw-items`: a left-pane folder (`x-folder-reorder`). CELL-085 (a drag out of
+   the Trash onto the Inbox restores, the table's words) and CELL-031 guard it. **Not removed:** the right pane's folder
+   rows (list ~16827, cover ~17573) keep their book drop after the reorder code — reachable: a mixed drag in a row's top /
+   bottom quarter reorders the folders AND drops the books there (filed for Ron, not changed).
 5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
    — **7.30.0-alpha.1 — built:** the second listener and its folder clipboard are gone; ONE clipboard
    `{ type, bookIds, folderIds, from }` filled by `putOnClipboard` (Ctrl+X / Ctrl+C on the selection — books, folders or

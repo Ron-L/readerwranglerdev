@@ -153,7 +153,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.30.0-alpha.4"; // Build version for this file
+var ORGANIZER_VERSION = "7.30.0-alpha.5"; // Build version for this file
 // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
 // problem… (7.29.0: one copy, so the two can't drift)
 var DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -15137,9 +15137,9 @@ function ReaderWrangler() {
         e.preventDefault();
         var rwItemsStr = e.dataTransfer.getData('application/x-rw-items');
         if (rwItemsStr) {
-          var { sourceFolder: _sourceFolder, itemIds } = JSON.parse(rwItemsStr);
-          var _isCopy = ctrlKeyRef.current;
-          dropItems(itemIds, '__inbox__', _sourceFolder, _isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
+          var { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
+          var isCopy = ctrlKeyRef.current;
+          dropItems(itemIds, '__inbox__', sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
           setFolderDropHighlight(null);
           setExplorerSelectedItems(new Set());
           stopDragVirtualization();
@@ -15147,71 +15147,19 @@ function ReaderWrangler() {
           setExplorerDragData(null);
           return;
         }
-        var bookDataStr = e.dataTransfer.getData('application/x-readerwrangler');
+        // A left-pane folder dragged onto the Inbox (that drag carries only x-folder-reorder): under it.
+        // 7.30.0-alpha.4 - the book half that followed (its own restore from the Trash, "All Books is
+        // view-only", a second dropItems) is gone: it could never run — x-readerwrangler is only ever set
+        // together with x-rw-items (every right-pane dragstart), which the branch above takes and returns
+        // (Law 22: one implementation — dropItems).
         var folderDataStr = e.dataTransfer.getData('application/x-folder-reorder');
-        // v6.11.2 - Handle folder reparent from mixed drag
         if (folderDataStr) {
           try {
             var folderDragData = JSON.parse(folderDataStr);
             reparentFolder(folderDragData.folderIds, '__inbox__');
           } catch (err) {rwLog.log('error', 'MOVE-01', "That move didn't work.", { where: 'folders dropped on the Inbox', error: err && err.message, stack: err && err.stack }, { toast: true });}
         }
-        if (!bookDataStr) {setFolderDropHighlight(null);return;}
-        var dragData = JSON.parse(bookDataStr);
-        var { sourceFolder, bookIds } = dragData;
-
-        // Check if dragging from All Books (view-only)
-        if (sourceFolder === '__all__') {
-          rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
-          setFolderDropHighlight(null);
-          setExplorerSelectedItems(new Set());
-          return;
-        }
-        // v6.0.0-alpha.53 - Drag from Trash to Inbox = undelete + place in Inbox only
-        if (sourceFolder === '__trash__') {
-          var bookIdsSet = new Set(bookIds);
-          // v7.10.1-alpha.4 - undoable (audit gap): capture pre-restore trash state
-          recordAction({
-            type: 'RESTORE_BOOKS', bookIds: [...bookIds], targetFolderId: '__inbox__',
-            restoredBooks: books.filter((b) => bookIdsSet.has(b.id) && b.isDeleted).map((b) => ({ id: b.id, deletedFromFolderIds: b.deletedFromFolderIds || [] })),
-            label: `Restore ${bookCountLabel(bookIds)} to Inbox`
-          });
-          setBooks((prev) => {
-            var updated = prev.map((b) => bookIdsSet.has(b.id) && b.isDeleted ?
-            { ...b, isDeleted: false, deletedAt: null, deletedFromFolderIds: null } :
-            b);
-            saveBooksToIndexedDB(updated);
-            return updated;
-          });
-          setFolders((prev) => prev.map((f) => {
-            if (f.id !== '__inbox__') return f;
-            var existingSet = new Set(f.bookIds || []);
-            var toAdd = bookIds.filter((id) => !existingSet.has(id));
-            if (toAdd.length > 0) {
-              return { ...f, bookIds: [...toAdd, ...(f.bookIds || [])] };
-            }
-            return f;
-          }));
-          rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(bookIds)} to Inbox`, null, { toast: true }); // v7.10.1 - named receipt
-          setFolderDropHighlight(null);
-          setExplorerSelectedItems(new Set());
-          stopDragVirtualization();
-          setExplorerDragBookId(null);
-          setExplorerDragData(null);
-          return;
-        }
-
-        // v6.6.0 - Add to Inbox explicitly; remove first instance only from source (preserves same-folder copies); respect Ctrl+Drag for copy mode; record undo
-        // v6.6.0 - Read ctrlKey from drop event (more reliable than onDragOver ref on Windows/Chrome)
-        var isCopy = ctrlKeyRef.current;
-        explorerIsCopyDragRef.current = isCopy;
-        dropItems(bookIds, '__inbox__', sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
         setFolderDropHighlight(null);
-        setExplorerSelectedItems(new Set());
-        stopDragVirtualization(); // v5.5.4-alpha.23
-        // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
-        setExplorerDragBookId(null);
-        setExplorerDragData(null);
       } }, /*#__PURE__*/
     React.createElement("span", { className: "pointer-events-none" }, FOLDER_INBOX.icon), /*#__PURE__*/
     React.createElement("span", { className: "flex-1 pointer-events-none font-semibold" }, FOLDER_INBOX.name),
@@ -15409,12 +15357,12 @@ function ReaderWrangler() {
 
               var rwItemsStr = e.dataTransfer.getData('application/x-rw-items');
               if (rwItemsStr) {
-                var { sourceFolder: _sourceFolder2, itemIds } = JSON.parse(rwItemsStr);
+                var { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
                 var _target = sidebarFolderDragTarget;
                 setSidebarFolderDragTarget(null);
                 if (_target?.type === 'reparent' || !e.dataTransfer.types.includes('application/x-folder-reorder')) {
-                  var _isCopy2 = ctrlKeyRef.current;
-                  dropItems(itemIds, folder.id, _sourceFolder2, _isCopy2); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
+                  var isCopy = ctrlKeyRef.current;
+                  dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                 }
                 // If target is 'reorder', fall through to existing folder reorder logic
                 if (_target?.type === 'reorder') {
@@ -15457,75 +15405,13 @@ function ReaderWrangler() {
                 } catch (err) {
                   rwLog.log('error', 'MOVE-03', "That move didn't work.", { where: 'a drop on a folder in the left pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                 }
-                // v6.11.2 - Don't return early; fall through to also process books
               }
-
-              // Book drop - existing behavior
-              var bookDataStr = e.dataTransfer.getData('application/x-readerwrangler');
-              var folderDataStr = e.dataTransfer.getData('application/x-folder-reorder');
-              if (!bookDataStr) return;
-              var dragData = JSON.parse(bookDataStr);
-              var { sourceFolder, bookIds } = dragData;
-
-              if (sourceFolder === '__all__') {
-                rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
-                setFolderDropHighlight(null);
-                setExplorerSelectedItems(new Set());
-                return;
-              }
-              // v5.5.15-alpha.34 - 1I: Disallow drag from tag view to real folder
-              if (isViewFolder(sourceFolder)) {
-                rwLog.log('info', 'MOVE', 'Can\'t move from tag view to folder. Use folders to organize.', null, { toast: { x: e.clientX, y: e.clientY } });
-                setFolderDropHighlight(null);
-                setExplorerSelectedItems(new Set());
-                return;
-              }
-              // v6.0.0-alpha.53 - Drag from Trash = undelete + place in target folder only
-              if (sourceFolder === '__trash__') {
-                var bookIdsSet = new Set(bookIds);
-                // v7.10.1-alpha.4 - undoable (audit gap): capture pre-restore trash state
-                recordAction({
-                  type: 'RESTORE_BOOKS', bookIds: [...bookIds], targetFolderId: folder.id,
-                  restoredBooks: books.filter((b) => bookIdsSet.has(b.id) && b.isDeleted).map((b) => ({ id: b.id, deletedFromFolderIds: b.deletedFromFolderIds || [] })),
-                  label: `Restore ${bookCountLabel(bookIds)} to '${folder.name}'`
-                });
-                setBooks((prev) => {
-                  var updated = prev.map((b) => bookIdsSet.has(b.id) && b.isDeleted ?
-                  { ...b, isDeleted: false, deletedAt: null, deletedFromFolderIds: null } :
-                  b);
-                  saveBooksToIndexedDB(updated);
-                  return updated;
-                });
-                setFolders((prev) => prev.map((f) => {
-                  if (f.id === folder.id) {
-                    var existingSet = new Set(f.bookIds || []);
-                    var toAdd = bookIds.filter((id) => !existingSet.has(id));
-                    if (toAdd.length > 0) {
-                      return { ...f, bookIds: [...toAdd, ...(f.bookIds || [])] };
-                    }
-                  }
-                  return f;
-                }));
-                rwLog.log('info', 'MOVE', `Restored ${bookCountLabel(bookIds)} to "${folder.name}"`, null, { toast: true }); // v7.10.1 - named receipt
-                setFolderDropHighlight(null);
-                setExplorerSelectedItems(new Set());
-                stopDragVirtualization();
-                setExplorerDragBookId(null);
-                setExplorerDragData(null);
-                return;
-              }
-
-              // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
-              var isCopy = ctrlKeyRef.current;
-              explorerIsCopyDragRef.current = isCopy;
-              dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
-              setFolderDropHighlight(null);
-              setExplorerSelectedItems(new Set());
-              explorerIsCopyDragRef.current = false;
-              stopDragVirtualization(); // v5.5.4-alpha.23
-              // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
-              setExplorerDragBookId(null);
-              setExplorerDragData(null);
+              // 7.30.0-alpha.4 - the book drop that followed (its own restore from the Trash, "All Books is
+              // view-only", "Can't move from tag view", a second dropItems) is gone: it could never run. Books
+              // travel as x-readerwrangler, only ever set together with x-rw-items (every right-pane dragstart);
+              // the x-rw-items branch above returns except for a 'reorder' target — and 'reorder' is only set
+              // (onDragOver above) for a drag WITHOUT books (a mixed drag is always 'reparent'). Law 22:
+              // one implementation — dropItems.
             },
             onContextMenu: (e) => {
               // v5.0.0-alpha.133 - Show visual context menu (replaces prompt)
@@ -15864,25 +15750,9 @@ function ReaderWrangler() {
           }
           return;
         }
-
-        // Try book drag
-        var bookData = e.dataTransfer.getData('application/x-readerwrangler');
-        if (bookData && folder.id !== '__library__' && folder.id !== '__views__') {
-          try {
-            var { sourceFolder: _sourceFolder3, bookIds } = JSON.parse(bookData);
-            var targetFolder = folders.find((f) => f.id === folder.id);
-            if (!targetFolder) return;
-
-            dropItems(bookIds, folder.id, _sourceFolder3, ctrlKeyRef.current); // 7.30.0-alpha.2 (was moveItems — always a move)
-            setExplorerSelectedItems(new Set());
-            stopDragVirtualization(); // v5.5.4-alpha.23
-            // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
-            setExplorerDragBookId(null);
-            setExplorerDragData(null);
-          } catch (err) {
-            rwLog.log('error', 'MOVE-05', "That move didn't work.", { where: 'books dropped on the folder path above the right pane', error: err && err.message, stack: err && err.stack }, { toast: true });
-          }
-        }
+        // 7.30.0-alpha.4 - the book drop that followed (a second dropItems, MOVE-05) is gone: it could never
+        // run — books travel as x-readerwrangler, only ever set together with x-rw-items, which the first
+        // branch takes and returns (Law 22).
       } },
 
     folder.name
@@ -16835,14 +16705,14 @@ function ReaderWrangler() {
                 var bookDataStr2 = e.dataTransfer.getData('application/x-readerwrangler');
                 if (bookDataStr2) {
                   var _dragData = JSON.parse(bookDataStr2);
-                  var { sourceFolder: _sourceFolder4, bookIds } = _dragData;
-                  if (_sourceFolder4 === '__all__') {
+                  var { sourceFolder: _sourceFolder, bookIds } = _dragData;
+                  if (_sourceFolder === '__all__') {
                     rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                   } else {
                     // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
-                    var _isCopy3 = ctrlKeyRef.current;
-                    explorerIsCopyDragRef.current = _isCopy3;
-                    dropItems(bookIds, folder.id, _sourceFolder4, _isCopy3); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
+                    var _isCopy = ctrlKeyRef.current;
+                    explorerIsCopyDragRef.current = _isCopy;
+                    dropItems(bookIds, folder.id, _sourceFolder, _isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                   }
                   setFolderDropHighlight(null);
                   setExplorerSelectedItems(new Set());
@@ -17581,14 +17451,14 @@ function ReaderWrangler() {
               var bookDataStr = e.dataTransfer.getData('application/x-readerwrangler');
               if (bookDataStr) {
                 var _dragData2 = JSON.parse(bookDataStr);
-                var { sourceFolder: _sourceFolder5, bookIds } = _dragData2;
-                if (_sourceFolder5 === '__all__') {
+                var { sourceFolder: _sourceFolder2, bookIds } = _dragData2;
+                if (_sourceFolder2 === '__all__') {
                   rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
                 } else {
                   // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
-                  var _isCopy4 = ctrlKeyRef.current;
-                  explorerIsCopyDragRef.current = _isCopy4;
-                  dropItems(bookIds, folder.id, _sourceFolder5, _isCopy4); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
+                  var _isCopy2 = ctrlKeyRef.current;
+                  explorerIsCopyDragRef.current = _isCopy2;
+                  dropItems(bookIds, folder.id, _sourceFolder2, _isCopy2); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                 }
                 setFolderDropHighlight(null);
                 setExplorerSelectedItems(new Set());
