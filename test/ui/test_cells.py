@@ -707,6 +707,47 @@ with App() as app:
     add("CELL-069", "Add to Book List › New Book List… out of the Trash: the new list, the book restored onto it — one "
         "Ctrl+Z takes back the list and the restore", new_list_from_trash)
 
+    # ── §6 item 6: a warning looks like a warning — amber, and it stays where it appeared ~4 s (others 1.5 s) ────────────
+    TOAST_JS = """el => {
+        const probe = document.createElement('div');
+        probe.style.backgroundColor = 'var(--toast-warning-bg)';
+        document.body.appendChild(probe);
+        const amber = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return { cls: el.className, bg: getComputedStyle(el).backgroundColor, amber };
+    }"""
+
+    def toast_look(place, title, k, warning):
+        def run():
+            try:
+                pick(place, title)
+                pressed = page.evaluate("() => performance.now()")
+                page.keyboard.press(f"Control+{k}")
+                t = page.locator(".clipboard-toast").first
+                t.wait_for(state="visible", timeout=3000)
+                look = t.evaluate(TOAST_JS)
+                if warning:
+                    check("warning" in look["cls"] and look["bg"] == look["amber"],
+                          f"a warning toast should be amber — its class {look['cls']!r}, background {look['bg']} "
+                          f"(amber: {look['amber']})")
+                    r, g, b = [int(x) for x in re.findall(r"\d+", look["amber"])[:3]]
+                    check(r >= g > b and r - b > 40, f"the warning color {look['amber']} isn't amber (red ≥ green > blue)")
+                else:
+                    check("warning" not in look["cls"] and look["bg"] != look["amber"],
+                          f"an ordinary toast looks like a warning: {look}")
+                # 3 s after the key (a toast shows at once): a warning is still where it appeared; an ordinary one left at 1.5 s
+                page.wait_for_timeout(max(0, 3000 - (page.evaluate("() => performance.now()") - pressed)))
+                still = page.locator(".clipboard-toast:not(.animating)").count() > 0
+                check(still == warning, f"~3 s after it appeared, the toast is {'still' if still else 'no longer'} there "
+                                        f"(a warning stays ~4 s, others 1.5 s)")
+            finally:
+                clean_up()
+        return run
+    add("TOAST-001", "a warning toast (Ctrl+C in the Trash: \"pasting will restore\") is amber and still where it appeared "
+        "~3 s later", toast_look("Trash", TR, "c", warning=True))
+    add("TOAST-002", "an ordinary toast (Ctrl+C in a folder) is not amber, and is gone from where it appeared by ~3 s",
+        toast_look("Science Fiction", ND, "c", warning=False))
+
     # Warnings on purpose: CELL-053's refusal (MOVE-06); CELL-039's "a paste will restore" (MOVE-10, §6 item 6)
     DELIBERATE = ("MOVE-06", "MOVE-10")
     if not ONLY:

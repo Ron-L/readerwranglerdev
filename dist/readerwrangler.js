@@ -153,7 +153,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.30.0-alpha.2"; // Build version for this file
+var ORGANIZER_VERSION = "7.30.0-alpha.3"; // Build version for this file
 // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
 // problem… (7.29.0: one copy, so the two can't drift)
 var DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -3125,7 +3125,7 @@ function ReaderWrangler() {
   // v5.5.15 - Toast notification helper (reusable for all feedback messages)
   // Shows toast at position, animates to footer, persists 10s, then fades
   // x/y: screen coordinates (optional — defaults to center-screen if missing/non-numeric)
-  // level: 'info' (default) or 'error' (red text via --text-danger)
+  // level: 'info' (default), 'warning' (amber, stays ~4 s — 7.30.0-alpha.3) or 'error' (red text via --text-danger)
   // log (v7.19.0-alpha.11, Ron + UX): false = a transient HINT about a keypress that did nothing ("Nothing to undo")
   // — shown, but kept out of the 🕐 history, which records things that HAPPENED (changes, undos, errors).
   var showToast = (message, x, y, { level = 'info', log = true } = {}) => {
@@ -3146,21 +3146,26 @@ function ReaderWrangler() {
     toastTimersRef.current.forEach(clearTimeout);
     var later = (ms, fn) => toastTimersRef.current.push(setTimeout(fn, ms));
     toastTimersRef.current = [];
-    later(1500, () => setToastAnimating(true)); // wait, then animate to the status bar
-    later(2500, () => {// the animation's 1 s
+    // 7.30.0-alpha.3 (ONE-TABLE.md §6 item 6) - a warning stays where it appeared ~4 s (others 1.5 s), so it's read
+    var hold = TOAST_HOLD_MS[level] || TOAST_HOLD_MS.info;
+    later(hold, () => setToastAnimating(true)); // wait, then animate to the status bar
+    later(hold + 1000, () => {// the animation's 1 s
       setToastVisible(false);
       setToastAnimating(false);
       setFooterClipboardVisible(true);
     });
-    later(12500, () => setFooterClipboardVisible(false)); // fade out the status bar's copy after 10 seconds
+    later(hold + 11000, () => setFooterClipboardVisible(false)); // fade out the status bar's copy after 10 seconds
   };
+  // How long a toast stays where it appeared, by its level (the look: .clipboard-toast.error / .warning)
+  var TOAST_HOLD_MS = { info: 1500, warning: 4000, error: 1500 };
   var toastTimersRef = useRef([]);
   // 7.26.0 - The logger's toasts: rwLog.log(…, { toast }) shows its message through showToast — one call, every
   // destination (LOGGING.md §6). showToast uses only state setters and a ref, so handing it over once is enough.
-  // Red for error and up; a { hint } stays out of the 🕐 history.
+  // Red for error and up; amber for a warning (7.30.0-alpha.3, ONE-TABLE.md §6 item 6 — this hookup folded warnings
+  // into normal messages, so the 14 warning toasts looked like any other); a { hint } stays out of the 🕐 history.
   useEffect(() => {
     if (window.rwLog) window.rwLog.setToaster((text, o) => showToast(text, o.x, o.y,
-    { level: o.level === 'error' ? 'error' : 'info', log: !o.hint }));
+    { level: o.level === 'error' || o.level === 'critical' ? 'error' : o.level === 'warning' ? 'warning' : 'info', log: !o.hint }));
   }, []);
 
   // v6.3.0 - Run integrity check, save results, fire goatcounter, return result.
@@ -9478,9 +9483,17 @@ function ReaderWrangler() {
                             color: var(--text-danger);
                         }
 
+                        /* 7.30.0-alpha.3 - a warning looks like one: amber (the colors: readerwrangler.css, every theme) */
+                        .clipboard-toast.warning {
+                            background: var(--toast-warning-bg);
+                            color: var(--toast-warning-text);
+                            border: 1px solid var(--toast-warning-border);
+                        }
+
                         .clipboard-toast.animating {
                             background: transparent;
                             color: var(--text-muted);
+                            border-color: transparent;
                             box-shadow: none;
                             font-size: 12px;
                             padding: 0;
@@ -18211,7 +18224,7 @@ function ReaderWrangler() {
 
 
     toastVisible && /*#__PURE__*/
-    React.createElement("div", { className: `clipboard-toast ${toastAnimating ? 'animating' : ''} ${toastLevel === 'error' ? 'error' : ''}`,
+    React.createElement("div", { className: `clipboard-toast ${toastAnimating ? 'animating' : ''} ${toastLevel === 'error' || toastLevel === 'warning' ? toastLevel : ''}`,
       style: toastAnimating ? {
         left: '16px',
         top: 'calc(100vh - 22px)',

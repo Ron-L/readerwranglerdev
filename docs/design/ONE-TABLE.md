@@ -401,8 +401,13 @@ hadn't listed, and the cells whose answer wasn't clear:
    was decided, naming each (RUN-033, 034).
    — **7.30.0-alpha.2 — item 9 built:** `gestureTable.deleteBothLabel` ("Delete 2 Books and 1 Folder", TABLE-022); the
    book menu and the folder menu (right-clicked in the right pane among the selection) show ONE such item with its key
-   (Del), and it runs the key's own row (`runDeleteRow`, split out of `pressDelete`) — DELKEY-017, 018. **Next: the amber
-   look.**
+   (Del), and it runs the key's own row (`runDeleteRow`, split out of `pressDelete`) — DELKEY-017, 018.
+   — **7.30.0-alpha.3 — item 6's look built:** the app's hookup to the logger (`rwLog.setToaster`) passes 'warning' on (it
+   folded it into normal); a warning toast is amber (`.clipboard-toast.warning`; its colors are tokens in
+   readerwrangler.css, one set per theme — `--toast-warning-bg / -text / -border`) and stays where it appeared 4 s (others
+   1.5 s; `TOAST_HOLD_MS`) before flying to the status bar. App-wide: every warning toast (MOVE-06, 07, 10; BACKUP-01…).
+   TOAST-001 (amber, still there at 3 s — seen failing without the change, and with the hold set back to 1.5 s), TOAST-002 (an
+   ordinary one isn't, and is gone).
 
 **Later, in "Move and copy books anywhere" (its own sprint):** the NEW drag gestures — Shift-drag to move, the live
 "Copy to 'Sci-Fi' — hold Shift to move" label, a folder dropped on a Book List entry, a drop between two Book List

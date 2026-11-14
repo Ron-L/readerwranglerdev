@@ -35,6 +35,10 @@
     --text-on-accent: #ffffff;
     --text-danger: #dc2626;
     --text-series: #621e31;
+    /* 7.30.0 - a warning toast: amber (ONE-TABLE.md §6 item 6) */
+    --toast-warning-bg: #fef3c7;
+    --toast-warning-text: #92400e;
+    --toast-warning-border: #f59e0b;
 
     /* Borders */
     --border-default: #e2e8f0;
@@ -102,6 +106,9 @@
     --text-on-accent: #ffffff;
     --text-danger: #f87171;
     --text-series: #e8a0b5;
+    --toast-warning-bg: #422006;
+    --toast-warning-text: #fcd34d;
+    --toast-warning-border: #d97706;
 
     --border-default: #334155;
     --border-strong: #475569;
@@ -295,6 +302,9 @@
     --text-on-accent: #ffffff;
     --text-danger: #cc0000;
     --text-series: #4a0e1e;
+    --toast-warning-bg: #ffe9a8;
+    --toast-warning-text: #4a2a00;
+    --toast-warning-border: #8a5200;
 
     --border-default: #999999;
     --border-strong: #666666;
@@ -376,6 +386,9 @@
     --text-on-accent: #000000;
     --text-danger: #ff6666;
     --text-series: #ffb3c6;
+    --toast-warning-bg: #3d2a00;
+    --toast-warning-text: #ffd166;
+    --toast-warning-border: #ffb000;
 
     --border-default: #555555;
     --border-strong: #888888;
