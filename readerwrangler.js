@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.30.0-alpha.5";  // Build version for this file
+        const ORGANIZER_VERSION = "7.30.0-alpha.6";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -2248,6 +2248,16 @@
             // move's Ctrl+Z put back the wrong books, and every drop said "Moved" — CELL-019, 026, 030, 033).
             const dropItems = (itemIds, target, from, ctrl, at) => placeByTable('drag',
                 itemIds.filter(id => bookMap.has(id)), itemIds.filter(id => folders.some(f => f.id === id)), from, target, { ctrl, at });
+            // 7.30.0-alpha.6 - A folder dragged from the LEFT pane (it carries only x-folder-reorder, never x-rw-items) dropped on
+            // a place: the table's drag row too. It comes from its place in the tree — its parent, or the top level ('Folders')
+            // — not from the place the right pane shows, so the drag's verb is a move (one kind: folders). Ctrl isn't read: the
+            // left pane's drag offers a move only (effectAllowed 'move'); a Ctrl-drag copy from there is the drag task's.
+            // Was reparentFolder with the place's id — on "Book Lists" in the folder path, a parent that isn't a folder.
+            const dropTreeFolders = (folderIds, target) => {
+                const ids = (folderIds || []).filter(id => folders.some(f => f.id === id));
+                const parent = ids.length ? folders.find(f => f.id === ids[0]).parentId : null;
+                return placeByTable('drag', [], ids, parent || '__library__', target);
+            };
 
             // Books and / or folders into a place, as the table's row says: ONE undo step (a COMPOUND of the operations' own
             // steps when both), ONE receipt. Resolves true when it ran; false when an operation's own check refused (it said
@@ -4047,12 +4057,8 @@
             // 7.30.0-alpha.4 - "Would this put a folder into itself or below it?" — the ONE check: a folder move, a folder copy,
             // and the menus' greyed targets (Law 16). Walks UP from the target, so a destination that a gesture is making
             // ("New folder here…" — in folderList, not yet in `folders`) is checked too. (Was isDescendantFolder, walking down.)
-            const intoItself = (folderIds, target, folderList = folders) => {
-                const parentOf = new Map(folderList.map(f => [f.id, f.parentId ?? null]));
-                const above = new Set();
-                for (let p = target; p && !above.has(p); p = parentOf.get(p)) above.add(p);
-                return folderIds.some(id => above.has(id));
-            };
+            // 7.30.0-alpha.6 - the check itself is gestureTable.intoItself (pure, function-tested — TABLE-027).
+            const intoItself = (folderIds, target, folderList = folders) => gestureTable.intoItself(folderIds, target, folderList);
 
             // v6.13.1-alpha.14 (ops refactor #4) - THE single source of truth for reparenting folder(s) — moving them
             // to a new parent (or root, newParentId=null). Used by drag, the folder menu "Move to" (via moveFolder),
@@ -4079,17 +4085,23 @@
             };
             // opts.folderList (7.30.0-alpha.4): the folders to plan against — with a destination the gesture is making in
             // ("New folder here…", placeItems' create)
+            // 7.30.0-alpha.6 - its checks are gestureTable.reparentProblem (TABLE-027), and a new one under the table: the new
+            // parent is a real folder or the top level, so no caller can give a folder a parent that isn't a folder (a left-pane
+            // folder dropped on "Book Lists" in the folder path got '__booklists__' and dropped out of the tree — CELL-092).
             const planReparent = (folderIds, newParentId, opts = {}) => {
                 const fl = opts.folderList || folders;
-                for (const folderId of folderIds) {
-                    if (intoItself([folderId], newParentId, fl)) {
-                        rwLog.log('warning', 'MOVE-06', `${gestureTable.MOVE_WORDS.moveIntoItself}`, null, { toast: true });
-                        return null;
-                    }
-                    if (folderId === '__inbox__') {
-                        rwLog.log('warning', 'MOVE-07', "Inbox cannot be moved", null, { toast: true });
-                        return null;
-                    }
+                const problem = gestureTable.reparentProblem(folderIds, newParentId, fl);
+                if (problem === 'not-a-folder') {
+                    rwLog.log('error', 'MOVE-11', `${gestureTable.MOVE_WORDS.parentNotAFolder}`, { where: 'planReparent — a gesture asked for a new parent that is not a folder (the table should have refused it)', newParentId, folderIds }, { toast: true });
+                    return null;
+                }
+                if (problem === 'into-itself') {
+                    rwLog.log('warning', 'MOVE-06', `${gestureTable.MOVE_WORDS.moveIntoItself}`, null, { toast: true });
+                    return null;
+                }
+                if (problem === 'inbox') {
+                    rwLog.log('warning', 'MOVE-07', "Inbox cannot be moved", null, { toast: true });
+                    return null;
                 }
 
                 // Save old parentIds for undo
@@ -15738,13 +15750,15 @@
                                                                 return;
                                                             }
 
-                                                            // Try folder drag first
+                                                            // A folder dragged from the left pane: the table's answer for this crumb — a folder, the
+                                                            // top level ("Folders"), or a refusal with words ("Book Lists", "Searches"). 7.30.0-alpha.6
+                                                            // (was reparentFolder with the crumb's id: on "Book Lists" the folder got a parent that
+                                                            // isn't a folder and dropped out of the tree — CELL-092)
                                                             const folderData = e.dataTransfer.getData('application/x-folder-reorder');
                                                             if (folderData) {
                                                                 try {
                                                                     const { folderIds } = JSON.parse(folderData);
-                                                                    const newParentId = folder.id === '__library__' ? null : folder.id;
-                                                                    reparentFolder(folderIds, newParentId);
+                                                                    dropTreeFolders(folderIds, folder.id);
                                                                 } catch (err) {
                                                                     rwLog.log('error', 'MOVE-04', "That move didn't work.", { where: 'folders dropped on the folder path above the right pane', error: err && err.message, stack: err && err.stack }, { toast: true });
                                                                 }
@@ -16622,7 +16636,11 @@
                                                                                 setExplorerFolderDragTarget({ type: 'reparent', folderId: folder.id });
                                                                             }
                                                                         }
-                                                                        if (!hasFolders) return;
+                                                                        // 7.30.0-alpha.6 - a drag that carries books goes INTO this folder wherever it lands on the
+                                                                        // row: books alone always did, a mixed drag now too (as the left pane takes one — no reorder
+                                                                        // zones). Was: a mixed drag fell through to the zones below, so a row's top / bottom quarter
+                                                                        // reordered the folders and the drop then dropped the books too — two undo steps (CELL-088).
+                                                                        return;
                                                                     }
                                                                     // v5.0.0-alpha.70 - Folder drag: Two-target zone detection (optimized)
                                                                     e.preventDefault();
@@ -16661,13 +16679,12 @@
                                                                     const rwItemsStr = e.dataTransfer.getData('application/x-rw-items');
                                                                     // v6.12.0-alpha.79 FIX - a folder drag sets BOTH folder-reorder AND rw-items; for a 'reorder' target,
                                                                     // skip the rw-items move path (it unconditionally returns) and fall through to the reorder code below.
-                                                                    if (rwItemsStr && explorerFolderDragTarget?.type !== 'reorder') {
+                                                                    // 7.30.0-alpha.6 - ONE drop, ONE answer: a drag that carries books is always a drop INTO this folder
+                                                                    // (never a reorder — even with a stale 'reorder' target); only folders alone reorder.
+                                                                    const carriesBooks = e.dataTransfer.types.includes('application/x-readerwrangler');
+                                                                    if (rwItemsStr && (carriesBooks || explorerFolderDragTarget?.type !== 'reorder')) {
                                                                         const { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
-                                                                        const target = explorerFolderDragTarget;
-                                                                        if (target?.type === 'reparent' || !target) {
-                                                                            const isCopy = ctrlKeyRef.current;
-                                                                            dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
-                                                                        }
+                                                                        dropItems(itemIds, folder.id, sourceFolder, ctrlKeyRef.current); // the one table's drag row
                                                                         setExplorerFolderDragTarget(null);
                                                                         setFolderDropHighlight(null);
                                                                         setExplorerSelectedItems(new Set());
@@ -16677,14 +16694,15 @@
                                                                         setExplorerDragData(null);
                                                                         return;
                                                                     }
+                                                                    // What's left: folders alone on the row's edge (a reorder), or a folder dragged from the
+                                                                    // left pane (x-folder-reorder only).
                                                                     const folderDataStr = e.dataTransfer.getData('application/x-folder-reorder');
-                                                                    const bookDataStr = e.dataTransfer.getData('application/x-readerwrangler');
                                                                     try {
                                                                         const dragData = JSON.parse(folderDataStr);
                                                                         const target = explorerFolderDragTarget;
 
                                                                         if (target?.type === 'reparent') {
-                                                                            reparentFolder(dragData.folderIds, target.folderId);
+                                                                            dropTreeFolders(dragData.folderIds, folder.id); // 7.30.0-alpha.6 - the table's (was reparentFolder)
                                                                         } else if (target?.type === 'reorder') {
                                                                             // Reorder within same parent
                                                                             if (canReorderFolders) {
@@ -16701,27 +16719,9 @@
                                                                     } catch (err) {
                                                                         // Not a folder drag
                                                                     }
-                                                                    // v5.4.3 - Book drop on subfolder in right pane
-                                                                    const bookDataStr2 = e.dataTransfer.getData('application/x-readerwrangler');
-                                                                    if (bookDataStr2) {
-                                                                        const dragData = JSON.parse(bookDataStr2);
-                                                                        const { sourceFolder, bookIds } = dragData;
-                                                                        if (sourceFolder === '__all__') {
-                                                                            rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
-                                                                        } else {
-                                                                            // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
-                                                                            const isCopy = ctrlKeyRef.current;
-                                                                            explorerIsCopyDragRef.current = isCopy;
-                                                                            dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
-                                                                        }
-                                                                        setFolderDropHighlight(null);
-                                                                        setExplorerSelectedItems(new Set());
-                                                                        explorerIsCopyDragRef.current = false;
-                                                                        stopDragVirtualization(); // v5.5.4-alpha.23
-                                            // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
-                                                                        setExplorerDragBookId(null);
-                                                                        setExplorerDragData(null);
-                                                                    }
+                                                                    // 7.30.0-alpha.6 - the book drop that followed (its own "All Books is view-only" and a second
+                                                                    // dropItems) is gone: a drag that carries books always takes the first branch now, so after
+                                                                    // a reorder it dropped the books too — two answers, two undo steps, from one drop (Law 22).
                                                                     setExplorerFolderDragTarget(null);
                                                                 }}
                                                                 onDragEnd={() => {
@@ -17368,7 +17368,9 @@
                                                                         setExplorerFolderDragTarget({ type: 'reparent', folderId: folder.id });
                                                                     }
                                                                 }
-                                                                if (!hasFolders) return;
+                                                                // 7.30.0-alpha.6 - a drag that carries books goes INTO this folder wherever it lands (see the
+                                                                // list-view twin; CELL-088): no reorder zones for a mixed drag
+                                                                return;
                                                             }
                                                             // v5.0.0-alpha.70 - Folder drag: Two-target zone detection (optimized)
                                                             e.preventDefault();
@@ -17407,14 +17409,12 @@
                                                             e.stopPropagation();
                                                             const rwItemsStr = e.dataTransfer.getData('application/x-rw-items');
                                                             // v6.12.0-alpha.79 FIX - skip the rw-items move path for a 'reorder' target so it falls through to the reorder code below.
-                                                            if (rwItemsStr && explorerFolderDragTarget?.type !== 'reorder') {
+                                                            // 7.30.0-alpha.6 - ONE drop, ONE answer: a drag that carries books is always a drop INTO this folder
+                                                            // (never a reorder — even with a stale 'reorder' target); only folders alone reorder.
+                                                            const carriesBooks = e.dataTransfer.types.includes('application/x-readerwrangler');
+                                                            if (rwItemsStr && (carriesBooks || explorerFolderDragTarget?.type !== 'reorder')) {
                                                                 const { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
-                                                                const target = explorerFolderDragTarget;
-                                                                // Reparent zone OR pure book drag (no zone detection needed — target is this folder)
-                                                                if (target?.type === 'reparent' || !target) {
-                                                                    const isCopy = ctrlKeyRef.current;
-                                                                    dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
-                                                                }
+                                                                dropItems(itemIds, folder.id, sourceFolder, ctrlKeyRef.current); // the one table's drag row
                                                                 setExplorerFolderDragTarget(null);
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
@@ -17424,13 +17424,15 @@
                                                                 setExplorerDragData(null);
                                                                 return;
                                                             }
+                                                            // What's left: folders alone on the tile's edge (a reorder), or a folder dragged from the left
+                                                            // pane (x-folder-reorder only).
                                                             try {
                                                                 const dragData = JSON.parse(e.dataTransfer.getData('application/x-folder-reorder'));
                                                                 const target = explorerFolderDragTarget;
 
                                                                 if (target?.type === 'reparent') {
                                                                     // Move folder(s) INTO target folder
-                                                                    reparentFolder(dragData.folderIds, target.folderId);
+                                                                    dropTreeFolders(dragData.folderIds, folder.id); // 7.30.0-alpha.6 - the table's (was reparentFolder)
                                                                 } else if (target?.type === 'reorder') {
                                                                     // Reorder within same parent
                                                                     if (canReorderFolders) {
@@ -17447,27 +17449,8 @@
                                                             } catch (err) {
                                                                 // Not a folder drag
                                                             }
-                                                            // v5.4.3 - Book drop on subfolder in right pane
-                                                            const bookDataStr = e.dataTransfer.getData('application/x-readerwrangler');
-                                                            if (bookDataStr) {
-                                                                const dragData = JSON.parse(bookDataStr);
-                                                                const { sourceFolder, bookIds } = dragData;
-                                                                if (sourceFolder === '__all__') {
-                                                                    rwLog.log('info', 'MOVE', 'All Books is view-only. Organize from folders.', null, { toast: { x: e.clientX, y: e.clientY } });
-                                                                } else {
-                                                                    // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
-                                                                    const isCopy = ctrlKeyRef.current;
-                                                                    explorerIsCopyDragRef.current = isCopy;
-                                                                    dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
-                                                                }
-                                                                setFolderDropHighlight(null);
-                                                                setExplorerSelectedItems(new Set());
-                                                                explorerIsCopyDragRef.current = false;
-                                                                stopDragVirtualization(); // v5.5.4-alpha.23
-                                            // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
-                                                                setExplorerDragBookId(null);
-                                                                setExplorerDragData(null);
-                                                            }
+                                                            // 7.30.0-alpha.6 - the book drop that followed is gone (see the list-view twin): a drag that
+                                                            // carries books always takes the first branch now (Law 22).
                                                             setExplorerFolderDragTarget(null);
                                                         }}
                                                         onDragEnd={() => {

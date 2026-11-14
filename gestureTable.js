@@ -3,7 +3,9 @@
 // 7.28.1: its FIRST rows — the Delete key (TODO "The Delete key deletes the folder you're in — not the folders you
 // selected", id 20261014-1030ay). 7.28.1-alpha.2: books AND folders selected → both go, in one confirmation and one undo
 // (Ron, 2026-11-12, review queue Q-013 — as File Explorer does; was: the books only). 7.30.0: the move / copy / paste
-// rows (TODO "One table for every move, copy, paste and delete…", id 20261106-1237; ONE-TABLE.md §4–§6).
+// rows (TODO "One table for every move, copy, paste and delete…", id 20261106-1237; ONE-TABLE.md §4–§6). 7.30.0-alpha.6:
+// a drag's words for folders refused at the Book Lists / Searches headers; reparentProblem + intoItself (planReparent's
+// checks, pure — a folder's new parent is a real folder or the top level).
 //
 // Pure — no React, no DOM, no app state — so the rules are function-tested (test/gestureTable.test.js) and every
 // combination must have a row. Loaded as a classic script before readerwrangler.js (browser); required by the test
@@ -127,7 +129,16 @@ const MOVE_WORDS = {
     // paste keeps openAPlace's / intoAllBooks' words (it is about pasting)
     booksNotTopLevel: "Books can't go to the top level — only folders can.",
     dragBothNotTopLevel: "Nothing moved — books can't go to the top level, only folders. Drop them on a folder, or drag the folders on their own.",
+    // 7.30.0-alpha.6: folders dragged onto "Book Lists" / "Searches" in the folder path above the right pane — a drag's
+    // words, naming the place (the paste keeps foldersOpenAFolder)
+    dragFoldersNotIntoBookLists: "Nothing moved — folders can't go into Book Lists, only into another folder or the top level.",
+    dragFoldersNotIntoSearches: "Nothing moved — folders can't go into Searches, only into another folder or the top level.",
+    // 7.30.0-alpha.6: planReparent's guard (reparentProblem) — a caller that asked for a parent that isn't a folder; the
+    // table refuses such a gesture first, so a person sees this only if a gesture skipped the table (a bug)
+    parentNotAFolder: 'Nothing moved — a folder can only go into another folder or the top level.',
 };
+// a drag's words for folders refused at a header (the act is the row's — only the words fit the drag)
+const DRAG_FOLDER_WORDS = { 'book-lists-view': MOVE_WORDS.dragFoldersNotIntoBookLists, 'searches-view': MOVE_WORDS.dragFoldersNotIntoSearches };
 
 // The acts (what the app then runs — the table decides, the operations do):
 //   books:   move-books   — out of the folder or Book List they came from, into the destination; a book leaving its LAST
@@ -217,7 +228,8 @@ const decide = (gesture, what, from, to) => {
         ? refuse(gesture === 'drag' && what === 'both' ? W.dragBothNotTopLevel : W.booksNotTopLevel) : r);
     const books = () => (verb === 'move' && from.placeId === to.placeId && CONTAINER_KINDS.includes(toKind)
         ? { act: 'already-here' } : fit(BOOK_ROWS[verb][fromKind][toKind]));
-    const folders = () => FOLDER_ROWS[verb][toKind];
+    const fitFolders = (r) => (r.act === 'refuse' && gesture === 'drag' && DRAG_FOLDER_WORDS[toKind] ? refuse(DRAG_FOLDER_WORDS[toKind]) : r);
+    const folders = () => fitFolders(FOLDER_ROWS[verb][toKind]);
     if (what === 'books') return books();
     if (what === 'folders') return folders();
     const b = books(), f = folders();
@@ -350,6 +362,29 @@ const refileQuestion = ({ n, title, to, others, inOthers }) => (n === 1
     ? { title: `Move ${q(title)} to ${q(to)}?`, message: `It's also in ${nameList(others)} — moving takes it out of them.` }
     : { title: `Move ${n} books to ${q(to)}?`, message: `${inOthers} of them ${inOthers === 1 ? 'is' : 'are'} also in other folders — moving takes ${inOthers === 1 ? 'it' : 'them'} out.` });
 
+// "Would this put a folder into itself or below it?" — the ONE check (7.30.0-alpha.4; pure since alpha.6): a folder move,
+// a folder copy, the menus' greyed targets. Walks UP from the target through folderList ({ id, parentId }), so a
+// destination a gesture is making ("New folder here…") is checked too. target null = the top level.
+const intoItself = (folderIds, target, folderList) => {
+    const parentOf = new Map((folderList || []).map(f => [f.id, f.parentId ?? null]));
+    const above = new Set();
+    for (let p = target; p && !above.has(p); p = parentOf.get(p)) above.add(p);
+    return (folderIds || []).some(id => above.has(id));
+};
+// planReparent's guard (7.30.0-alpha.6) — under the table, so no caller can corrupt the tree: a folder's new parent is a
+// real folder (the Inbox is one) or the top level (null / undefined) — never a header, a Book List, a Search, All Books,
+// the Trash or a folder that's gone (was: a left-pane folder dropped on "Book Lists" in the folder path got that id as
+// its parent and dropped out of the tree); never into itself or below; the Inbox never moves. Returns 'not-a-folder' |
+// 'into-itself' | 'inbox' | null (fine) — the app says each in its own words.
+const reparentProblem = (folderIds, newParentId, folderList) => {
+    if (newParentId != null && !(folderList || []).some(f => f.id === newParentId)) return 'not-a-folder';
+    for (const id of folderIds || []) {
+        if (intoItself([id], newParentId, folderList)) return 'into-itself';
+        if (id === '__inbox__') return 'inbox';
+    }
+    return null;
+};
+
 // Which selected folders a Delete may take: never the Inbox (nor any place that isn't a real folder). Returns
 // { deletable: [...], kept: [...] } — `kept` is what the words must mention.
 const splitDeletableFolders = (folderIds) => {
@@ -365,7 +400,8 @@ const deleteBothLabel = (books, folders) => `Delete ${cap(books, 'Book')} and ${
 
 const api = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, selectionWhat,
     splitDeletableFolders, MOVE_WHATS, VERBS, MOVE_WORDS, BOOK_ROWS, FOLDER_ROWS, clipFolders, placeWords, clipWords,
-    REFILE_BUTTONS, refileAsks, refileQuestion, dragVerb, deleteBothLabel, selectedWords, newPlaceWords };
+    REFILE_BUTTONS, refileAsks, refileQuestion, dragVerb, deleteBothLabel, selectedWords, newPlaceWords, intoItself,
+    reparentProblem };
 if (typeof window !== 'undefined') window.gestureTable = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -13,6 +13,8 @@
 # 7.30.0-alpha.4: the menus take the whole selection — books and folders (§6 item 17) — CELL-070–080, 086, 087; a mixed
 # drop on the "Folders" crumb says a drag's words (CELL-081); the Trash's "New…" boxes say "restore" (CELL-082–084).
 # 7.30.0-alpha.5: the left pane's dead drop branches removed — CELL-085 guards the Inbox's restore (now the table's).
+# 7.30.0-alpha.6: one drop = one answer — a drag carrying books goes into a right-pane folder row wherever it lands
+# (CELL-088–091); a left-pane folder dropped on the folder path asks the table (CELL-092–096).
 # A cell whose decided behavior isn't written anywhere records TODAY's behavior instead, and says so in its name
 # ("today's, not decided") — those are listed in the sprint's report for Ron, never guessed.
 #
@@ -894,6 +896,140 @@ with App() as app:
         "copy is gone, 7.30.0-alpha.5)",
         cell(lambda: (go("Trash"), drag(TR, "Inbox")), {"Trash": "-21", "Inbox": "+21"},
              ["Restored", "from the Trash into 'Inbox'"]))
+
+    # ── 7.30.0-alpha.6: one drop = one answer from the table (Law 22) ───────────────────────────────────────────────────
+    # 1. The right pane's folder rows: a drag that carries books goes INTO the folder wherever it lands on the row — as a
+    #    drag of books alone always did, and as the left pane takes a mixed drag; a row's top / bottom quarter reorders
+    #    only a drag of folders alone. Was: a book and a folder dropped on a row's edge reordered the folder AND dropped the
+    #    book into that row's folder — two undo steps from one drop.
+    def two_subfolders():
+        """Science Fiction with two subfolders: An Empty Folder moved in by the folder menu's Move to › (it lands first,
+        above Space Opera) — one undo step of its own, before the drop."""
+        folder_menu("An Empty Folder", "Move to", "Science Fiction")
+        words()
+        go("Science Fiction")
+        page.locator("tbody tr", has_text="An Empty Folder").first.wait_for(timeout=3000)
+
+    def row_edge_drop(titles, edge, decided, says=(), reorders=False):
+        """Select `titles` in Science Fiction, drag the last one onto An Empty Folder's row, `edge` = its top or bottom
+        quarter. Then: what changed (and, reorders=True, that Science Fiction's subfolder order changed — nothing else);
+        one Ctrl+Z puts it all back, folder order included; the next Ctrl+Z is the setup's (the drop was ONE step)."""
+        def run():
+            try:
+                two_subfolders()
+                select(*titles)
+                before, order = state(), page.evaluate(ORDER_JS)
+                dst = page.locator("tbody tr", has_text="An Empty Folder").first
+                h = dst.bounding_box()["height"]
+                mark()
+                page.locator("tbody tr", has_text=titles[-1]).first.drag_to(
+                    dst, target_position={"x": 120, "y": 2 if edge == "top" else h - 2}, timeout=10_000)
+                said = words()
+                got = delta(before, state())
+                check(got == decided, f"changed {got}; decided {decided} — said {said!r}")
+                for s in says:
+                    check(norm(s) in norm(said), f"the words should say {s!r} — said {said!r}")
+                kids = {f["name"]: f["kids"] for f in page.evaluate(ORDER_JS)}
+                was = {f["name"]: f["kids"] for f in order}
+                if reorders:
+                    check(kids["Science Fiction"] != was["Science Fiction"],
+                          f"a folder alone on a row's {edge} quarter should reorder: {kids['Science Fiction']}")
+                undone = undo_once()
+                back = not_exactly(before, state())
+                check(not back and page.evaluate(ORDER_JS) == order,
+                      f"one Ctrl+Z ({undone or 'nothing to undo'}) left: {back}; the folder order back: "
+                      f"{page.evaluate(ORDER_JS) == order} — said {said!r}")
+                more = undo_once()
+                check("An Empty Folder" in more, f"the second Ctrl+Z should undo the setup's Move to (one drop = one undo "
+                                                 f"step) — it undid {more!r}")
+            finally:
+                clean_up()
+        return run
+    INTO_EMPTY = {"Science Fiction": "-18", "An Empty Folder": "+18", "Space Opera ⇒": "An Empty Folder"}
+
+    def cover_edge_drop():
+        """The Cover View twin of CELL-088: the selection made in List View, then the Space Opera tile dragged onto An
+        Empty Folder's tile, its top quarter."""
+        try:
+            two_subfolders()
+            select("Space Opera", ND)
+            before, order = state(), page.evaluate(ORDER_JS)
+            app.menu("View", "Cover View").click()
+            tile = lambda name: page.locator('div[class*="hover:opacity-80"]', has_text=name).first   # noqa: E731
+            tile("An Empty Folder").wait_for(timeout=3000)
+            check(page.locator('div[class*="ring-blue-400"]').count() >= 1, "the selection didn't survive the switch")
+            mark()
+            tile("Space Opera").drag_to(tile("An Empty Folder"), target_position={"x": 20, "y": 3}, timeout=10_000)
+            said = words()
+            got = delta(before, state())
+            check(got == INTO_EMPTY, f"changed {got}; decided {INTO_EMPTY} — said {said!r}")
+            undone = undo_once()
+            check(not not_exactly(before, state()) and page.evaluate(ORDER_JS) == order,
+                  f"one Ctrl+Z ({undone or 'nothing'}) didn't put it all back: {not_exactly(before, state())}")
+            more = undo_once()
+            check("An Empty Folder" in more, f"the second Ctrl+Z should undo the setup's Move to — it undid {more!r}")
+        finally:
+            app.menu("View", "List View").click()
+            clean_up()
+    add("CELL-088", "a book and a folder dragged onto a folder ROW's top quarter (right pane): both go INTO that folder — "
+        "no reorder; one receipt; one Ctrl+Z (was: the folder reordered AND the book dropped — two undo steps)",
+        row_edge_drop(("Space Opera", ND), "top", INTO_EMPTY,
+                      ["Moved 'Space Opera' and 'A Book With No Description' from 'Science Fiction' to 'An Empty Folder'"]))
+    add("CELL-089", "… on the row's bottom quarter: the same — into the folder",
+        row_edge_drop(("Space Opera", ND), "bottom", INTO_EMPTY, ["to 'An Empty Folder'"]))
+    add("CELL-090", "a book alone on a folder row's top quarter: into the folder (as always — the rule the mixed drag "
+        "now follows)",
+        row_edge_drop((ND,), "top", {"Science Fiction": "-18", "An Empty Folder": "+18"},
+                      ["Moved", "to 'An Empty Folder'"]))
+    add("CELL-091", "a folder alone on a folder row's top quarter: a REORDER (Manual order) — nothing moves in or out; "
+        "one Ctrl+Z", row_edge_drop(("Space Opera",), "top", {}, reorders=True))
+    add("CELL-097", "Cover View: a book and a folder dragged onto a folder tile's top quarter — into that folder, one Ctrl+Z "
+        "(the list view's twin)", cover_edge_drop)
+
+    def left_folder_onto_row():
+        go("Science Fiction")
+        src = page.locator(f'[data-folder-id="{FOLDER_IDS["An Empty Folder"]}"]').first
+        dst = page.locator("tbody tr", has_text="Space Opera").first
+        mark()
+        src.drag_to(dst, target_position={"x": 120, "y": dst.bounding_box()["height"] / 2}, timeout=10_000)
+    add("CELL-098", "a left-pane folder dropped on the MIDDLE of a right-pane folder row: moved into it — the table's "
+        "answer (was reparentFolder on its own)",
+        cell(left_folder_onto_row, {"An Empty Folder ⇒": "Space Opera"}, ["Moved 'An Empty Folder' to 'Space Opera'"]))
+
+    # 2. The folder path above the right pane: a folder dragged from the LEFT pane onto a crumb asks the table (was
+    #    reparentFolder with the crumb's id — on "Book Lists" that gave the folder a parent that isn't a folder, and it
+    #    dropped out of the tree).
+    def crumb(name):
+        return page.locator(f"xpath=//button[normalize-space()=\"{name}\"][not(ancestor::*[@data-left-pane])]").first
+
+    def left_folder_onto_crumb(place, folder, to):
+        if place == "Old Favorites":                   # not shown in the left pane (Space Opera is closed there): open it
+            go("Space Opera")                          # from the right pane — the path: Folders › Science Fiction ›
+            page.locator("tbody tr", has_text="Old Favorites").first.dblclick()   # Space Opera › Old Favorites
+            crumb("Space Opera").wait_for(timeout=3000)
+        else:
+            go(place)
+        src = page.locator(f'[data-folder-id="{FOLDER_IDS[folder]}"]').first
+        crumb(to).wait_for(timeout=3000)
+        mark()
+        src.drag_to(crumb(to), timeout=10_000)
+    add("CELL-092", "a left-pane folder dragged onto \"Book Lists\" in the folder path (a Book List open): refused, in a "
+        "drag's words — nothing changes (was: the folder's parent became Book Lists and it dropped out of the tree)",
+        cell(lambda: left_folder_onto_crumb("Read Next", "Space Opera", "Book Lists"), {},
+             ["Nothing moved", "folders can't go into Book Lists"]))
+    add("CELL-093", "a left-pane folder dragged onto a folder's crumb: moved into it — the table's words; one Ctrl+Z",
+        cell(lambda: left_folder_onto_crumb("Old Favorites", "An Empty Folder", "Science Fiction"),
+             {"An Empty Folder ⇒": "Science Fiction"}, ["Moved 'An Empty Folder' to 'Science Fiction'"]))
+    add("CELL-094", "a left-pane folder dragged onto \"Folders\" in the folder path: to the top level",
+        cell(lambda: left_folder_onto_crumb("Old Favorites", "Space Opera", "Folders"),
+             {"Space Opera ⇒": "top level"}, ["Moved 'Space Opera' from 'Science Fiction' to the top level"]))
+    add("CELL-095", "a top-level folder dragged onto \"Folders\": already there — nothing changes, and the words say so "
+        "(§6 item 7; was: moved to the top of the list, saying \"Moved\")",
+        cell(lambda: left_folder_onto_crumb("Old Favorites", "An Empty Folder", "Folders"), {},
+             ["Nothing moved", "'An Empty Folder' is already in the top level"]))
+    add("CELL-096", "a left-pane folder dragged onto its own subfolder's crumb: refused (never into itself or below)",
+        cell(lambda: left_folder_onto_crumb("Old Favorites", "Science Fiction", "Space Opera"), {},
+             ["Can't move a folder into itself"]))
 
     # ── §6 item 6: a warning looks like a warning — amber, and it stays where it appeared ~4 s (others 1.5 s) ────────────
     TOAST_JS = """el => {

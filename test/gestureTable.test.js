@@ -8,6 +8,8 @@
 // §4–§6; the screen side: test/ui/test_cells.py, CELL-001–058). 7.30.0-alpha.2: the drag's verb — TABLE-021 (and TABLE-011
 // covers the drag's rows); the right-click Delete naming books and folders — TABLE-022. 7.30.0-alpha.4: the book menu's
 // header (TABLE-023), a drag's / a menu's refusal words for the top level (TABLE-024), the "New…" boxes' words (TABLE-025).
+// 7.30.0-alpha.6: folders dragged onto the Book Lists / Searches headers — a drag's words (TABLE-026); a folder's new
+// parent is a real folder or the top level — planReparent's guard, reparentProblem, and the one intoItself (TABLE-027).
 const assert = require('assert');
 const t = require('../gestureTable.js');
 const { test, done } = require('./harness');
@@ -324,13 +326,15 @@ test('TABLE-021', "a drag's verb (\"Move and copy books anywhere\" 6–7; §6 it
     for (const [f, to] of [['folder', 'folder'], ['book-list', 'book-list'], ['folder', 'book-list']])
         assert.strictEqual(verb(f, to, true), 'copy', `Ctrl-drag ${f} → ${to}`);
     // a drag's rows ARE the move / copy rows of its verb — one table, never a drag copy of it. (7.30.0-alpha.4: only a
-    // refusal's WORDS may fit the drag — books and folders dropped on the Folders header, TABLE-024; the act never differs.)
+    // refusal's WORDS may fit the drag — books and folders dropped on the Folders header, TABLE-024; since alpha.6 folders
+    // dropped on the Book Lists / Searches headers, TABLE-026; the act never differs.)
+    const FITTED = ['folders-view', 'book-lists-view', 'searches-view'];
     for (const what of t.MOVE_WHATS) for (const fk of t.PLACE_KINDS) for (const tk of t.PLACE_KINDS) for (const ctrl of [false, true]) {
         const v = verb(fk, tk, ctrl);
         const d = t.decide('drag', what, { placeId: PLACE_IDS[fk], ctrl }, { placeId: PLACE_IDS[tk] });
         const r = row(v, what, PLACE_IDS[fk], PLACE_IDS[tk]);
         const at = `drag${ctrl ? ' + Ctrl' : ''} ${what} ${fk} → ${tk} = ${v}`;
-        if (d.act === 'refuse' && tk === 'folders-view') assert.strictEqual(r.act, 'refuse', at);
+        if (d.act === 'refuse' && FITTED.includes(tk)) assert.strictEqual(r.act, 'refuse', at);
         else assert.deepStrictEqual(d, r, at);
     }
     // what the drag does, by the cells it decides (CELL-024–033, 057)
@@ -401,6 +405,51 @@ test('TABLE-025', 'the "New folder here…" / "New Book List…" boxes say what 
         'A Book List named “Read Next” already exists — press OK to restore 1 book from the Trash and add it to that list, or type a different name to create a new list.');
     // out of the Trash it never says copy or move
     for (const toList of [false, true]) assert.ok(!/copy|move/i.test(w({ act: 'restore', books: 2, toList })), `toList ${toList}`);
+});
+
+// ── 7.30.0-alpha.6: one drop = one answer (Law 22) — every crumb's folder drop asks the table; no caller can give a folder
+// a parent that isn't a folder ───────────────────────────────────────────────────────────────────────────────────────────
+test('TABLE-026', 'folders dragged onto the Book Lists or Searches header (the folder path): refused, in a drag\'s words naming the place', () => {
+    const W = t.MOVE_WORDS;
+    const cases = [['__booklists__', W.dragFoldersNotIntoBookLists], ['__views__', W.dragFoldersNotIntoSearches]];
+    for (const [to, words] of cases) for (const from of ['f-scifi', '__library__']) for (const ctrl of [false, true]) {
+        const d = t.decide('drag', 'folders', { placeId: from, ctrl }, { placeId: to });
+        assert.deepStrictEqual(d, { act: 'refuse', words }, `drag${ctrl ? ' + Ctrl' : ''} folders ${from} → ${to}`);
+        assert.ok(!/paste/i.test(d.words), d.words);
+    }
+    assert.strictEqual(W.dragFoldersNotIntoBookLists, "Nothing moved — folders can't go into Book Lists, only into another folder or the top level.");
+    assert.strictEqual(W.dragFoldersNotIntoSearches, "Nothing moved — folders can't go into Searches, only into another folder or the top level.");
+    // the paste keeps its own words; folders onto a folder or the Folders header still move
+    assert.strictEqual(t.decide('paste', 'folders', { placeId: 'f-scifi', clip: 'cut' }, { placeId: '__booklists__' }).words, W.foldersOpenAFolder);
+    assert.strictEqual(t.decide('drag', 'folders', { placeId: '__library__' }, { placeId: 'f-fantasy' }).act, 'move-folders');
+    assert.strictEqual(t.decide('drag', 'folders', { placeId: 'f-scifi' }, { placeId: '__library__' }).act, 'move-folders');
+});
+
+test('TABLE-027', "a folder's new parent (planReparent's guard, under the table): a real folder or the top level — never a place that isn't a folder, never into itself, never the Inbox", () => {
+    const fl = [
+        { id: '__inbox__', parentId: null }, { id: 'f-scifi', parentId: null }, { id: 'f-space', parentId: 'f-scifi' },
+        { id: 'f-old', parentId: 'f-space' }, { id: 'f-fantasy', parentId: null },
+    ];
+    const p = (ids, parent) => t.reparentProblem(ids, parent, fl);
+    // fine: a real folder (the Inbox is one), the top level
+    assert.strictEqual(p(['f-space'], 'f-fantasy'), null);
+    assert.strictEqual(p(['f-space'], '__inbox__'), null);
+    assert.strictEqual(p(['f-space'], null), null);
+    assert.strictEqual(p(['f-space'], undefined), null, 'undefined = the top level');
+    // a place that isn't a folder — the headers, a Book List, a Search, All Books, the Trash, a folder that's gone
+    for (const bad of ['__booklists__', '__views__', '__library__', '__all__', '__trash__', '__booklist_bl-1__', '__view_ss-1__', 'f-gone'])
+        assert.strictEqual(p(['f-space'], bad), 'not-a-folder', bad);
+    // into itself or below
+    assert.strictEqual(p(['f-scifi'], 'f-scifi'), 'into-itself');
+    assert.strictEqual(p(['f-scifi'], 'f-old'), 'into-itself');
+    assert.strictEqual(p(['f-fantasy', 'f-scifi'], 'f-space'), 'into-itself', 'any of them');
+    // the Inbox never moves
+    assert.strictEqual(p(['__inbox__'], 'f-fantasy'), 'inbox');
+    // the one "into itself" check walks UP from the target (a folder being made is checked too)
+    assert.strictEqual(t.intoItself(['f-scifi'], 'f-old', fl), true);
+    assert.strictEqual(t.intoItself(['f-old'], 'f-scifi', fl), false);
+    assert.strictEqual(t.intoItself(['f-scifi'], 'f-new', [...fl, { id: 'f-new', parentId: 'f-space' }]), true, 'a folder being made below it');
+    assert.strictEqual(t.intoItself(['f-scifi'], null, fl), false, 'the top level');
 });
 
 done();
