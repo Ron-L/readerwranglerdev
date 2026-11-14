@@ -147,24 +147,37 @@ with App() as app:
         page.mouse.move(900, 600)
         page.wait_for_timeout(100)
         app.click_reachable(target.first)
-        page.wait_for_timeout(400)
+        # Open when its left-pane entry shows it (bg-blue-100) — the same render that fills the right pane (nothing there is
+        # deferred), so its rows are the new place's. A condition, not the fixed 400 ms it was (7.30.0-alpha.3: ~30 s a run).
+        target.first.wait_for(state="attached")
+        page.wait_for_function("el => !!el.closest('.bg-blue-100')", arg=target.first.element_handle(), timeout=3000)
+        page.wait_for_timeout(50)
 
     def select(*titles):
-        """Click the first row, Ctrl+click the rest; wait until the screen shows them selected, then a moment for the
-        key listeners to catch up (they re-register after the selection renders — a key pressed sooner can miss it)."""
+        """Click the first row, Ctrl+click the rest; wait until the screen shows them selected. (Until 7.30.0 also 250 ms
+        more for the key listeners to catch up — they re-registered after the selection rendered; since 7.30.0-alpha.1 the
+        keys read the selection through refs, set in that same render, so a short moment is enough.)"""
         for i, t in enumerate(titles):
             page.locator("tbody tr", has_text=t).first.click(modifiers=["Control"] if i else None)
         page.wait_for_function(f"() => document.querySelectorAll('tbody tr.bg-blue-50').length === {len(titles)}",
                                timeout=3000)
-        page.wait_for_timeout(250)
+        page.wait_for_timeout(50)
 
     def pick(place, *titles):
         go(place)
         select(*titles)
 
     def key(k):
+        """Ctrl+<k>. A cut or copy says what it took (a MOVE line) — wait for that, up to 1 s (nothing selected says
+        nothing); a paste's words are waited for by words(). (Was a fixed 300 ms after every key.)"""
+        n0 = len(app.console)
         page.keyboard.press(f"Control+{k}")
-        page.wait_for_timeout(300)
+        if k in ("x", "c"):
+            for _ in range(20):
+                if any(re.search(r" · MOVE(?:-\d+)? · ", x) for _, x in app.console[n0:]):
+                    break
+                page.wait_for_timeout(50)
+            page.wait_for_timeout(50)
 
     def paste_key(place):
         go(place)
@@ -234,10 +247,15 @@ with App() as app:
         return " | ".join(lines() + boxed)
 
     def undo_once():
-        """Ctrl+Z; returns what it said it undid ('' = nothing)."""
+        """Ctrl+Z; returns what it said it undid ('' = nothing). Every Ctrl+Z says what it did — "Undone: …" or "Nothing to
+        undo" (an UNDO line) — so wait for that line (up to 3 s), not a fixed 500 ms; the checks after it read state(),
+        which waits for the screen to settle."""
         n0 = len(app.console)
         page.keyboard.press("Control+z")
-        page.wait_for_timeout(500)
+        for _ in range(60):
+            if any(" · UNDO · " in x for _, x in app.console[n0:]):
+                break
+            page.wait_for_timeout(50)
         return " | ".join(x for _, x in app.console[n0:] if " · UNDO · Undone:" in x)
 
     def clean_up():
