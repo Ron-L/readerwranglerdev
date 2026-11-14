@@ -142,6 +142,7 @@
     - [Undo history sometimes empties by itself](#undo-history-sometimes-empties-by-itself)
     - [Find out why some books end up in no folder](#find-out-why-some-books-end-up-in-no-folder)
     - [A screen test that failed once: the File menu not found after the start-up test](#a-screen-test-that-failed-once-the-file-menu-not-found-after-the-start-up-test)
+    - [A screen test that failed once: the logging script not loaded at start-up (Diagnostics)](#a-screen-test-that-failed-once-the-logging-script-not-loaded-at-start-up-diagnostics)
     - [Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced](#books-just-bought-werent-at-the-top-of-all-books-sorted-by-date-added--once-not-reproduced)
   - [🧊 Someday](#someday)
     - [Formats other than Kindle: undo my Kindle-only preference](#formats-other-than-kindle-undo-my-kindle-only-preference)
@@ -3886,6 +3887,23 @@ failed once is watched, not forgotten. (Moved here from "Logging as its own modu
 **Next time it happens**
 - **Read it before fixing it** (TESTING.md §7): what was on screen (the failure screenshot) — was the menu bar covered,
   or not yet drawn?
+- **Set it aside the same day** (with a TODO) rather than re-run past it.
+
+### A screen test that failed once: the logging script not loaded at start-up (Diagnostics)
+<!-- id 20261113-2108 -->
+
+_Why it matters:_ A test that fails now and then teaches everyone to ignore failures (TESTING.md §7) — and this one
+looked like the page starting without its logging script, which on a real visit would mean no log and no messages.
+
+**What happened**
+- Once (2026-11-13, sprint 4, before 7.30.0-alpha.3): test_diagnostics.py failed at page start-up — the log said
+  `UI-03 Uncaught ReferenceError: rwLog is not defined (readerwrangler.js:164)` (the app's first log call), then a 180 s
+  wait for the screen timed out. The file passed alone (11/11) and in the full rerun on the same files; my own two full
+  runs after it passed too.
+
+**Next time it happens**
+- **Read it before fixing it** (TESTING.md §7): did the logging script's request fail or arrive late (the failure's
+  console and network), and was `serve.py` rebuilding `dist/` at that moment?
 - **Set it aside the same day** (with a TODO) rather than re-run past it.
 
 ### Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced
