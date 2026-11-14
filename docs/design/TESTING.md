@@ -83,6 +83,9 @@ claim). The full run is never skipped; it just isn't repeated on every try.
 - **`--release` — skipped is not passed** (2026-11-12; 7.28.0: "31 passed, 2 skipped" read as a pass): with it, any
   file that didn't run fails the run, each named with why. One function decides a skip (`skip_reason` in the runner);
   nothing skips today — tier 3 brings its own relay, and a missing tool fails loud — so this guards any skip added later.
+  **And a test still marked "differs today" fails a release run** (7.30.0, sprint 4): `differs_today` (test/ui/harness.py)
+  marks a decided behavior that isn't built yet — expected while building, never in a release. The run names each such
+  test and its file (`RUN-033`, `034`).
 - **The project's own Python for screen tests** (Ron, 2026-11-04): Playwright lives in a venv at the repo root
   (`.venv/`, ignored by git), pinned in `requirements-dev.txt` — set up once with `py -m venv .venv` then
   `.venv\Scripts\pip install -r requirements-dev.txt`. The runner starts tier-2 files with that Python and fails loud
