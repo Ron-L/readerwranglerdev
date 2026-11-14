@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.30.0-alpha.1";  // Build version for this file
+        const ORGANIZER_VERSION = "7.30.0-alpha.2";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -2164,8 +2164,11 @@
             // clipboard filled by a second keyboard listener with the folder you were IN, and two folder-copy copies (7.25.1's
             // pasteRefusal was the interim answer). Tests: TABLE-011… (function), CELL-001…, PASTE-001… (screen).
             const shortTitle = (id) => (((bookMap.get(id) || {}).title) || 'book').slice(0, 40);
-            const nameOfPlace = (placeId) => (isBookListFolder(placeId) ? ((getBookList(placeId) || {}).name || 'Book List')
-                : ((folders.find(f => f.id === placeId) || {}).name || 'folder'));
+            // A place's name. folderList / listList: the folders and Book Lists to look in — a gesture that makes its own
+            // destination (the menus' "New folder here…" / "New Book List…") passes them with the new one in.
+            const nameOfPlace = (placeId, { folderList = folders, listList = bookLists } = {}) => (isBookListFolder(placeId)
+                ? ((listList.find(bl => bl.id === getBookListId(placeId)) || {}).name || 'Book List')
+                : ((folderList.find(f => f.id === placeId) || {}).name || 'folder'));
 
             // Cut / Copy: books and folders onto the ONE clipboard, and the words (gestureTable.clipWords). A cut never takes
             // the Inbox (it never moves — said); a copy out of the Trash warns that a paste will restore (§6 item 6 — a
@@ -2226,10 +2229,34 @@
             const pasteClipboardRef = useRef(null);
             pasteClipboardRef.current = pasteClipboard; // the keyboard listener reads it through the ref: never a stale clipboard
 
+            // THE way a gesture that names its verb places what it carries (7.30.0-alpha.2): the book menu's Move to › /
+            // Copy to › / Add to Book List › (and their "New folder here…" / "New Book List…") and today's drags (dropItems).
+            // The table answers (gestureTable.decide — for a drag, its verb by decisions 6–7), the one placement does it
+            // (placeItems — ONE undo step, ONE receipt). A refusal says the table's words. Returns true when it acted.
+            // opts: { ctrl } (a drag: Ctrl held at the drop), { at } (where the receipt shows), { create } (see placeItems).
+            const placeByTable = (gesture, bookIds, folderIds, from, target, { ctrl = false, at, create } = {}) => {
+                const what = gestureTable.selectionWhat(bookIds.length, folderIds.length);
+                if (what === 'nothing') return false;
+                const row = gestureTable.decide(gesture, what, { placeId: from, ctrl }, { placeId: target });
+                if (row.act === 'refuse') { rwLog.log('info', 'MOVE', row.words, null, { toast: at || true }); return false; }
+                placeItems(row, { bookIds, folderIds, from }, target, { at, create });
+                return true;
+            };
+            // A drop of right-pane items (books and / or folders, as the drag carried them) onto a place — every drop target
+            // that takes books or folders (the left pane's folders, the Inbox and Book Lists; the folder path above the right
+            // pane; the right pane's folders, list and cover view) calls it. Was moveItems: its own copy of the placement (a
+            // move's Ctrl+Z put back the wrong books, and every drop said "Moved" — CELL-019, 026, 030, 033).
+            const dropItems = (itemIds, target, from, ctrl, at) => placeByTable('drag',
+                itemIds.filter(id => bookMap.has(id)), itemIds.filter(id => folders.some(f => f.id === id)), from, target, { ctrl, at });
+
             // Books and / or folders into a place, as the table's row says: ONE undo step (a COMPOUND of the operations' own
             // steps when both), ONE receipt. Resolves true when it ran; false when an operation's own check refused (it said
             // why) or the re-file question was cancelled. Only a re-file asks (§6 item 18); everything else runs at once.
-            const placeItems = async (row, { bookIds, folderIds, from }, target) => {
+            // create (7.30.0-alpha.2): the destination is made by this gesture ("New folder here…", "New Book List…") —
+            // { step (its CREATE_FOLDER / BOOKLIST_CREATE), apply() (makes it), folderList / listList (the folders / lists
+            // with it in, to plan against) }; its making is part of the ONE undo step. at: where the receipt shows.
+            const placeItems = async (row, { bookIds, folderIds, from }, target, { at, create } = {}) => {
+                const lists = create ? { folderList: create.folderList || folders, listList: create.listList || bookLists } : {};
                 let bookAct = row.act === 'both' ? row.books : bookIds.length ? row.act : null;
                 const folderAct = row.act === 'both' ? row.folders : folderIds.length ? row.act : null;
                 let folderPlan = null, toPlace = bookIds;
@@ -2242,13 +2269,15 @@
                     if (!folderPlan) return false; // refused by the folder operation's own check — it said why
                 }
                 if (bookAct === 'refile') {
-                    const answer = await askRefile(toPlace, target);
+                    const answer = await askRefile(toPlace, target, lists);
                     if (!answer) return false;
                     if (answer === 'add') bookAct = 'add-books';
                 }
-                const bookPlan = bookAct ? planBookPlacement(bookAct, toPlace, from, target) : null;
-                const steps = [folderPlan && folderPlan.step, bookPlan && bookPlan.step].filter(Boolean);
-                steps.forEach(step => executeRedo(step)); // doing = redoing
+                const bookPlan = bookAct ? planBookPlacement(bookAct, toPlace, from, target, lists) : null;
+                const work = [folderPlan && folderPlan.step, bookPlan && bookPlan.step].filter(Boolean);
+                if (create) create.apply(); // (its redo would also open the new folder — the gesture doesn't)
+                work.forEach(step => executeRedo(step)); // doing = redoing
+                const steps = [create && create.step, ...work].filter(Boolean);
                 if (steps.length === 1) recordAction(steps[0]);
                 else if (steps.length > 1) recordAction({ type: 'COMPOUND', actions: steps, label: steps.map(s => s.label).join(' + ') });
                 const folderBooksOnly = folderAct === 'add-folder-books' && bookIds.length === 0;
@@ -2257,7 +2286,7 @@
                     folders: folderBooksOnly ? (bookPlan && { ...bookPlan.words, act: 'add-folder-books', names: folderIds.map(nameOfPlace) })
                         : folderPlan && folderPlan.words,
                 });
-                if (words) rwLog.log('info', 'MOVE', words, null, { toast: true });
+                if (words) rwLog.log('info', 'MOVE', words, null, { toast: at || true });
                 return true;
             };
             // Every book in these folders and all their subfolders (§6 item 8: an operation on a folder includes its tree).
@@ -2275,10 +2304,10 @@
             // §6 item 18: a cut from All Books (or with a Search applied) pasted into a folder re-files the books — out of
             // their other folders. When one is in 2+ other folders, one question first. Resolves 'move', 'add' (just add it)
             // or null (Cancel / Esc / ✕).
-            const askRefile = async (bookIds, target) => {
+            const askRefile = async (bookIds, target, lists = {}) => {
                 const others = bookIds.map(id => folders.filter(f => f.id !== target && (f.bookIds || []).includes(id)).map(f => f.name || 'folder'));
                 if (!gestureTable.refileAsks(others)) return 'move';
-                const to = nameOfPlace(target);
+                const to = nameOfPlace(target, lists);
                 const question = gestureTable.refileQuestion(bookIds.length === 1
                     ? { n: 1, title: shortTitle(bookIds[0]), to, others: others[0] }
                     : { n: bookIds.length, to, inOthers: others.filter(o => o.length > 0).length });
@@ -2294,13 +2323,15 @@
             // applyPlaceBooks. (Was: a cut-paste's undo put books FIRST in their folder and took out books the destination
             // held before; a copy-paste's undo took out books it never added — CELL-001, 005, 035–037.)
             // act: the table's book act. Returns { step (null when nothing changes), words (gestureTable.placeWords) }, or
-            // null when there's no such destination.
-            const planBookPlacement = (act, bookIds, from, target) => {
+            // null when there's no such destination. folderList / listList: the folders and Book Lists to plan against
+            // (the app's, or with a new destination in — placeItems' create).
+            const planBookPlacement = (act, bookIds, from, target, { folderList = folders, listList = bookLists } = {}) => {
+                const listOf = (placeId) => (isBookListFolder(placeId) ? listList.find(bl => bl.id === getBookListId(placeId)) || null : null);
                 const ids = [...new Set(bookIds)].filter(id => bookMap.has(id));
                 const toList = isBookListFolder(target);
-                const dest = toList ? getBookList(target) : folders.find(f => f.id === target);
+                const dest = toList ? listOf(target) : folderList.find(f => f.id === target);
                 if (!dest || ids.length === 0) return null;
-                const to = nameOfPlace(target), n = ids.length, title = n === 1 ? shortTitle(ids[0]) : undefined;
+                const to = nameOfPlace(target, { folderList, listList }), n = ids.length, title = n === 1 ? shortTitle(ids[0]) : undefined;
                 if (act === 'already-here') return { step: null, words: { act, n, title, to, toList } };
                 // a copy out of the Trash pasted a second time: the first paste restored them — this one only adds
                 if (act === 'restore' && !ids.some(id => bookMap.get(id).isDeleted)) act = 'add-books';
@@ -2319,10 +2350,10 @@
                 const inFolder = (f, id) => (f.bookIds || []).includes(id);
                 const left = [], leftFrom = [], sentToInbox = [];
                 if (act === 'move-books') {
-                    const srcFolder = folders.find(f => f.id === from);
-                    const srcList = isBookListFolder(from) ? getBookList(from) : null;
+                    const srcFolder = folderList.find(f => f.id === from);
+                    const srcList = listOf(from);
                     if (srcFolder) {
-                        const elsewhere = (id) => folders.some(f => f.id !== srcFolder.id && inFolder(f, id));
+                        const elsewhere = (id) => folderList.some(f => f.id !== srcFolder.id && inFolder(f, id));
                         // (onto a list, a book cut from the Inbox and in no other folder would land straight back there — it
                         // stays put, 7.25.1)
                         ids.filter(id => inFolder(srcFolder, id) && !(toList && srcFolder.id === '__inbox__' && !elsewhere(id)))
@@ -2335,10 +2366,10 @@
                     } else if (srcList) {
                         ids.filter(id => (srcList.bookIds || []).includes(id)).forEach(id => { change('list', srcList.id).out.add(id); left.push(id); });
                     }
-                    if (left.length) leftFrom.push(nameOfPlace(from));
+                    if (left.length) leftFrom.push(nameOfPlace(from, { folderList, listList }));
                 } else if (act === 'refile') {
                     // out of every other folder (a re-file never touches a Book List — lists don't file books)
-                    folders.forEach(f => {
+                    folderList.forEach(f => {
                         if (f.id === dest.id) return;
                         const out = ids.filter(id => inFolder(f, id));
                         if (!out.length) return;
@@ -2349,14 +2380,14 @@
                     // out of the Trash onto a Book List: each book also goes back where it was filed (its old folders that
                     // still exist; else the Inbox) — every book lives in a folder
                     restoring.forEach(id => {
-                        const homes = (bookMap.get(id).deletedFromFolderIds || []).map(normFolderMembership).filter(m => folders.some(f => f.id === m.folderId));
+                        const homes = (bookMap.get(id).deletedFromFolderIds || []).map(normFolderMembership).filter(m => folderList.some(f => f.id === m.folderId));
                         (homes.length ? homes : [{ folderId: '__inbox__', index: 0 }]).forEach(m => change('folder', m.folderId).in.push({ bookId: id, at: m.index }));
                     });
                 }
                 // each place's before → after, as positions: what left (and where it was), what came (and where it is)
                 const folderChanges = [], listChanges = [];
                 changes.forEach(c => {
-                    const holder = c.kind === 'list' ? bookLists.find(bl => bl.id === c.id) : folders.find(f => f.id === c.id);
+                    const holder = c.kind === 'list' ? listList.find(bl => bl.id === c.id) : folderList.find(f => f.id === c.id);
                     if (!holder) return;
                     const before = holder.bookIds || [];
                     const removed = before.map((bookId, index) => ({ bookId, index })).filter(r => c.out.has(r.bookId));
@@ -2414,12 +2445,18 @@
             // undoable). Callers keep their own name-prompt / existing-name handling, then call these. createBookList
             // returns the new list (callers use its id to navigate / rename). deleteBookList confirms + navigates away
             // if you're viewing it + toasts.
-            const createBookList = (name, bookIds = []) => {
+            // 7.30.0-alpha.2 - the new list and its undo step, worked out (changes nothing) — so the book menu's "New Book
+            // List…" makes it inside the placement's ONE undo step (placeItems' create)
+            const planBookListCreate = (name, bookIds = []) => {
                 const trimmed = (name || '').trim() || 'New List';
                 const maxPos = bookLists.length > 0 ? Math.max(...bookLists.map(b => b.position ?? 0)) : -1;
                 const newBL = { id: `bl-${Date.now()}`, name: trimmed, bookIds: [...bookIds], position: maxPos + 1 };
+                return { bookList: newBL, step: { type: 'BOOKLIST_CREATE', bookList: newBL, label: `Create Book List '${trimmed}'` } };
+            };
+            const createBookList = (name, bookIds = []) => {
+                const { bookList: newBL, step } = planBookListCreate(name, bookIds);
                 setBookLists(prev => [...prev, newBL]);
-                recordAction({ type: 'BOOKLIST_CREATE', bookList: newBL, label: `Create Book List '${trimmed}'` });
+                recordAction(step);
                 return newBL;
             };
             const deleteBookList = async (bl) => {
@@ -4343,101 +4380,12 @@
                 });
             };
 
-            // v6.11.2 - Unified move: handles books + folders in one atomic operation. v6.13.1-alpha.8 (ops refactor
-            // #2 rework) - THE single source of truth for moving/copying books+folders into a folder, for EVERY
-            // surface: drag (all drop handlers) AND the menu Move to / Copy to. (The alpha.2/4/5 moveBooksToFolder /
-            // copyBooksToFolder were retired — they duplicated this, and their drag call sites were dead x-readerwrangler
-            // fallbacks; the real drag path always routed here via x-rw-items.) MOVE_BOOKS_FOLDER/COPY_BOOKS_FOLDER
-            // types survive only as sub-actions of the "new folder then place" compound.
-            const moveItems = (itemIds, targetFolderId, sourceFolderId, { isCopy = false } = {}) => {
-                const bookIds = itemIds.filter(id => bookMap.has(id));
-                const folderIdsToMove = itemIds.filter(id => folders.some(f => f.id === id));
-
-                // v7.10.1-alpha.5 (Ron #5) - a drag OUT OF TRASH is a RESTORE, not a membership move:
-                // one drag path bypassed the wired drop handlers and landed here, which shuffled
-                // membership while the book stayed isDeleted — "Moved to Inbox" yet visible nowhere.
-                // The chokepoint owns the rule now, so every surface (and future ones) inherits it.
-                // Copy-from-trash routes here too: the only sane meaning is restore.
-                // 7.30.0 - the ONE restore (planBookPlacement's): the keys' paste out of the Trash restores the same way
-                // (§6 item 6), with the same words ("Restored … from the Trash into …") and one exact undo step.
-                if (sourceFolderId === '__trash__' && targetFolderId !== '__trash__' && bookIds.length > 0) {
-                    placeItems({ act: 'restore' }, { bookIds, folderIds: [], from: '__trash__' }, targetFolderId);
-                    return true;
-                }
-                // 7.30.0 - a COPY of folders copies them (§6 item 8 — a Ctrl-drag moved the folder while saying "Copied",
-                // CELL-055): the table's copy row, through the one folder copy (planFolderCopy).
-                if (isCopy && folderIdsToMove.length > 0) {
-                    const row = gestureTable.decide('copy', gestureTable.selectionWhat(bookIds.length, folderIdsToMove.length),
-                        { placeId: sourceFolderId }, { placeId: targetFolderId });
-                    if (row.act === 'refuse') { rwLog.log('info', 'MOVE', row.words, null, { toast: true }); return false; }
-                    placeItems(row, { bookIds, folderIds: folderIdsToMove, from: sourceFolderId }, targetFolderId);
-                    return true;
-                }
-
-                // Validate: if ANY folder can't move, abort ENTIRE operation
-                for (const fid of folderIdsToMove) {
-                    if (fid === targetFolderId || isDescendantFolder(fid, targetFolderId)) {
-                        rwLog.log('warning', 'MOVE-08', "Can't move a folder into itself or a subfolder", null, { toast: true });
-                        return false;
-                    }
-                    if (fid === '__inbox__') {
-                        rwLog.log('warning', 'MOVE-09', "Inbox cannot be moved", null, { toast: true });
-                        return false;
-                    }
-                }
-
-                // Capture undo state BEFORE mutating
-                const oldParentIds = folderIdsToMove.map(id => ({
-                    folderId: id, oldParentId: folders.find(f => f.id === id)?.parentId
-                }));
-                const sourceFolderObj = folders.find(f => f.id === sourceFolderId);
-                const fromIndices = bookIds.map(id => (sourceFolderObj?.bookIds || []).indexOf(id));
-
-                // Filter books already in target
-                const targetFolder = folders.find(f => f.id === targetFolderId);
-                const existingInTarget = new Set(targetFolder?.bookIds || []);
-                const newBookIds = bookIds.filter(id => !existingInTarget.has(id));
-
-                if (folderIdsToMove.length === 0 && newBookIds.length === 0) {
-                    if (bookIds.length > 0) rwLog.log('info', 'MOVE', bookIds.length === 1 ? 'Book already in folder' : 'Books already in folder', null, { toast: true });
-                    return false;
-                }
-
-                // ONE setFolders call: reparent folders + move books atomically
-                setFolders(prev => prev.map(f => {
-                    if (folderIdsToMove.includes(f.id)) return { ...f, parentId: targetFolderId };
-                    if (f.id === targetFolderId && newBookIds.length > 0) {
-                        return { ...f, bookIds: [...newBookIds, ...(f.bookIds || [])] };
-                    }
-                    if (!isCopy && f.id === sourceFolderId && bookIds.length > 0) {
-                        return { ...f, bookIds: (f.bookIds || []).filter(id => !bookIds.includes(id)) };
-                    }
-                    return f;
-                }));
-
-                // Human summary — used for BOTH the toast and the (isCopy-aware) undo/redo label.
-                // v7.10.1 - named targets: one book/folder gets its name (the chokepoint pays double —
-                // this string feeds the action receipt AND the undo toast).
-                const parts = [];
-                if (folderIdsToMove.length > 0) parts.push(folderIdsToMove.length === 1
-                    ? `folder '${(folders.find(f => f.id === folderIdsToMove[0]) || {}).name || 'folder'}'`
-                    : `${folderIdsToMove.length} folders`);
-                if (newBookIds.length > 0) parts.push(bookCountLabel(newBookIds));
-                const targetName = folders.find(f => f.id === targetFolderId)?.name || 'Inbox';
-                const summary = `${parts.join(' + ')} to '${targetName}'`;
-
-                // ONE undo action — label respects isCopy (fixes 'Copied' toast but 'Move' on undo)
-                recordAction({
-                    type: 'MOVE_ITEMS',
-                    label: `${isCopy ? 'Copy' : 'Move'} ${summary}`,
-                    bookIds: newBookIds, folderIds: folderIdsToMove,
-                    fromFolderId: sourceFolderId, toFolderId: targetFolderId,
-                    oldParentIds, fromIndices, isCopy, toIndex: 0
-                });
-
-                rwLog.log('info', 'MOVE', `${isCopy ? 'Copied' : 'Moved'} ${summary}`, null, { toast: true });
-                return true;
-            };
+            // (7.30.0-alpha.2 - moveItems, "the unified move" of drags and the book menu's Move to / Copy to, is gone: its book
+            // half was a second copy of the placement — a move's Ctrl+Z took out books the destination already held and
+            // didn't put back the ones already there (CELL-019, 026), every drop said "Moved" (CELL-030, 033), and a mixed
+            // drop could make the Inbox or the Folders header a folder's parent. Drags are dropItems now, the menus
+            // placeByTable — both the one table's rows and the one placement (placeItems → planBookPlacement, planFolderMove,
+            // planFolderCopy). Its undo step, MOVE_ITEMS, went with it.)
 
             // v6.13.2-alpha.5 - "In" popup hover-intent + cursor tracking — alpha.71: the timing now lives in the shared
             // useHoverTip (coverTip); these two handlers are the right pane's cover wiring, used by both cover-render paths.
@@ -5622,6 +5570,12 @@
                 const bookIds = getSelectedBookIds(), folderIds = getSelectedFolderIds();
                 const row = gestureTable.decide('delete', gestureTable.selectionWhat(bookIds.length, folderIds.length),
                     { placeId: selectedFolderId, focus: focusPaneRef.current === 'left' ? 'left' : 'right' });
+                return runDeleteRow(row, bookIds, folderIds);
+            };
+            // A Delete row of the one table, done — the key's, and the right-click Delete with books AND folders selected
+            // (§6 item 9: one item in the book and the folder menu, "Delete 2 Books and 1 Folder" — the key's operation).
+            // Returns true when the row acted.
+            const runDeleteRow = (row, bookIds, folderIds) => {
                 switch (row.act) {
                     case 'remove-from-folder':
                     case 'trash': softDeleteBooks(bookIds); return true; // in a folder: out of it; elsewhere: to the Trash
@@ -5636,6 +5590,16 @@
                     case 'say': rwLog.log('info', 'ORG', row.words, null, { toast: true }); return true;
                     default: return false; // 'nothing'
                 }
+            };
+            // The right-click menus' Delete item when books AND folders are selected where both are shown: the table's 'both'
+            // row (one confirmation naming both, one undo — deleteBooksAndFolders), or null when that isn't the selection.
+            // Its words: gestureTable.deleteBothLabel ("Delete 2 Books and 1 Folder").
+            const deleteBothItem = () => {
+                const bookIds = getSelectedBookIds(), folderIds = getSelectedFolderIds();
+                if (gestureTable.selectionWhat(bookIds.length, folderIds.length) !== 'both') return null;
+                const row = gestureTable.decide('delete', 'both', { placeId: selectedFolderId, focus: 'right' });
+                if (row.act !== 'delete-books-and-folders') return null;
+                return { label: gestureTable.deleteBothLabel(bookIds.length, folderIds.length), run: () => runDeleteRow(row, bookIds, folderIds) };
             };
             const pressDeleteRef = useRef(null);
             pressDeleteRef.current = pressDelete;
@@ -7624,10 +7588,9 @@
             // per-reducer-case showToasts left to drift. An op passes a rich `label` when it records (e.g. "Move 3
             // books to 'Sci-Fi'"); anything without one falls back to this friendly name (and warns), forcing coverage.
             const FRIENDLY_ACTION = {
-                MOVE_BOOKS_FOLDER: 'Move books', COPY_BOOKS_FOLDER: 'Copy books',
                 REMOVE_BOOKS_FOLDER: 'Remove books from folder', REORDER_BOOKS_FOLDER: 'Reorder books',
-                REORDER_BOOKS_BOOKLIST: 'Reorder Book List', PLACE_BOOKS: 'Move books', // 7.30.0 (was PASTE_BOOKS_CUT / _COPY, PASTE_TO_BOOKLIST_CUT)
-                MOVE_ITEMS: 'Move items', CREATE_FOLDER: 'Create folder', DELETE_FOLDERS: 'Delete folder',
+                REORDER_BOOKS_BOOKLIST: 'Reorder Book List', PLACE_BOOKS: 'Move books', // 7.30.0 (was PASTE_BOOKS_CUT / _COPY, PASTE_TO_BOOKLIST_CUT; alpha.2: MOVE_ITEMS, MOVE_ / COPY_BOOKS_FOLDER too)
+                CREATE_FOLDER: 'Create folder', DELETE_FOLDERS: 'Delete folder',
                 REORDER_FOLDER: 'Reorder folders', REPARENT_FOLDER: 'Move folder',
                 COPY_FOLDERS: 'Copy folder', BOOKLIST_ADD: 'Add to Book List', // 7.30.0 (was COPY_PASTE_FOLDER)
                 BOOKLIST_REMOVE: 'Remove from Book List', BOOKLIST_CREATE: 'Create Book List', BOOKLIST_DELETE: 'Delete Book List',
@@ -7925,37 +7888,8 @@
                             }
                         }
                         break;
-                    // v5.0.0-alpha.46 - Explorer folder operations
-                    case 'MOVE_BOOKS_FOLDER':
-                        // Undo move: remove from target folder, add back to source folder
-                        setFolders(prev => prev.map(folder => {
-                            if (folder.id === action.toFolderId) {
-                                // Remove books from target
-                                return { ...folder, bookIds: (folder.bookIds || []).filter(id => !action.bookIds.includes(id)) };
-                            }
-                            if (folder.id === action.fromFolderId) {
-                                // Re-insert at original positions
-                                const newBookIds = [...(folder.bookIds || [])];
-                                const sortedPairs = action.bookIds
-                                    .map((id, i) => ({ id, index: action.fromIndices[i] }))
-                                    .sort((a, b) => a.index - b.index);
-                                sortedPairs.forEach(({ id, index }) => {
-                                    newBookIds.splice(index, 0, id);
-                                });
-                                return { ...folder, bookIds: newBookIds };
-                            }
-                            return folder;
-                        }));
-                        break;
-                    case 'COPY_BOOKS_FOLDER':
-                        // Undo copy: just remove from target folder
-                        setFolders(prev => prev.map(folder => {
-                            if (folder.id === action.toFolderId) {
-                                return { ...folder, bookIds: (folder.bookIds || []).filter(id => !action.bookIds.includes(id)) };
-                            }
-                            return folder;
-                        }));
-                        break;
+                    // v5.0.0-alpha.46 - Explorer folder operations (7.30.0-alpha.2 - MOVE_BOOKS_FOLDER / COPY_BOOKS_FOLDER gone:
+                    // their last user, the book menu's "New folder here…", places through PLACE_BOOKS now)
                     case 'REMOVE_BOOKS_FOLDER':
                         // Undo remove: add books back to folder at original positions
                         setFolders(prev => prev.map(folder => {
@@ -8036,41 +7970,8 @@
                             setSelectedFolderId(action.parentId || '__all__');
                         }
                         break;
-                    case 'MOVE_ITEMS': {
-                        // v6.11.2 - Unified undo: restore folders + books in one action
-                        setFolders(prev => {
-                            let updated = prev.map(f => ({ ...f }));
-                            // Undo folder reparents
-                            for (const { folderId, oldParentId } of (action.oldParentIds || [])) {
-                                updated = updated.map(f => f.id === folderId ? { ...f, parentId: oldParentId } : f);
-                            }
-                            // Undo book moves
-                            if (action.bookIds?.length > 0) {
-                                if (action.isCopy) {
-                                    // Undo copy: remove from target
-                                    updated = updated.map(f => f.id === action.toFolderId
-                                        ? { ...f, bookIds: (f.bookIds || []).filter(id => !action.bookIds.includes(id)) }
-                                        : f);
-                                } else {
-                                    // Undo move: remove from target, restore to source at original indices
-                                    updated = updated.map(f => {
-                                        if (f.id === action.toFolderId) return { ...f, bookIds: (f.bookIds || []).filter(id => !action.bookIds.includes(id)) };
-                                        if (f.id === action.fromFolderId) {
-                                            const bookIds = [...(f.bookIds || [])];
-                                            action.bookIds.forEach((id, i) => {
-                                                const idx = action.fromIndices?.[i] ?? 0;
-                                                bookIds.splice(idx, 0, id);
-                                            });
-                                            return { ...f, bookIds };
-                                        }
-                                        return f;
-                                    });
-                                }
-                            }
-                            return updated;
-                        });
-                        break;
-                    }
+                    // (7.30.0-alpha.2 - MOVE_ITEMS, moveItems' step, is gone with it: drags record PLACE_BOOKS / REPARENT_FOLDER /
+                    // COPY_FOLDERS, the one placement's steps.)
                     case 'REPARENT_FOLDER':
                         // v5.0.0-alpha.78 - Undo reparent: restore old parentIds
                         // v7.6.0-alpha.1 (wave A) - and the order-field snapshot (reparent now places folders)
@@ -8465,31 +8366,6 @@
                         }
                         break;
                     // v5.0.0-alpha.46 - Explorer folder operations
-                    case 'MOVE_BOOKS_FOLDER':
-                        // Redo move: remove from source, add to target
-                        setFolders(prev => prev.map(folder => {
-                            if (folder.id === action.fromFolderId) {
-                                return { ...folder, bookIds: (folder.bookIds || []).filter(id => !action.bookIds.includes(id)) };
-                            }
-                            if (folder.id === action.toFolderId) {
-                                const newBookIds = [...(folder.bookIds || [])];
-                                newBookIds.splice(action.toIndex, 0, ...action.bookIds);
-                                return { ...folder, bookIds: newBookIds };
-                            }
-                            return folder;
-                        }));
-                        break;
-                    case 'COPY_BOOKS_FOLDER':
-                        // Redo copy: add to target folder
-                        setFolders(prev => prev.map(folder => {
-                            if (folder.id === action.toFolderId) {
-                                const newBookIds = [...(folder.bookIds || [])];
-                                newBookIds.splice(action.toIndex, 0, ...action.bookIds);
-                                return { ...folder, bookIds: newBookIds };
-                            }
-                            return folder;
-                        }));
-                        break;
                     case 'REMOVE_BOOKS_FOLDER':
                         // Redo remove: remove books from folder
                         setFolders(prev => prev.map(folder => {
@@ -8554,31 +8430,6 @@
                         setFolders(prev => placeNewFoldersAtTop([...prev, { ...action.folder }], [action.folder])); // v7.6.0-alpha.11 - redo re-places too
                         setSelectedFolderId(action.folderId);
                         break;
-                    case 'MOVE_ITEMS': {
-                        setFolders(prev => {
-                            let updated = prev.map(f => ({ ...f }));
-                            // Redo folder reparents
-                            for (const { folderId } of (action.oldParentIds || [])) {
-                                updated = updated.map(f => f.id === folderId ? { ...f, parentId: action.toFolderId } : f);
-                            }
-                            // Redo book moves
-                            if (action.bookIds?.length > 0) {
-                                updated = updated.map(f => {
-                                    if (f.id === action.toFolderId) {
-                                        const existing = new Set(f.bookIds || []);
-                                        const newBooks = action.bookIds.filter(id => !existing.has(id));
-                                        return newBooks.length > 0 ? { ...f, bookIds: [...newBooks, ...(f.bookIds || [])] } : f;
-                                    }
-                                    if (!action.isCopy && f.id === action.fromFolderId) {
-                                        return { ...f, bookIds: (f.bookIds || []).filter(id => !action.bookIds.includes(id)) };
-                                    }
-                                    return f;
-                                });
-                            }
-                            return updated;
-                        });
-                        break;
-                    }
                     case 'REPARENT_FOLDER':
                         // v5.0.0-alpha.78 - Redo reparent: apply the new parentId again
                         // v7.6.0-alpha.1 (wave A) - and the order-field snapshot (reparent now places folders)
@@ -15042,27 +14893,11 @@
                                                             if (rwItems) { const p = JSON.parse(rwItems); dropIds = (p.itemIds || []).filter(id => bookMap.has(id)); srcFolder = p.sourceFolder; }
                                                             else if (rw) { const d = JSON.parse(rw); dropIds = (d.bookIds || []).filter(id => bookMap.has(id)); srcFolder = d.sourceFolder; }
                                                             if (dropIds.length === 0) return;
-                                                            // v6.12.0-alpha.65 (#9) - Dragging between Book Lists MOVES (remove from source);
-                                                            // hold Ctrl/Cmd to copy. Folder→list stays a copy (source isn't a Book List).
-                                                            const srcListId = isBookListFolder(srcFolder) ? srcFolder.replace(/^__booklist_/, '').replace(/__$/, '') : null;
-                                                            const isMove = srcListId && srcListId !== bl.id && !(e.ctrlKey || e.metaKey);
-                                                            if (isMove) {
-                                                                const existing = new Set((bookLists.find(b => b.id === bl.id)?.bookIds) || []);
-                                                                const toAdd = dropIds.filter(id => !existing.has(id));
-                                                                setBookLists(prev => prev.map(b =>
-                                                                    b.id === bl.id ? { ...b, bookIds: [...(b.bookIds || []), ...toAdd] }
-                                                                    : b.id === srcListId ? { ...b, bookIds: (b.bookIds || []).filter(id => !dropIds.includes(id)) }
-                                                                    : b
-                                                                ));
-                                                                recordAction({ type: 'COMPOUND', label: `Move ${bookCountLabel(dropIds)} to '${bl.name}'`, actions: [
-                                                                    { type: 'BOOKLIST_ADD', bookListId: bl.id, bookIds: toAdd },
-                                                                    { type: 'BOOKLIST_REMOVE', bookListId: srcListId, bookIds: dropIds }
-                                                                ] }); // v7.8.0-alpha.4 named target
-                                                                rwLog.log('info', 'MOVE', `Moved ${bookCountLabel(dropIds)} to "${bl.name}"`, null, { toast: { x: e.clientX, y: e.clientY } }); // v7.10.1 - named receipt
-                                                            } else {
-                                                                const added = addBooksToBookList(bl.id, dropIds);
-                                                                rwLog.log('info', 'MOVE', added > 0 ? `Added ${added === dropIds.length ? bookCountLabel(dropIds) : `${added} book${added !== 1 ? 's' : ''}`} to "${bl.name}"` : `Already in "${bl.name}"`, null, { toast: { x: e.clientX, y: e.clientY } }); // v7.10.1
-                                                            }
+                                                            // 7.30.0-alpha.2 - the one table's drag row (dropItems): Book List → Book List moves, a
+                                                            // folder → a list copies (decision 6), Ctrl copies — with the one placement's exact undo
+                                                            // and words (was its own move / add here: a move's Ctrl+Z put the book LAST on its old
+                                                            // list, CELL-028). Books only — a folder dropped on a Book List entry is the drag task's.
+                                                            dropItems(dropIds, blFolderId, srcFolder, ctrlKeyRef.current || e.ctrlKey || e.metaKey, { x: e.clientX, y: e.clientY });
                                                             setExplorerSelectedItems(new Set());
                                                             stopDragVirtualization();
                                                             setExplorerDragBookId(null);
@@ -15283,7 +15118,7 @@
                                             if (rwItemsStr) {
                                                 const { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
                                                 const isCopy = ctrlKeyRef.current;
-                                                moveItems(itemIds, '__inbox__', sourceFolder, { isCopy });
+                                                dropItems(itemIds, '__inbox__', sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                 setFolderDropHighlight(null);
                                                 setExplorerSelectedItems(new Set());
                                                 stopDragVirtualization();
@@ -15349,7 +15184,7 @@
                                             // v6.6.0 - Read ctrlKey from drop event (more reliable than onDragOver ref on Windows/Chrome)
                                             const isCopy = ctrlKeyRef.current;
                                             explorerIsCopyDragRef.current = isCopy;
-                                            moveItems(bookIds, '__inbox__', sourceFolder, { isCopy });
+                                            dropItems(bookIds, '__inbox__', sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                             setFolderDropHighlight(null);
                                             setExplorerSelectedItems(new Set());
                                             stopDragVirtualization(); // v5.5.4-alpha.23
@@ -15558,7 +15393,7 @@
                                                                 setSidebarFolderDragTarget(null);
                                                                 if (target?.type === 'reparent' || !e.dataTransfer.types.includes('application/x-folder-reorder')) {
                                                                     const isCopy = ctrlKeyRef.current;
-                                                                    moveItems(itemIds, folder.id, sourceFolder, { isCopy });
+                                                                    dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                 }
                                                                 // If target is 'reorder', fall through to existing folder reorder logic
                                                                 if (target?.type === 'reorder') {
@@ -15662,7 +15497,7 @@
                                                             // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
                                                             const isCopy = ctrlKeyRef.current;
                                                             explorerIsCopyDragRef.current = isCopy;
-                                                            moveItems(bookIds, folder.id, sourceFolder, { isCopy });
+                                                            dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                             setFolderDropHighlight(null);
                                                             setExplorerSelectedItems(new Set());
                                                             explorerIsCopyDragRef.current = false;
@@ -15987,7 +15822,7 @@
                                                             if (rwItemsStr) {
                                                                 const { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
                                                                 const isCopy = ctrlKeyRef.current;
-                                                                moveItems(itemIds, folder.id, sourceFolder, { isCopy });
+                                                                dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
                                                                 stopDragVirtualization();
@@ -16017,7 +15852,7 @@
                                                                     const targetFolder = folders.find(f => f.id === folder.id);
                                                                     if (!targetFolder) return;
 
-                                                                    moveItems(bookIds, folder.id, sourceFolder);
+                                                                    dropItems(bookIds, folder.id, sourceFolder, ctrlKeyRef.current); // 7.30.0-alpha.2 (was moveItems — always a move)
                                                                     setExplorerSelectedItems(new Set());
                                                                     stopDragVirtualization(); // v5.5.4-alpha.23
                                             // v5.5.4 - Drag cleanup: source row may unmount before onDragEnd fires
@@ -16940,7 +16775,7 @@
                                                                         const target = explorerFolderDragTarget;
                                                                         if (target?.type === 'reparent' || !target) {
                                                                             const isCopy = ctrlKeyRef.current;
-                                                                            moveItems(itemIds, folder.id, sourceFolder, { isCopy });
+                                                                            dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                         }
                                                                         setExplorerFolderDragTarget(null);
                                                                         setFolderDropHighlight(null);
@@ -16986,7 +16821,7 @@
                                                                             // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
                                                                             const isCopy = ctrlKeyRef.current;
                                                                             explorerIsCopyDragRef.current = isCopy;
-                                                                            moveItems(bookIds, folder.id, sourceFolder, { isCopy });
+                                                                            dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                         }
                                                                         setFolderDropHighlight(null);
                                                                         setExplorerSelectedItems(new Set());
@@ -17687,7 +17522,7 @@
                                                                 // Reparent zone OR pure book drag (no zone detection needed — target is this folder)
                                                                 if (target?.type === 'reparent' || !target) {
                                                                     const isCopy = ctrlKeyRef.current;
-                                                                    moveItems(itemIds, folder.id, sourceFolder, { isCopy });
+                                                                    dropItems(itemIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                 }
                                                                 setExplorerFolderDragTarget(null);
                                                                 setFolderDropHighlight(null);
@@ -17732,7 +17567,7 @@
                                                                     // v6.6.0 - Capture isCopy BEFORE setFolders — updater runs after event handler so ref would already be reset
                                                                     const isCopy = ctrlKeyRef.current;
                                                                     explorerIsCopyDragRef.current = isCopy;
-                                                                    moveItems(bookIds, folder.id, sourceFolder, { isCopy });
+                                                                    dropItems(bookIds, folder.id, sourceFolder, isCopy); // 7.30.0-alpha.2 - the one table's drag row (was moveItems)
                                                                 }
                                                                 setFolderDropHighlight(null);
                                                                 setExplorerSelectedItems(new Set());
@@ -18683,6 +18518,8 @@
                         // right-pane selection of several folders, the item acts on the WHOLE selection (as the keys do)
                         const selFolderIds = folderContextMenu.source === 'right' ? getSelectedFolderIds() : [];
                         const menuTargets = (selFolderIds.length > 1 && selFolderIds.includes(folder.id)) ? selFolderIds : [folder.id];
+                        // books selected too, the clicked folder among them: the one Delete item naming both (§6 item 9)
+                        const bothDelete = selFolderIds.includes(folder.id) ? deleteBothItem() : null;
 
                         // v5.0.0-alpha.135 - Helper: Check if targetId is a descendant of folderId
                         const isDescendantOf = (targetId, ancestorId) => {
@@ -19008,8 +18845,19 @@
 
                                 <div className="border-t border-gray-200 my-1" role="separator"></div>
 
-                                {/* Delete Folder */}
-                                {!isSpecialFolder && (
+                                {/* Delete Folder. 7.30.0-alpha.2 - right-clicked in the right pane among selected books AND folders:
+                                    one item naming both, the Delete key's operation (§6 item 9 — as File Explorer's right-click
+                                    Delete takes the whole selection; was the folders only) */}
+                                {!isSpecialFolder && bothDelete ? (
+                                    <div
+                                        className="px-4 py-2 hover:bg-red-50 cursor-pointer flex items-center gap-3 text-red-600"
+                                        role="menuitem"
+                                        onClick={() => { setFolderContextMenu(null); bothDelete.run(); }}>
+                                        <span>🗑️</span>
+                                        <span>{bothDelete.label}</span>
+                                        <span className="ml-auto text-xs text-gray-400">Del</span>
+                                    </div>
+                                ) : !isSpecialFolder && (
                                     <div
                                         className="px-4 py-2 hover:bg-red-50 cursor-pointer flex items-center gap-3 text-red-600"
                                         role="menuitem"
@@ -19124,47 +18972,36 @@
                         const selectedBooksArray = getSelectedBookIds().map(id => books.find(b => b.id === id)).filter(Boolean);
                         const count = selectedBooksArray.length;
 
-                        // v5.0.0-alpha.166 - Phase 2: Helper functions for Move to / Copy to
-
-                        // v5.0.0-alpha.166.1 - Check if current folder is virtual (can't move books from virtual folders)
-                        // v6.0.0-alpha.53 - Inbox is a real folder, allow Cut/Move/Paste for books
-                        const isSpecialFolder = ['__all__', '__library__'].includes(selectedFolderId);
+                        // 7.30.0-alpha.2 (sprint 4) - Move to › / Copy to › / Add to Book List › ask the one table (placeByTable:
+                        // gestureTable.decide, then the one placement — exact Ctrl+Z, the one wording). Was moveItems / its own
+                        // Book List add, each with its own words and undo (CELL-018–022, 041–046). They're offered wherever
+                        // books are shown — All Books (a Move to there re-files the book, §6 item 18) and the Trash (out of the
+                        // Trash every verb restores, §6 item 6) included: the table answers each target, and one it refuses
+                        // is greyed with the table's words as its "why" (Law 16) — never hidden by a list of views here.
                         const isTrashView = selectedFolderId === '__trash__';
-
-                        // Move books to target folder
-                        const handleMoveToFolder = (targetFolderId) => {
-                            moveItems(getSelectedBookIds(), targetFolderId, selectedFolderId, { isCopy: false });
-                            setExplorerSelectedItems(new Set());
-                            setExplorerBookContextMenu(null);
-                            setContextSubmenu(null);
+                        const menuRefusal = (verb, target) => {
+                            const r = gestureTable.decide(verb, 'books', { placeId: selectedFolderId }, { placeId: target });
+                            return r.act === 'refuse' ? r.words : null;
                         };
-
-                        // Copy books to target folder
-                        const handleCopyToFolder = (targetFolderId) => {
-                            moveItems(getSelectedBookIds(), targetFolderId, selectedFolderId, { isCopy: true });
-                            setExplorerSelectedItems(new Set());
-                            setExplorerBookContextMenu(null);
-                            setContextSubmenu(null);
+                        const closeMenus = () => { setExplorerBookContextMenu(null); setContextSubmenu(null); };
+                        // The selected books, by the verb, to the target. keepSelection: Add to Book List keeps it (v6.18.0 — the
+                        // books stay where they are, so you can keep adding) — except out of the Trash, where they just left.
+                        const placeSelectedBooks = (verb, target, { keepSelection = false, create } = {}) => {
+                            const ids = getSelectedBookIds();
+                            if (ids.length === 0) return;
+                            closeMenus();
+                            placeByTable(verb, ids, [], selectedFolderId, target, { create });
+                            if (!keepSelection || isTrashView) setExplorerSelectedItems(new Set());
                         };
+                        const handleMoveToFolder = (targetFolderId) => placeSelectedBooks('move', targetFolderId);
+                        const handleCopyToFolder = (targetFolderId) => placeSelectedBooks('copy', targetFolderId);
 
                         // v6.12.0-alpha.53 - Add to Book List (supplemental: add/copy — a book can be on many lists).
                         // Books only (getSelectedBookIds ignores folders). The book menu always has >=1 book
                         // (onContextMenu selects the right-clicked book), so no empty-selection guard is needed.
                         const currentBookListId = isBookListFolder(selectedFolderId)
                             ? selectedFolderId.replace(/^__booklist_/, '').replace(/__$/, '') : null;
-                        const handleAddToExistingBookList = (bookListId) => {
-                            const ids = getSelectedBookIds();
-                            if (ids.length === 0) return;
-                            const added = addBooksToBookList(bookListId, ids);
-                            const bl = bookLists.find(b => b.id === bookListId);
-                            // v6.18.0 - KEEP the selection: adding to a list is a non-destructive overlay (the books
-                            // stay right where they are), so you can keep scanning and adding without re-selecting.
-                            setExplorerBookContextMenu(null);
-                            setContextSubmenu(null);
-                            rwLog.log('info', 'MOVE', added > 0
-                                ? `Added ${added} book${added !== 1 ? 's' : ''} to '${bl?.name || 'Book List'}'${added < ids.length ? ` (${ids.length - added} already there)` : ''}`
-                                : `All ${ids.length} book${ids.length !== 1 ? 's' : ''} already in '${bl?.name || 'Book List'}'`, null, { toast: true });
-                        };
+                        const handleAddToExistingBookList = (bookListId) => placeSelectedBooks('copy', `__booklist_${bookListId}__`, { keepSelection: true });
                         const handleAddToNewBookList = async () => {
                             const ids = getSelectedBookIds();
                             if (ids.length === 0) return;
@@ -19181,11 +19018,11 @@
                             const trimmed = (name || '').trim() || 'New To Read';
                             const existing = bookLists.find(b => (b.name || '').trim().toLowerCase() === trimmed.toLowerCase());
                             if (existing) { handleAddToExistingBookList(existing.id); return; }
-                            createBookList(trimmed, ids);
-                            // v6.18.0 - KEEP the selection (see handleAddToExistingBookList) — non-destructive overlay.
-                            setExplorerBookContextMenu(null);
-                            setContextSubmenu(null);
-                            rwLog.log('info', 'MOVE', `Added ${bookCountLabel(ids)} to new list '${trimmed}'`, null, { toast: true }); // v7.10.1 - named receipt
+                            // 7.30.0-alpha.2 - the new list, then the books placed on it by the table (out of the Trash: restored
+                            // too) — the list's making and the placement are ONE undo step
+                            const { bookList: newBL, step } = planBookListCreate(trimmed);
+                            placeSelectedBooks('copy', `__booklist_${newBL.id}__`, { keepSelection: true, create: {
+                                step, apply: () => setBookLists(prev => [...prev, newBL]), listList: [...bookLists, newBL] } });
                         };
                         const handleRemoveFromCurrentBookList = () => {
                             const ids = getSelectedBookIds();
@@ -19196,33 +19033,21 @@
                             setContextSubmenu(null);
                         };
 
-                        // v6.12.0-alpha.60 (E) - Create a new folder and move/copy the selected books into it.
-                        // Records a COMPOUND undo (folder-create + the move/copy) so one Ctrl+Z reverses the whole thing.
+                        // v6.12.0-alpha.60 (E) - Create a new folder and move/copy the selected books into it — ONE Ctrl+Z
+                        // reverses the whole thing. 7.30.0-alpha.2 - the books are placed by the table, through the one placement
+                        // (a move leaves its source, from All Books it re-files, out of the Trash it restores; exact Ctrl+Z) —
+                        // was its own copy of a move (a move from a Book List left the book on the list).
                         const handleNewFolderThenPlace = async (parentId, isCopy) => {
                             const ids = getSelectedBookIds();
                             if (ids.length === 0) return;
                             const name = await showInputDialog('MOVE', 'New Folder', `Create a folder${parentId ? ' inside this one' : ''} and ${isCopy ? 'copy' : 'move'} ${ids.length} book${ids.length !== 1 ? 's' : ''} into it.`, '', 'Folder name');
                             if (name === null) return;
                             const trimmed = (name || '').trim() || 'New Folder';
-                            const newId = `folder-${Date.now()}`;
-                            const fromFolderId = selectedFolderId;
-                            const fromIndices = ids.map(id => (folders.find(f => f.id === fromFolderId)?.bookIds || []).indexOf(id));
-                            const newFolder = { id: newId, name: trimmed, parentId: parentId || null, bookIds: [...ids], childFolderIds: [], collapsed: false };
-                            setFolders(prev => {
-                                let next = [...prev, newFolder];
-                                if (!isCopy) next = next.map(f => f.id === fromFolderId ? { ...f, bookIds: (f.bookIds || []).filter(id => !ids.includes(id)) } : f);
-                                return placeNewFoldersAtTop(next, [newFolder]); // v7.6.0-alpha.11 (wave C)
-                            });
-                            recordAction({ type: 'COMPOUND', label: `${isCopy ? 'Copy' : 'Move'} ${bookCountLabel(ids)} to new folder '${trimmed}'`, actions: [ // v7.10.1 - named (feeds undo toast too)
-                                { type: 'CREATE_FOLDER', folderId: newId, parentId: parentId || null, folder: { ...newFolder, bookIds: [] } },
-                                isCopy
-                                    ? { type: 'COPY_BOOKS_FOLDER', bookIds: ids, toFolderId: newId, toIndex: 0 }
-                                    : { type: 'MOVE_BOOKS_FOLDER', bookIds: ids, fromFolderId, toFolderId: newId, fromIndices, toIndex: 0 }
-                            ] });
-                            setExplorerSelectedItems(new Set());
-                            setExplorerBookContextMenu(null);
-                            setContextSubmenu(null);
-                            rwLog.log('info', 'MOVE', `${isCopy ? 'Copied' : 'Moved'} ${bookCountLabel(ids)} to new folder '${trimmed}'`, null, { toast: true }); // v7.10.1 - named receipt
+                            const newFolder = { id: `folder-${Date.now()}`, name: trimmed, parentId: parentId || null, bookIds: [], childFolderIds: [], collapsed: false };
+                            placeSelectedBooks(isCopy ? 'copy' : 'move', newFolder.id, { create: {
+                                step: { type: 'CREATE_FOLDER', folderId: newFolder.id, parentId: newFolder.parentId, folder: { ...newFolder }, label: `Create folder '${trimmed}'` },
+                                apply: () => setFolders(prev => placeNewFoldersAtTop([...prev, newFolder], [newFolder])), // v7.6.0-alpha.11 (wave C)
+                                folderList: [...folders, newFolder] } });
                         };
 
                         // Build folder tree for submenu (reused for both Move to and Copy to)
@@ -19237,10 +19062,11 @@
                                 return matches.map(f => {
                                     const isCurrentFolder = f.id === selectedFolderId;
                                     const parent = folders.find(p => p.id === f.parentId);
+                                    const why = menuRefusal(contextSubmenu === 'copy-to' ? 'copy' : 'move', f.id);
                                     return (
-                                        <div key={f.id} role="menuitem"
-                                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 ${isCurrentFolder ? 'bg-blue-50' : ''}`}
-                                            onClick={(e) => { e.stopPropagation(); if (contextSubmenu === 'move-to') handleMoveToFolder(f.id); else if (contextSubmenu === 'copy-to') handleCopyToFolder(f.id); }}>
+                                        <div key={f.id} role="menuitem" aria-disabled={why ? 'true' : undefined} title={why || undefined}
+                                            className={`px-4 py-2 flex items-center gap-2 ${why ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'} ${isCurrentFolder ? 'bg-blue-50' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); if (why) return; if (contextSubmenu === 'move-to') handleMoveToFolder(f.id); else if (contextSubmenu === 'copy-to') handleCopyToFolder(f.id); }}>
                                             <span>{isCurrentFolder ? '✓' : '📁'}</span>
                                             <span className="flex-1">{f.name}{parent ? <span className="text-gray-400 text-xs"> · in {parent.name}</span> : null}</span>
                                         </div>
@@ -19256,11 +19082,13 @@
                                     );
                                     const isExpanded = submenuExpandedFolders.has(f.id);
                                     const isCurrentFolder = f.id === selectedFolderId;
+                                    const why = menuRefusal(contextSubmenu === 'copy-to' ? 'copy' : 'move', f.id); // the table's "why" (Law 16)
 
                                     return (
                                         <React.Fragment key={f.id}>
                                             <div
-                                                className={`px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 ${isCurrentFolder ? 'bg-blue-50' : ''}`}
+                                                className={`px-4 py-2 flex items-center gap-2 ${why ? 'text-gray-400' : 'hover:bg-gray-100 cursor-pointer'} ${isCurrentFolder ? 'bg-blue-50' : ''}`}
+                                                title={why || undefined}
                                                 style={{ paddingLeft: `${8 + depth * 16}px` }}>
                                                 {/* Chevron */}
                                                 <span
@@ -19283,9 +19111,10 @@
                                                 </span>
                                                 {/* Folder icon and name */}
                                                 <div
-                                                    className="flex items-center gap-2 flex-1"
+                                                    className={`flex items-center gap-2 flex-1 ${why ? 'cursor-not-allowed' : ''}`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (why) return;
                                                         if (contextSubmenu === 'move-to') {
                                                             handleMoveToFolder(f.id);
                                                         } else if (contextSubmenu === 'copy-to') {
@@ -19339,20 +19168,11 @@
                                     {getSelectedBookIds().length} book{getSelectedBookIds().length !== 1 ? 's' : ''} selected
                                 </div>
 
-                                {/* Move to, Copy to, Cut/Copy/Paste — hidden in Trash view */}
-                                {!isTrashView && (<>
+                                {/* Move to, Copy to, Add to Book List, Cut/Copy/Paste — 7.30.0-alpha.2: wherever books are shown,
+                                    the Trash and All Books included; each target / Paste asks the one table (was: hidden in the
+                                    Trash; Move to and Cut greyed in All Books — "Cannot move / cut books from virtual folders") */}
                                 {/* Move to - v5.0.0-alpha.166 Phase 2 */}
-                                {/* v5.0.0-alpha.166.1 - Disabled in special folders (can't move from virtual folders) */}
-                                {isSpecialFolder ? (
-                                    <div
-                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3 relative"
-                                        role="menuitem" aria-disabled="true"
-                                        title="Cannot move books from virtual folders">
-                                        <span>📁</span>
-                                        <span>Move to</span>
-                                        <span className="ml-auto">▶</span>
-                                    </div>
-                                ) : (
+                                {(
                                     <div
                                         className="submenu-trigger px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 relative"
                                         role="menuitem" aria-haspopup="true"
@@ -19452,12 +19272,16 @@
                                                 <span>＋</span><span>New Book List…</span>
                                             </div>
                                             {bookLists.length > 0 && <div className="border-t border-gray-200 my-1" role="separator"></div>}
-                                            {[...bookLists].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).filter(bl => { const q = submenuFilter.trim().toLowerCase(); return !q || (bl.name || '').toLowerCase().includes(q); }).map(bl => (
-                                                <div key={bl.id} className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                                    role="menuitem" onClick={() => handleAddToExistingBookList(bl.id)}>
-                                                    <span>📗</span><span className="truncate max-w-[220px]">{bl.name}</span>
-                                                </div>
-                                            ))}
+                                            {[...bookLists].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).filter(bl => { const q = submenuFilter.trim().toLowerCase(); return !q || (bl.name || '').toLowerCase().includes(q); }).map(bl => {
+                                                const why = menuRefusal('copy', `__booklist_${bl.id}__`); // the table's "why" (Law 16)
+                                                return (
+                                                    <div key={bl.id} className={`px-4 py-2 flex items-center gap-2 ${why ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'}`}
+                                                        role="menuitem" aria-disabled={why ? 'true' : undefined} title={why || undefined}
+                                                        onClick={() => { if (!why) handleAddToExistingBookList(bl.id); }}>
+                                                        <span>📗</span><span className="truncate max-w-[220px]">{bl.name}</span>
+                                                    </div>
+                                                );
+                                            })}
                                             {bookLists.length === 0 && <div className="px-4 py-2 text-gray-400 text-sm">No Book Lists yet — use "New Book List…"</div>}
                                         </FlipToFitPopup>
                                 </div>
@@ -19484,17 +19308,9 @@
                                 {/* v5.0.0-alpha.168.4 - Cut/Copy/Paste */}
                                 <div className="border-t border-gray-200 my-1" role="separator"></div>
 
-                                {/* Cut - disabled in special folders */}
-                                {isSpecialFolder ? (
-                                    <div
-                                        className="px-4 py-2 text-gray-400 cursor-not-allowed flex items-center gap-3"
-                                        role="menuitem" aria-disabled="true"
-                                        title="Cannot cut books from virtual folders">
-                                        <span>✂️</span>
-                                        <span>Cut</span>
-                                        <span className="ml-auto text-xs">Ctrl+X</span>
-                                    </div>
-                                ) : (
+                                {/* Cut - 7.30.0-alpha.2: everywhere books are shown, as Ctrl+X (a cut from All Books re-files when
+                                    pasted into a folder, §6 item 18; out of the Trash it restores, §6 item 6) */}
+                                {(
                                     <div
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         role="menuitem"
@@ -19550,7 +19366,6 @@
                                 )}
 
                                 <div className="border-t border-gray-200 my-1" role="separator"></div>
-                                </>)}
 
                                 {/* v5.0.0-alpha.167 - Phase 3: Other menu items */}
 
@@ -20185,8 +20000,22 @@
                                             {/* Divider before Delete (isolated at the bottom) */}
                                             <div className="border-t border-gray-200 my-1" role="separator"></div>
 
-                                            {/* v6.0.0-alpha.49 - Delete / Trash actions */}
-                                            {selectedFolderId === '__trash__' ? (
+                                            {/* v6.0.0-alpha.49 - Delete / Trash actions. 7.30.0-alpha.2 - books AND folders selected:
+                                                one item naming both, the Delete key's operation (§6 item 9 — was "Delete 2 Books",
+                                                which deleted the books only) */}
+                                            {deleteBothItem() ? (
+                                                <div
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3 text-red-600" role="menuitem"
+                                                    onClick={() => {
+                                                        const item = deleteBothItem();
+                                                        closeMenus();
+                                                        if (item) item.run();
+                                                    }}>
+                                                    <span>🗑️</span>
+                                                    <span>{deleteBothItem().label}</span>
+                                                    <span className="ml-auto text-xs text-gray-400">Del</span>
+                                                </div>
+                                            ) : selectedFolderId === '__trash__' ? (
                                                 <>
                                                     <div
                                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3" role="menuitem"

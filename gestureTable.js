@@ -173,10 +173,25 @@ const FOLDER_ROWS = {
 };
 const CONTAINER_KINDS = ['folder', 'inbox', 'book-list'];
 
+// Today's drags — gesture → verb (§2; "Move and copy books anywhere" decisions 6–7, File Explorer's convention). Ctrl
+// always copies. A plain drag MOVES within one kind of place — folder → folder (the Inbox and the Folders header are
+// folders too), Book List → Book List — and COPIES across kinds: a folder ↔ a Book List, both ways (dropping a 300-book
+// folder on a list as a move would empty the tree — decision 6), and All Books or a Search → anywhere (§6 item 16: it
+// only adds; a plain drag guesses safe — a re-file is Shift-drag, the drag task's). Out of the Trash, either verb is a
+// restore (§6 item 6 — the rows say so). (Shift-drag = move, always: not built — the drag task.)
+const DRAG_KINDS = { 'folder': 'folders', 'inbox': 'folders', 'folders-view': 'folders', 'book-list': 'book-lists' };
+const dragVerb = (fromPlaceId, toPlaceId, ctrl) => {
+    if (ctrl) return 'copy';
+    const a = DRAG_KINDS[placeKind(fromPlaceId)], b = DRAG_KINDS[placeKind(toPlaceId)];
+    return a && a === b ? 'move' : 'copy';
+};
+
 // decide(gesture, what, from, to) → { act, books?, folders?, words?, why? }
 //   'delete': what 'both' | 'books' | 'folders' | 'nothing'; from { placeId, focus: 'right' | 'left' } (§3)
-//   'move' | 'copy': what 'books' | 'folders' | 'both'; from { placeId } (where they came from); to { placeId }
+//   'move' | 'copy': what 'books' | 'folders' | 'both'; from { placeId } (where they came from); to { placeId } — also
+//                    the book menu's Move to › / Copy to › (copy) / Add to Book List › (copy)
 //   'paste': the clipboard's verb — from { placeId, clip: 'cut' | 'copy' } (a cut moves, a copy copies)
+//   'drag': the drag's verb (dragVerb) — from { placeId, ctrl } (Ctrl held at the drop)
 const decide = (gesture, what, from, to) => {
     if (gesture === 'delete') {
         const kind = placeKind(from && from.placeId);
@@ -185,7 +200,8 @@ const decide = (gesture, what, from, to) => {
         if (!row) throw new Error(`gestureTable: no Delete row for ${key} in ${kind}`);
         return row;
     }
-    const verb = gesture === 'paste' ? (from && from.clip === 'cut' ? 'move' : 'copy') : gesture;
+    const verb = gesture === 'paste' ? (from && from.clip === 'cut' ? 'move' : 'copy')
+        : gesture === 'drag' ? dragVerb(from && from.placeId, to && to.placeId, !!(from && from.ctrl)) : gesture;
     if (!VERBS.includes(verb)) throw new Error(`gestureTable: no rows for the gesture "${gesture}" yet`);
     if (!MOVE_WHATS.includes(what)) throw new Error(`gestureTable: a ${verb} of "${what}" — nothing to ${verb}`);
     const fromKind = placeKind(from && from.placeId), toKind = placeKind(to && to.placeId);
@@ -308,9 +324,14 @@ const splitDeletableFolders = (folderIds) => {
     return { deletable, kept };
 };
 
+// The right-click Delete with books AND folders selected (§6 item 9 — the Delete key's 'both' row): one item, in the book
+// menu and the folder menu, naming both — "Delete 2 Books and 1 Folder" (Ron's words, 2026-11-13).
+const cap = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const deleteBothLabel = (books, folders) => `Delete ${cap(books, 'Book')} and ${cap(folders, 'Folder')}`;
+
 const api = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, selectionWhat,
     splitDeletableFolders, MOVE_WHATS, VERBS, MOVE_WORDS, BOOK_ROWS, FOLDER_ROWS, clipFolders, placeWords, clipWords,
-    REFILE_BUTTONS, refileAsks, refileQuestion };
+    REFILE_BUTTONS, refileAsks, refileQuestion, dragVerb, deleteBothLabel };
 if (typeof window !== 'undefined') window.gestureTable = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

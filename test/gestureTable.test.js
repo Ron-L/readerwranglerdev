@@ -5,7 +5,8 @@
 // new kind of place can't be added without saying what Delete does there. The screen side: test/ui/test_delete_key.py.
 // 7.28.1-alpha.2: books AND folders selected → Delete takes both (Ron, 2026-11-12, review queue Q-013) — TABLE-003, 009, 010.
 // 7.30.0 (sprint 4, TODO id 20261106-1237): the move / copy / paste rows and their words — TABLE-011–020 (ONE-TABLE.md
-// §4–§6; the screen side: test/ui/test_cells.py, CELL-001–058).
+// §4–§6; the screen side: test/ui/test_cells.py, CELL-001–058). 7.30.0-alpha.2: the drag's verb — TABLE-021 (and TABLE-011
+// covers the drag's rows); the right-click Delete naming books and folders — TABLE-022.
 const assert = require('assert');
 const t = require('../gestureTable.js');
 const { test, done } = require('./harness');
@@ -113,11 +114,14 @@ const row = (verb, what, from, to, clip) => t.decide(verb, what, { placeId: from
 
 test('TABLE-011', 'every move / copy / paste combination (verb × what × from × to) has a row with a known act — no gaps', () => {
     const missing = [];
-    const gestures = [['move'], ['copy'], ['paste', 'cut'], ['paste', 'copy']];
+    const gestures = [['move'], ['copy'], ['paste', 'cut'], ['paste', 'copy'], ['drag', false], ['drag', true]];
     for (const [g, clip] of gestures) for (const what of t.MOVE_WHATS) for (const fk of t.PLACE_KINDS) for (const tk of t.PLACE_KINDS) {
-        const at = `${g}${clip ? '/' + clip : ''} ${what} ${fk} → ${tk}`;
+        const at = `${g}${clip !== undefined ? '/' + clip : ''} ${what} ${fk} → ${tk}`;
         let r;
-        try { r = row(g, what, PLACE_IDS[fk], PLACE_IDS[tk], clip); } catch (e) { missing.push(`${at}: ${e.message}`); continue; }
+        try {
+            r = g === 'drag' ? t.decide('drag', what, { placeId: PLACE_IDS[fk], ctrl: clip }, { placeId: PLACE_IDS[tk] })
+                : row(g, what, PLACE_IDS[fk], PLACE_IDS[tk], clip);
+        } catch (e) { missing.push(`${at}: ${e.message}`); continue; }
         const acts = what === 'books' ? BOOK_ACTS : what === 'folders' ? FOLDER_ACTS : ['both', 'refuse'];
         if (!acts.includes(r.act)) missing.push(`${at}: unknown act ${r.act}`);
         if (r.act === 'refuse' && !r.words) missing.push(`${at}: a refusal with no words`);
@@ -296,6 +300,52 @@ test('TABLE-020', 'which folders a cut may take: never the Inbox (it never moves
     assert.deepStrictEqual(t.clipFolders('cut', ['__inbox__', 'f-a']), { taken: ['f-a'], kept: ['__inbox__'] });
     assert.deepStrictEqual(t.clipFolders('copy', ['__inbox__', 'f-a']), { taken: ['__inbox__', 'f-a'], kept: [] });
     assert.strictEqual(t.MOVE_WORDS.inboxCantMove, "The Inbox can't be moved.");
+});
+
+// ── Today's drags (sprint 4, step 4: the plain drag and the Ctrl-drag) ──────────────────────────────────────────────
+test('TABLE-021', "a drag's verb (\"Move and copy books anywhere\" 6–7; §6 item 16): Ctrl copies; a plain drag moves within one kind, copies across kinds", () => {
+    const verb = (from, to, ctrl = false) => t.dragVerb(PLACE_IDS[from], PLACE_IDS[to], ctrl);
+    // within one kind: a move
+    assert.strictEqual(verb('folder', 'folder'), 'move', 'folder → folder');
+    assert.strictEqual(verb('folder', 'inbox'), 'move', 'folder → the Inbox (a real folder)');
+    assert.strictEqual(verb('inbox', 'folder'), 'move', 'the Inbox → a folder');
+    assert.strictEqual(verb('folder', 'folders-view'), 'move', 'a folder onto the Folders header (the top level)');
+    assert.strictEqual(verb('book-list', 'book-list'), 'move', 'Book List → Book List');
+    // across kinds: a copy (it guesses safe)
+    assert.strictEqual(verb('folder', 'book-list'), 'copy', 'folder → Book List');
+    assert.strictEqual(verb('book-list', 'folder'), 'copy', 'Book List → folder');
+    assert.strictEqual(verb('all-books', 'folder'), 'copy', 'All Books → a folder (§6 item 16 — a re-file is Shift-drag)');
+    assert.strictEqual(verb('search', 'folder'), 'copy', 'a Search → a folder');
+    assert.strictEqual(verb('all-books', 'book-list'), 'copy');
+    // Ctrl always copies
+    for (const [f, to] of [['folder', 'folder'], ['book-list', 'book-list'], ['folder', 'book-list']])
+        assert.strictEqual(verb(f, to, true), 'copy', `Ctrl-drag ${f} → ${to}`);
+    // a drag's rows ARE the move / copy rows of its verb — one table, never a drag copy of it
+    for (const what of t.MOVE_WHATS) for (const fk of t.PLACE_KINDS) for (const tk of t.PLACE_KINDS) for (const ctrl of [false, true]) {
+        const v = verb(fk, tk, ctrl);
+        assert.deepStrictEqual(t.decide('drag', what, { placeId: PLACE_IDS[fk], ctrl }, { placeId: PLACE_IDS[tk] }),
+            row(v, what, PLACE_IDS[fk], PLACE_IDS[tk]), `drag${ctrl ? ' + Ctrl' : ''} ${what} ${fk} → ${tk} = ${v}`);
+    }
+    // what the drag does, by the cells it decides (CELL-024–033, 057)
+    const act = (what, from, to, ctrl) => t.decide('drag', what, { placeId: from, ctrl }, { placeId: to }).act;
+    assert.strictEqual(act('books', 'f-scifi', 'f-fantasy'), 'move-books');
+    assert.strictEqual(act('books', 'f-scifi', 'f-fantasy', true), 'add-books');
+    assert.strictEqual(act('books', 'f-scifi', '__booklist_bl-1__'), 'add-books');
+    assert.strictEqual(act('books', '__booklist_bl-1__', '__booklist_bl-2__'), 'move-books');
+    assert.strictEqual(act('books', '__booklist_bl-1__', 'f-fantasy'), 'add-books');
+    assert.strictEqual(act('books', '__trash__', 'f-fantasy'), 'restore', 'out of the Trash: a restore, whatever the verb');
+    assert.strictEqual(act('books', '__all__', 'f-fantasy'), 'add-books', 'All Books → a folder: only adds (§6 item 16)');
+    assert.strictEqual(act('folders', 'f-scifi', 'f-fantasy'), 'move-folders');
+    assert.strictEqual(act('folders', 'f-scifi', 'f-fantasy', true), 'copy-folders');
+    assert.strictEqual(act('folders', 'f-scifi', '__library__'), 'move-folders', 'onto the Folders header: the top level');
+    assert.deepStrictEqual(t.decide('drag', 'both', { placeId: 'f-scifi' }, { placeId: 'f-fantasy' }),
+        { act: 'both', books: 'move-books', folders: 'move-folders' }, 'a book and a folder dragged together: both move (§6 item 17)');
+});
+
+test('TABLE-022', "the right-click Delete with books AND folders selected (§6 item 9): one item naming both — \"Delete 2 Books and 1 Folder\"", () => {
+    assert.strictEqual(t.deleteBothLabel(2, 1), 'Delete 2 Books and 1 Folder');
+    assert.strictEqual(t.deleteBothLabel(1, 1), 'Delete 1 Book and 1 Folder');
+    assert.strictEqual(t.deleteBothLabel(3, 2), 'Delete 3 Books and 2 Folders');
 });
 
 done();

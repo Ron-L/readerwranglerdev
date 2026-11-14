@@ -22,10 +22,11 @@ Line numbers are readerwrangler.js on branch `fix/delete-key` (7.28.1-alpha.1); 
 ## 1. The shape — two small tables, one function (decided 2026-11-06)
 
 `decide(gesture, what, from, to)` — in **`gestureTable.js`**, a pure module (no React, no screen), function-tested in
-`test/gestureTable.test.js` like `bookFields.js`. The table **decides**; the existing operations **do** (`moveItems`,
-`reparentFolder`, `softDeleteBooks`, `permanentlyDeleteBooks`, `deleteFolders`, `removeBooksFromBookList`; since
+`test/gestureTable.test.js` like `bookFields.js`. The table **decides**; the existing operations **do**
+(`reparentFolder`, `softDeleteBooks`, `permanentlyDeleteBooks`, `deleteFolders`, `removeBooksFromBookList`; since
 7.30.0-alpha.1 the paste's `placeItems` → `planBookPlacement` (was `pasteBooksIntoFolder` / `pasteBooksIntoBookList`),
-`planReparent`, `planFolderCopy`). A function test fails when any combination has no row, so a new kind of
+`planReparent`, `planFolderCopy`; since alpha.2 the menus and drags too, through `placeByTable` / `dropItems` — `moveItems`
+is gone). A function test fails when any combination has no row, so a new kind of
 place, gesture or thing can't arrive without its answer.
 
 1. **gesture → verb** (§2).
@@ -141,7 +142,7 @@ both where both are shown, and each 'both' row's book half IS that place's books
 | (the second keyboard listener's Delete — "the folder you're in") | was ~5687 | **removed** — the bug |
 | Folder right-click → Delete Folder | ~19047 | `deleteFolders(menuTargets)` — selection-aware |
 | Left pane × on a folder | ~15805 | `deleteFolders([id])` |
-| Book right-click → Delete / Remove from list / Delete Permanently | ~20250–20277, ~19222 | unchanged ops (the table's book acts); Remove now `removeBooksFromBookList`. **With folders selected too, still the books only** (its words say "Delete 2 Books") — §6 item 9 |
+| Book right-click → Delete / Remove from list / Delete Permanently | ~20250–20277, ~19222 | unchanged ops (the table's book acts); Remove now `removeBooksFromBookList`. **With folders selected too: since 7.30.0-alpha.2 one item "Delete 2 Books and 1 Folder"** in the book menu and the folder menu (`deleteBothItem` → `runDeleteRow`, the key's own runner) — §6 item 9 |
 | Drag onto the Trash | ~15884 | `softDeleteBooks` — unchanged (§6 Q5) |
 | Trash: Empty Trash; Removed books: delete | ~16049, ~11415 | unchanged — explicit, confirmed, outside the key |
 | Book List delete (×, menu); Search delete | ~15055, ~18483; ~14894, ~19128 | unchanged — no key reaches them (Q3) |
@@ -349,11 +350,39 @@ hadn't listed, and the cells whose answer wasn't clear:
    — **7.30.0-alpha.1, the rows and the keys — built:** `gestureTable.js` — `BOOK_ROWS` / `FOLDER_ROWS` (verb × what's
    moved × from × to; 'both' = the two halves joined, a refusing half refuses the whole), `decide('paste', …)` = the
    clipboard's verb, `selectionWhat` (was `deleteWhat` — one answer to "what's selected" for Delete and the keys), every
-   word the rows say (`MOVE_WORDS`, `placeWords`, `clipWords`, `refileQuestion`) — TABLE-011–020. **Left for the next
-   step: the menus** (Move to / Copy to / Add to Book List greyed items and "why" tooltips from the table, the book menu's
-   Cut greyed in All Books and Cut / Copy / Paste hidden in the Trash, the combined Delete item — item 9) **and today's
-   drags** (their verbs from the table; `moveItems`' book half is still its own copy of the placement — its restore and
-   its folder copy already go through the one operations).
+   word the rows say (`MOVE_WORDS`, `placeWords`, `clipWords`, `refileQuestion`) — TABLE-011–020.
+   — **7.30.0-alpha.2, the menus and today's drags — built:** `decide('drag', what, { placeId, ctrl }, to)` = the drag's
+   verb (`dragVerb`: Ctrl copies; a plain drag moves within one kind — folder → folder, list → list — and copies across
+   kinds, All Books / a Search → a folder included, §6 item 16) — TABLE-021. ONE entry point in the app,
+   **`placeByTable(gesture, books, folders, from, to)`** (the table's row, then `placeItems`): the book menu's Move to › /
+   Copy to › / Add to Book List › and their "New folder here…" / "New Book List…" (their making is part of the ONE undo
+   step — `placeItems`' `create`), and **`dropItems`** for every drop. **`moveItems` is gone** (its book half was the
+   second copy of the placement; its MOVE_ITEMS step, and the dead MOVE_ / COPY_BOOKS_FOLDER steps, with it). The book
+   menu offers Move to / Copy to / Add to Book List / Cut / Copy / Paste wherever books are shown — All Books (was: Move to
+   and Cut greyed) and the Trash (was: hidden) — each target greyed only when the table refuses it, with its words (Law 16);
+   Paste as before (`pasteRefusal`). Measured: CELL-018–022, 024–026, 028, 030, 033, 041–043, 045, 046, 057 do what was
+   decided — **no cell differs any more**; new CELL-064–069 (the Trash's menu, Move to / Add to Book List out of the Trash,
+   Cut in All Books, the two "New…" entries).
+
+   **The site map (Law 5 — two searches: every call of a move / copy operation, and every `onDrop` / menu handler):**
+
+   | Where | Before alpha.2 | Now |
+   |---|---|---|
+   | Left pane: a folder's drop (~15396, its book fallback ~15500) | `moveItems` | `dropItems` |
+   | Left pane: the Inbox's drop (~15121, ~15187) | `moveItems`; a fallback with its own restore | `dropItems` (the fallback's restore is unreachable — every right-pane drag carries `x-rw-items` — and is left) |
+   | Left pane: a Book List entry's drop (~14900) | its own list move (COMPOUND of BOOKLIST_ADD + _REMOVE) / `addBooksToBookList` | `dropItems` (books only — a folder dropped there is the drag task's) |
+   | Left pane: the Trash's drop (~15763) | `softDeleteBooks` | unchanged (§6 Q5) |
+   | Left pane: the Folders header's drop (~14979) | `reparentFolder(…, null)` (folders only) | unchanged |
+   | The folder path above the right pane (~15825, ~15855) | `moveItems` (a mixed drop on "Folders" made it a folder's parent) | `dropItems` (books onto "Folders": refused) |
+   | Right pane: a folder row's drop, list view (~16778, ~16824) and cover view (~17525, ~17570) | `moveItems` | `dropItems` |
+   | Right pane: a book row's drop (~17115, ~17738) | reorder (Manual order) | unchanged — outside the table |
+   | Book menu: Move to › / Copy to › (~18996) | `moveItems` | `placeByTable('move' / 'copy')` |
+   | Book menu: Add to Book List › (~19004) | `addBooksToBookList` + its own words | `placeByTable('copy', …, list)` |
+   | Book menu: "New folder here…" / "New Book List…" (~19040, ~19005) | their own folder copy (MOVE_ / COPY_BOOKS_FOLDER) / `createBookList` | `placeByTable` with `create` |
+   | Book menu: Cut / Copy / Paste; folder menu: Cut / Copy / Paste | `putOnClipboard` / `pasteClipboard` (alpha.1) | unchanged; the book menu's now shown in the Trash and enabled in All Books |
+   | Folder menu: Move to › (~18537) | `reparentFolder` (folders only) | unchanged (the folder's own row; CELL-047) |
+   | The keys (Ctrl+X / C / V, Delete) | alpha.1 | unchanged |
+   | Other `addBooksToBookList` callers (Auto-Organize's "add to list", the filter bar's "add shown books") | — | not book / folder gestures of this table — unchanged |
 5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
    — **7.30.0-alpha.1 — built:** the second listener and its folder clipboard are gone; ONE clipboard
    `{ type, bookIds, folderIds, from }` filled by `putOnClipboard` (Ctrl+X / Ctrl+C on the selection — books, folders or
@@ -369,7 +398,11 @@ hadn't listed, and the cells whose answer wasn't clear:
 6. §6 item 6's words and the amber warning look; item 7's "already there" words; item 8 (folders recursive); item 9.
    — **7.30.0-alpha.1:** item 6's words (MOVE-10, a warning — the amber look is the next step), items 7, 8, 14, 15, 17,
    18 built; item 19: CELL-023 asserts it. `tools/run_tests.py --release` refuses while any test still differs from what
-   was decided, naming each (RUN-033, 034). **Next: the amber look and item 9.**
+   was decided, naming each (RUN-033, 034).
+   — **7.30.0-alpha.2 — item 9 built:** `gestureTable.deleteBothLabel` ("Delete 2 Books and 1 Folder", TABLE-022); the
+   book menu and the folder menu (right-clicked in the right pane among the selection) show ONE such item with its key
+   (Del), and it runs the key's own row (`runDeleteRow`, split out of `pressDelete`) — DELKEY-017, 018. **Next: the amber
+   look.**
 
 **Later, in "Move and copy books anywhere" (its own sprint):** the NEW drag gestures — Shift-drag to move, the live
 "Copy to 'Sci-Fi' — hold Shift to move" label, a folder dropped on a Book List entry, a drop between two Book List

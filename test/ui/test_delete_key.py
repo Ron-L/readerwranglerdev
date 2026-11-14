@@ -396,6 +396,43 @@ with App() as app:
     test("DELKEY-013", "books and folders deleted: ONE Ctrl+Z puts everything back exactly (the book where it was, the "
          "folders with their books, nothing extra); Ctrl+Y redoes exactly the same", books_and_folders_undo)
 
+    # §6 item 9 (decided 2026-11-13): the right-click Delete with books AND folders selected — one item naming both,
+    # "Delete 1 Book and 1 Folder", in the book menu AND the folder menu, through the key's operation (one confirmation,
+    # one undo). Was: the book menu's "Delete" took the books only; the folder menu's "Delete Folder" the folder only.
+    def menu_delete_both(right_click_on):
+        before = state(app)
+        try:
+            baseline()
+            open_left(app, "Science Fiction")
+            select(app, "Space Opera", "Good Omens")
+            app.page.locator("tbody tr", has_text=right_click_on).first.click(button="right")
+            menu = app.page.get_by_role("menu", name=re.compile(r"^(Book|Folder) options$"))
+            menu.first.wait_for(timeout=5000)
+            item = menu.first.get_by_role("menuitem").filter(has_text=re.compile(r"Delete"))
+            labels = [item.nth(i).inner_text() for i in range(item.count())]
+            check(any("Delete 1 Book and 1 Folder" in x for x in labels),
+                  f"the menu should offer ONE Delete naming both — \"Delete 1 Book and 1 Folder\"; its Delete items: {labels!r}")
+            both = item.filter(has_text="Delete 1 Book and 1 Folder").first
+            check("Del" in both.inner_text().replace("Delete", ""), f"the item should show its key (Del): {both.inner_text()!r}")
+            both.click()
+            app.page.wait_for_timeout(400)
+            words = box(app)
+            check(words and "Space Opera" in words and "Good Omens" in words,
+                  f"the item should ask the key's ONE confirmation, naming both: {words!r}")
+            answer(app, "Delete")
+            after = state(app)
+            check("f-space" not in after["folders"], "the selected folder is still there")
+            check("TST0000005" not in after["folders"]["f-scifi"]["books"], "the selected book didn't leave Science Fiction")
+            undo(app)                              # ONE Ctrl+Z for the lot, as the key
+            changed = differences(before, state(app))
+            check(not changed, f"one Ctrl+Z should put everything back exactly — still different: {changed}")
+        finally:
+            back_to_fixture(before)
+    test("DELKEY-017", "books and folders selected, right-click a BOOK → one item \"Delete 1 Book and 1 Folder\" (with its "
+         "key), the key's confirmation naming both, one Ctrl+Z (§6 item 9)", lambda: menu_delete_both("Good Omens"))
+    test("DELKEY-018", "the same from the FOLDER's right-click menu: one item naming both, not \"Delete Folder\" (§6 item 9)",
+         lambda: menu_delete_both("Space Opera"))
+
     def book_inside_the_folder(choice):
         try:
             restore_variant()

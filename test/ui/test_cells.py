@@ -292,26 +292,14 @@ with App() as app:
     # feature/one-table): words its failure must contain (differs_today). When a cell starts doing what was decided, its
     # line goes; when it changes some other way, the test fails and says so.
     # 7.30.0 (sprint 4, the keys + exact undo + the folder copy): CELL-001–017, 034–040, 049–052, 055 now do what was
-    # decided — their lines are gone. What's left is the menus' and drags' (the next step of the sprint).
-    TODAY = {
-        "CELL-018": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-019": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\"", "left: Science Fiction: -5"],
-        "CELL-020": ["said: 'Book already in folder'"],
-        "CELL-021": ["changed {'Fantasy': '+3'}", "said: \"Moved 'The Test Saga, Book Three' to 'Fantasy'\""],
-        "CELL-022": ["Move to is greyed here (tooltip 'Cannot move books from virtual folders')"],
-        "CELL-024": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-025": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-026": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\"", "left: Science Fiction: -5"],
-        "CELL-028": ["to \"An Empty Book List\"", "order of 'Read Next': [3, 20, 16] → [20, 16, 3]"],
-        "CELL-030": ["said: \"Moved 'The Test Saga, Book Three' to 'Fantasy'\""],
-        "CELL-033": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],   # decided 2026-11-13 (§6 item 16)
-        "CELL-041": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-042": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-043": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
-        "CELL-045": ["said: \"Added 1 book to 'Read Next' (1 already there)\""],
-        "CELL-046": ["said: \"All 1 book already in 'Read Next'\""],
-        "CELL-057": ["said: \"Moved folder 'Space Opera' + 'A Book With No Description' to 'Fantasy'\""],   # §6 items 14, 17
-    }
+    # decided — their lines are gone. 7.30.0-alpha.2 (the menus and today's drags ask the table): CELL-018–022, 024–026,
+    # 028, 030, 033, 041–043, 045, 046, 057 too — no cell differs from the design any more. (Their measured words, for
+    # the record: Move to / a drag said "Moved 'X' to 'Fantasy'" and Copy to / a Ctrl-drag "Copied…", with no source and
+    # no "already there"; Move to the folder it's in said "Book already in folder"; Move to from a Book List and a plain
+    # drag Book List → folder left the book on the list; Move to was greyed in All Books ("Cannot move books from virtual
+    # folders"); a list → list drag's Ctrl+Z put the book LAST on its list; Add to Book List said "(1 already there)" /
+    # "All 1 book already in 'Read Next'"; a book + folder drag said "Moved folder 'Space Opera' + 'X' to 'Fantasy'".)
+    TODAY = {}
 
     def add(tid, name, fn):
         if ONLY and tid not in ONLY:
@@ -631,6 +619,93 @@ with App() as app:
             clean_up()
     add("CELL-063", "a copy out of the Trash pasted twice: the first paste restores, the second only adds (\"Added\", "
         "not \"Restored\"); two Ctrl+Z put it all back", copy_from_trash_pasted_twice)
+
+    # ── 7.30.0-alpha.2: the book menu follows the table where it used to hide or grey (§6 item 6, item 18; Law 16) ──────
+    def menu_item(label):
+        """The open book menu's item whose own label is exactly `label` (its row: the label's parent)."""
+        return page.get_by_role("menu", name="Book options").get_by_text(label, exact=True).first.locator("xpath=..")
+
+    def trash_menu_offers():
+        try:
+            pick("Trash", TR)
+            key("c")                                        # a copy out of the Trash on the clipboard: Paste is then refused
+            page.locator("tbody tr", has_text=TR).first.click(button="right")
+            page.get_by_role("menu", name="Book options").wait_for(timeout=3000)
+            for label in ("Move to", "Copy to", "Add to Book List", "Cut", "Copy"):
+                row = menu_item(label)
+                check(row.count(), f"the Trash's book menu doesn't offer {label!r} (it was hidden there before 7.30.0)")
+                check(row.get_attribute("aria-disabled") != "true", f"{label!r} is greyed in the Trash")
+            paste = menu_item("Paste")
+            check(paste.count(), "no Paste item in the Trash's book menu")
+            check("Can't paste into the Trash" in (paste.get_attribute("title") or ""),
+                  f"Paste in the Trash should be greyed with the table's words — its title: {paste.get_attribute('title')!r}")
+        finally:
+            clean_up()
+    add("CELL-064", "the Trash's book menu offers Move to / Copy to / Add to Book List / Cut / Copy (out of the Trash every "
+        "verb restores, §6 item 6); Paste is there, greyed with the table's words (Law 16)", trash_menu_offers)
+    add("CELL-065", "Move to › out of the Trash: a RESTORE into that folder; \"Restored … from the Trash into 'Fantasy'\"",
+        cell(lambda: (pick("Trash", TR), book_menu(TR, "Move to", "Move to folder", "Fantasy")),
+             {"Trash": "-21", "Fantasy": "+21"}, ["Restored", "from the Trash", "into 'Fantasy'"]))
+    add("CELL-066", "Add to Book List › out of the Trash: restored (back in the folder it was in) and added to the list",
+        cell(lambda: (pick("Trash", TR), book_menu(TR, "Add to Book List", "Add to Book List", "Read Next")),
+             {"Trash": "-21", "Read Next": "+21", "Science Fiction": "+21"}, ["Restored", "added it to 'Read Next'"]))
+
+    def menu_cut_in_all_books():
+        pick("All Books", S1)
+        page.locator("tbody tr", has_text=S1).first.click(button="right")
+        row = menu_item("Cut")
+        row.wait_for(timeout=3000)
+        check(row.get_attribute("aria-disabled") != "true", f"Cut is greyed in All Books (title {row.get_attribute('title')!r})")
+        app.click_reachable(row)
+        page.wait_for_timeout(300)
+        paste_key("Inbox")
+    add("CELL-067", "the book menu's Cut in All Books (was greyed: \"Cannot cut books from virtual folders\") → Ctrl+V in a "
+        "folder: re-filed, as Ctrl+X there (§6 item 18)",
+        cell(menu_cut_in_all_books, {"The Test Saga": "-1", "Inbox": "+1"}, ["Moved"]))
+
+    def new_container(trigger, submenu, entry, name):
+        """Right-click the selected row → a submenu → its "New …" entry → type a name → Enter."""
+        def gesture(title):
+            page.locator("tbody tr", has_text=title).first.click(button="right")
+            menu = page.get_by_role("menu", name="Book options")
+            menu.wait_for(timeout=3000)
+            app.hover(menu.locator(".submenu-trigger", has_text=trigger).first)
+            sub = page.locator(f'[aria-label="{submenu}"]')
+            sub.wait_for(timeout=3000)
+            app.click_reachable(sub.get_by_text(entry, exact=True).first)
+            box = page.locator(".rw-imperative-overlay input").first
+            box.wait_for(timeout=3000)
+            box.fill(name)
+            mark()
+            box.press("Enter")
+        return gesture
+    new_folder = new_container("Move to", "Move to folder", "New folder here…", "Beach Reads")
+    add("CELL-068", "Move to › New folder here… from a Book List: a true move — off the list, into the new folder (was: the "
+        "list kept it); one Ctrl+Z takes back both the folder and the move",
+        cell(lambda: (pick("Read Next", S3), new_folder(S3)),
+             {"Read Next": "-3", "new Beach Reads": "in top level: 3"}, ["Moved", "from 'Read Next'", "to 'Beach Reads'"]))
+    new_list = new_container("Add to Book List", "Add to Book List", "New Book List…", "Beach Reads")
+
+    def list_count():
+        return len(state()["lists"])
+
+    def new_list_from_trash():
+        try:
+            before, n0 = state(), list_count()
+            pick("Trash", TR)
+            new_list(TR)
+            said = words()
+            got = delta(before, state())
+            check(got == {"Trash": "-21", "Science Fiction": "+21", "Beach Reads": "+21"}, f"changed {got}")
+            check("Restored" in said and "added it to 'Beach Reads'" in norm(said), f"said: {said!r}")
+            undone = undo_once()
+            back = not_exactly(before, state())
+            check(not back and list_count() == n0, f"one Ctrl+Z ({undone or 'nothing to undo'}) left: {back}; "
+                                                   f"{list_count() - n0} new list(s) still there")
+        finally:
+            clean_up()
+    add("CELL-069", "Add to Book List › New Book List… out of the Trash: the new list, the book restored onto it — one "
+        "Ctrl+Z takes back the list and the restore", new_list_from_trash)
 
     # Warnings on purpose: CELL-053's refusal (MOVE-06); CELL-039's "a paste will restore" (MOVE-10, §6 item 6)
     DELIBERATE = ("MOVE-06", "MOVE-10")
