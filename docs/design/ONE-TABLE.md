@@ -23,8 +23,9 @@ Line numbers are readerwrangler.js on branch `fix/delete-key` (7.28.1-alpha.1); 
 
 `decide(gesture, what, from, to)` — in **`gestureTable.js`**, a pure module (no React, no screen), function-tested in
 `test/gestureTable.test.js` like `bookFields.js`. The table **decides**; the existing operations **do** (`moveItems`,
-`reparentFolder`, `pasteBooksIntoFolder`, `pasteBooksIntoBookList`, `softDeleteBooks`, `permanentlyDeleteBooks`,
-`deleteFolders`, `removeBooksFromBookList`). A function test fails when any combination has no row, so a new kind of
+`reparentFolder`, `softDeleteBooks`, `permanentlyDeleteBooks`, `deleteFolders`, `removeBooksFromBookList`; since
+7.30.0-alpha.1 the paste's `placeItems` → `planBookPlacement` (was `pasteBooksIntoFolder` / `pasteBooksIntoBookList`),
+`planReparent`, `planFolderCopy`). A function test fails when any combination has no row, so a new kind of
 place, gesture or thing can't arrive without its answer.
 
 1. **gesture → verb** (§2).
@@ -345,8 +346,30 @@ hadn't listed, and the cells whose answer wasn't clear:
 3. ~~Ron's red pen on §4–§6~~ — done: Q-019 (read and approved), §6 items 6–9 decided 2026-11-13.
 4. `decide('move' | 'copy' | 'paste', …)` rows; every gesture that exists today asks them — the keys, the menus (their
    greyed items and "why" tooltips), today's drags.
+   — **7.30.0-alpha.1, the rows and the keys — built:** `gestureTable.js` — `BOOK_ROWS` / `FOLDER_ROWS` (verb × what's
+   moved × from × to; 'both' = the two halves joined, a refusing half refuses the whole), `decide('paste', …)` = the
+   clipboard's verb, `selectionWhat` (was `deleteWhat` — one answer to "what's selected" for Delete and the keys), every
+   word the rows say (`MOVE_WORDS`, `placeWords`, `clipWords`, `refileQuestion`) — TABLE-011–020. **Left for the next
+   step: the menus** (Move to / Copy to / Add to Book List greyed items and "why" tooltips from the table, the book menu's
+   Cut greyed in All Books and Cut / Copy / Paste hidden in the Trash, the combined Delete item — item 9) **and today's
+   drags** (their verbs from the table; `moveItems`' book half is still its own copy of the placement — its restore and
+   its folder copy already go through the one operations).
 5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
+   — **7.30.0-alpha.1 — built:** the second listener and its folder clipboard are gone; ONE clipboard
+   `{ type, bookIds, folderIds, from }` filled by `putOnClipboard` (Ctrl+X / Ctrl+C on the selection — books, folders or
+   both, never "the folder you're in"; the book and folder menus' Cut / Copy) and pasted by `pasteClipboard(target)`
+   (Ctrl+V, both menus' Paste), through refs (the keyboard race). The work: `placeItems` → `planBookPlacement` (THE
+   book placement — move, copy, re-file, restore; replaces `pasteBooksIntoFolder` / `pasteBooksIntoBookList`),
+   `planReparent` (reparentFolder's working-out), `planFolderCopy` (THE folder copy — was two copies, plus a Ctrl-drag that
+   moved). Each records ONE undo step whose doing IS its redo: `PLACE_BOOKS` (each book's old and new position — exact
+   Ctrl+Z, §6 items 10, 11) and `COPY_FOLDERS` (the new folders + the order fields; Ctrl+Y works now — it said "Cannot
+   redo copy operation"). Retired: PASTE_BOOKS_CUT / _COPY, PASTE_TO_BOOKLIST_CUT, COPY_PASTE_FOLDER (UNDO-04).
+   Measured: CELL-001–017, 034–040, 049–052, 055, 056 do what was decided; new CELL-059–061 (the re-file question),
+   062 (a copy's subfolders are its own), 063 (a Trash copy pasted twice).
 6. §6 item 6's words and the amber warning look; item 7's "already there" words; item 8 (folders recursive); item 9.
+   — **7.30.0-alpha.1:** item 6's words (MOVE-10, a warning — the amber look is the next step), items 7, 8, 14, 15, 17,
+   18 built; item 19: CELL-023 asserts it. `tools/run_tests.py --release` refuses while any test still differs from what
+   was decided, naming each (RUN-033, 034). **Next: the amber look and item 9.**
 
 **Later, in "Move and copy books anywhere" (its own sprint):** the NEW drag gestures — Shift-drag to move, the live
 "Copy to 'Sci-Fi' — hold Shift to move" label, a folder dropped on a Book List entry, a drop between two Book List

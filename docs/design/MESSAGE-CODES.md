@@ -2,7 +2,7 @@
 
 _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the code (docs/design/LOGGING.md §6). The commit check refuses a commit whose copy is out of date. Support: find the code a user reports; the level says how serious it is._
 
-86 numbered codes. (198 general lines — info and debug, coded by their area alone — not listed.)
+86 numbered codes. (181 general lines — info and debug, coded by their area alone — not listed.)
 
 | Code | Level | Message | File |
 |---|---|---|---|
@@ -44,6 +44,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-07 | warning | Inbox cannot be moved | readerwrangler.js |
 | MOVE-08 | warning | Can't move a folder into itself or a subfolder | readerwrangler.js |
 | MOVE-09 | warning | Inbox cannot be moved | readerwrangler.js |
+| MOVE-10 | warning | … | readerwrangler.js |
 | PHONE-01 | warning | The pairing link couldn't be read — pair again from the computer | mobile.js |
 | PHONE-02 | warning | Couldn't get the library from the relay — showing what's on this phone: … | mobile.js |
 | PHONE-03 | critical | Your library couldn't be loaded on this phone. | mobile.js |
@@ -91,4 +92,3 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | UNDO-01 | error | An action has no undo / redo label (a coding slip): … | readerwrangler.js |
 | UNDO-02 | error | Undo did nothing — this code doesn't know the action (a coding slip): … | readerwrangler.js |
 | UNDO-03 | error | Redo did nothing — this code doesn't know the action (a coding slip): … | readerwrangler.js |
-| UNDO-04 | warning | Cannot redo copy operation | readerwrangler.js |

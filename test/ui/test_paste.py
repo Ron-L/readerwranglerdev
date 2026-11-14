@@ -106,7 +106,8 @@ with App() as app:
     test("PASTE-005", "copy → the Trash changes nothing and says why",
          row("c", ONLY_SCIFI, "Science Fiction", "Trash", {}, ["Can't paste into the Trash"]))
     test("PASTE-006", "copy → the Inbox pastes (a real folder; Ctrl+V refused it silently before)",
-         row("c", ONLY_SCIFI, "Science Fiction", "Inbox", {"Inbox": (2, 3)}, ["Pasted 'A Book With No Description' into 'Inbox'"]))
+         row("c", ONLY_SCIFI, "Science Fiction", "Inbox", {"Inbox": (2, 3)},
+             ["Added 'A Book With No Description' to 'Inbox'"]))   # 7.30.0: a copy says "Added" (ONE-TABLE §6 item 14)
     test("PASTE-007", "Ctrl+V in All Books changes nothing and says why (was: silent)",
          row("c", ONLY_SCIFI, "Science Fiction", "All Books", {}, ["Every book is already in All Books"]))
 

@@ -141,6 +141,11 @@ with App() as app:
     def go(place):
         target = (page.locator(f'[data-folder-id="{FOLDER_IDS[place]}"]') if place in FOLDER_IDS
                   else page.locator("[data-left-pane]").get_by_text(place, exact=True))
+        # Park the pointer off the left pane first: a hovered subfolder row shows its + / × buttons, which wrap a long
+        # name ("The Test Saga", 36 → 60 px) — moving off it shifts every row below while the click is aimed (7.30.0: seen
+        # once exact undo stopped forcing a fixture restore after CELL-004; the layout jump is filed, not fixed here).
+        page.mouse.move(900, 600)
+        page.wait_for_timeout(100)
         app.click_reachable(target.first)
         page.wait_for_timeout(400)
 
@@ -286,54 +291,26 @@ with App() as app:
     # TODAY — what each cell that differs from the design does today, measured 2026-11-13 (7.29.1, branch
     # feature/one-table): words its failure must contain (differs_today). When a cell starts doing what was decided, its
     # line goes; when it changes some other way, the test fails and says so.
-    PASTED = "— moved from the original folder"       # the cut-paste receipt today ("Pasted 'X' into 'Y' — moved from…")
+    # 7.30.0 (sprint 4, the keys + exact undo + the folder copy): CELL-001–017, 034–040, 049–052, 055 now do what was
+    # decided — their lines are gone. What's left is the menus' and drags' (the next step of the sprint).
     TODAY = {
-        "CELL-001": ["Pasted 'A Book With No Description' into 'Fantasy' " + PASTED, "order of 'Science Fiction'"],
-        "CELL-002": ["Pasted 'A Book With No Description' into 'Inbox' " + PASTED, "order of 'Science Fiction'"],
-        "CELL-003": ["Pasted 'New Arrival One' into 'Fantasy' " + PASTED],
-        "CELL-004": ["Pasted 'A Book With No Description' into 'The Test Saga' " + PASTED, "order of 'Science Fiction'"],
-        "CELL-005": ["Pasted 2 books into 'Fantasy' " + PASTED, "left: Fantasy: -5"],
-        "CELL-006": ["Pasted 'Good Omens' into 'Fantasy' " + PASTED, "left: Fantasy: -5"],
-        "CELL-007": ["changed {'Science Fiction': '-18'}; decided {}",
-                     "Pasted 'A Book With No Description' into 'Science Fiction' " + PASTED],
-        "CELL-009": ["changed {'Fantasy': '+3'}", "Pasted 'The Test Saga, Book Three' into 'Fantasy' " + PASTED],
-        "CELL-010": ["order of 'Read Next': [3, 20, 16] → [20, 16, 3]"],
-        "CELL-011": ["said: \"Already on 'Read Next'\""],
-        "CELL-012": ["changed {}; decided", "said: ''"],          # Ctrl+X refused in All Books ("Can't cut from this view…")
-        "CELL-013": ["changed {}; decided", "said: ''"],          # the same, with a Search applied
-        "CELL-014": ["changed {'Fantasy': '+21'}", "Pasted 'A Book in the Trash' into 'Fantasy' " + PASTED],
-        "CELL-015": ["Pasted 'A Book With No Description' into 'Fantasy' " + PASTED, "order of 'Science Fiction'"],
-        "CELL-016": ["'Science Fiction ⇒': 'Every Ownership Kind'", "Moved \"Science Fiction\" into \"Every Ownership Kind\""],
-        "CELL-017": ["changed {'Science Fiction ⇒': 'Every Ownership Kind'}"],
         "CELL-018": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],
         "CELL-019": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\"", "left: Science Fiction: -5"],
         "CELL-020": ["said: 'Book already in folder'"],
         "CELL-021": ["changed {'Fantasy': '+3'}", "said: \"Moved 'The Test Saga, Book Three' to 'Fantasy'\""],
         "CELL-022": ["Move to is greyed here (tooltip 'Cannot move books from virtual folders')"],
-        "CELL-023": ["Move to › doesn't offer 'Read Next'"],
         "CELL-024": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],
         "CELL-025": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
         "CELL-026": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\"", "left: Science Fiction: -5"],
         "CELL-028": ["to \"An Empty Book List\"", "order of 'Read Next': [3, 20, 16] → [20, 16, 3]"],
         "CELL-030": ["said: \"Moved 'The Test Saga, Book Three' to 'Fantasy'\""],
-        "CELL-034": ["said: \"Pasted 'A Book With No Description' into 'Fantasy'\""],
-        "CELL-035": ["said: \"Pasted 2 books into 'Fantasy'\"", "left: Fantasy: -5"],
-        "CELL-036": ["said: \"Pasted 'Good Omens' into 'Fantasy'\"", "left: Fantasy: -5"],
-        "CELL-037": ["said: \"Pasted 'A Book With No Description' into 'Science Fiction'\"", "left: Science Fiction: -18"],
-        "CELL-038": ["said: \"Pasted 'The Test Saga, Book Three' into 'Fantasy'\""],
-        "CELL-039": ["said: \"Copied 'A Book in the Trash'\""],
-        "CELL-040": ["changed {'Fantasy': '+21'}", "said: \"Pasted 'A Book in the Trash' into 'Fantasy'\""],
+        "CELL-033": ["said: \"Moved 'A Book With No Description' to 'Fantasy'\""],   # decided 2026-11-13 (§6 item 16)
         "CELL-041": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
         "CELL-042": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
         "CELL-043": ["said: \"Copied 'A Book With No Description' to 'Fantasy'\""],
         "CELL-045": ["said: \"Added 1 book to 'Read Next' (1 already there)\""],
         "CELL-046": ["said: \"All 1 book already in 'Read Next'\""],
-        "CELL-049": ["the words should say \"Copied 'Space Opera'\"", "said: ''"],
-        "CELL-050": ["changed {'Science Fiction ⇒': 'Fantasy'}", "Moved \"Science Fiction\" into \"Fantasy\""],
-        "CELL-051": ["'new Science Fiction (Copy)': 'in Fantasy: 5 17 18'", "said: ''"],
-        "CELL-052": ["'new Science Fiction (Copy)': 'in Space Opera: 5 17 18'", "said: ''"],
-        "CELL-055": ["changed {'Space Opera ⇒': 'Fantasy'}", "said: \"Copied folder 'Space Opera' to 'Fantasy'\""],
-        "CELL-056": ["left: order of 'Science Fiction': [17, 18, 5] → [18, 17, 5]"],
+        "CELL-057": ["said: \"Moved folder 'Space Opera' + 'A Book With No Description' to 'Fantasy'\""],   # §6 items 14, 17
     }
 
     def add(tid, name, fn):
@@ -435,7 +412,8 @@ with App() as app:
         cell(lambda: (pick("Read Next", S3), book_menu(S3, "Move to", "Move to folder", "Fantasy")),
              {"Read Next": "-3", "Fantasy": "+3"}, ["Moved", "from 'Read Next'", "to 'Fantasy'"]))
 
-    def move_to_offers(place, title, wanted):
+    def move_to_offers(place, title, wanted, offered=True):
+        """Move to › is enabled here, and lists `wanted` (offered=False: does NOT list it)."""
         def run():
             try:
                 pick(place, title)
@@ -449,14 +427,18 @@ with App() as app:
                 sub = page.locator('[aria-label="Move to folder"]')
                 sub.wait_for(timeout=3000)
                 found = sub.get_by_text(wanted, exact=True).count()
-                check(found, f"Move to › doesn't offer {wanted!r} (it lists: {sub.inner_text()[:200]!r})")
+                if offered:
+                    check(found, f"Move to › doesn't offer {wanted!r} (it lists: {sub.inner_text()[:200]!r})")
+                else:
+                    check(not found, f"Move to › offers {wanted!r} (it lists: {sub.inner_text()[:200]!r})")
             finally:
                 clean_up()
         return run
     add("CELL-022", "Move to › in All Books: offered (a move from All Books re-files the book)",
         move_to_offers("All Books", ND, "Fantasy"))
-    add("CELL-023", "Move to › offers the Book Lists too (a move onto a list: \"Move to\" reaches every place)",
-        move_to_offers("Science Fiction", ND, "Read Next"))
+    add("CELL-023", "Move to › stays folders only — it doesn't list the Book Lists (\"Add to Book List ›\" puts books on a "
+        "list; §6 item 19, decided 2026-11-13)",
+        move_to_offers("Science Fiction", ND, "Read Next", offered=False))
 
     # ── 4.1 / 4.2 — today's drags ───────────────────────────────────────────────────────────────────────────────────
     add("CELL-024", "plain drag, folder → folder (the left pane): a move",
@@ -487,10 +469,10 @@ with App() as app:
     add("CELL-032", "drag onto the Trash = the Delete key's books row: a book in another folder too just leaves this one",
         cell(lambda: (go("Science Fiction"), drag(GO, "Trash")),
              {"Science Fiction": "-5"}, ["Removed", "'Science Fiction'"]))
-    add("CELL-033", "plain drag from All Books onto a folder — today's, not decided (§4.1: \"All Books → folder\" by a "
-        "drag: a move that re-files, or a copy across kinds?)",
+    add("CELL-033", "plain drag from All Books onto a folder = a COPY: it only adds, and says \"Added\" (a plain drag "
+        "guesses safe; §6 item 16, decided 2026-11-13)",
         cell(lambda: (go("All Books"), drag(ND, "Fantasy")),
-             {"Fantasy": "+18"}, ["Moved 'A Book With No Description' to 'Fantasy'"]))
+             {"Fantasy": "+18"}, ["Added", "to 'Fantasy'"]))
 
     # ── 4.2 Copy ────────────────────────────────────────────────────────────────────────────────────────────────────
     add("CELL-034", "Ctrl+C → Ctrl+V, one book, folder → folder: added; the source keeps it; \"Added …\"",
@@ -571,20 +553,90 @@ with App() as app:
         cell(lambda: (go("Science Fiction"), drag("Space Opera", "Fantasy", ctrl=True)),
              COPY_TREE, ["Copied 'Space Opera'", "as 'Space Opera (Copy)'"]))
 
-    # ── Books and folders selected together — no decided row: today's, recorded ─────────────────────────────────────
-    add("CELL-056", "Ctrl+X with a book AND a folder selected → Ctrl+V — today's outcome, not decided (no row for books "
-        "and folders moved together); its one exact Ctrl+Z IS decided",
+    # ── Books and folders selected together: both, for every gesture (§6 item 17, decided 2026-11-13) ────────────────
+    add("CELL-056", "Ctrl+X with a book AND a folder selected → Ctrl+V: BOTH move (as Delete takes both); one receipt; "
+        "one exact Ctrl+Z",
         cell(lambda: (pick("Science Fiction", "Space Opera", ND), key("x"), paste_key("Fantasy")),
-             {"Science Fiction": "-18", "Fantasy": "+18"},
-             ["Pasted 'A Book With No Description' into 'Fantasy' — moved from the original folder"]))
-    add("CELL-057", "plain drag of a book AND a folder together — today's, not decided",
+             {"Science Fiction": "-18", "Fantasy": "+18", "Space Opera ⇒": "Fantasy"},
+             ["Moved 'Space Opera' and 'A Book With No Description' from 'Science Fiction' to 'Fantasy'"]))
+    add("CELL-057", "plain drag of a book AND a folder together: both move, in the one wording (§6 items 14, 17)",
         cell(lambda: (pick("Science Fiction", "Space Opera", ND), drag(ND, "Fantasy")),
              {"Science Fiction": "-18", "Fantasy": "+18", "Space Opera ⇒": "Fantasy"},
-             ["Moved folder 'Space Opera' + 'A Book With No Description' to 'Fantasy'"]))
+             ["Moved", "'Space Opera'", "from 'Science Fiction'", "to 'Fantasy'"]))
 
+    # ── The re-file question (§6 item 18): a cut from All Books pasted into a folder, the book in 2+ other folders ─────
+    REFILE_Q = ["Move 'Good Omens' to 'Inbox'?",
+                "It's also in 'Fantasy' and 'Science Fiction' — moving takes it out of them."]
+    add("CELL-059", "Ctrl+X in All Books → Ctrl+V in a folder, the book in 2 other folders: Ron's question first; [Move] "
+        "re-files it — out of both, into this one; one Ctrl+Z",
+        cell(lambda: (pick("All Books", GO), key("x"), paste_key("Inbox")),
+             {"Fantasy": "-5", "Science Fiction": "-5", "Inbox": "+5"}, REFILE_Q, answer="Move"))
+    add("CELL-060", "… [Just add it]: only added — its other folders keep it",
+        cell(lambda: (pick("All Books", GO), key("x"), paste_key("Inbox")), {"Inbox": "+5"}, REFILE_Q, answer="Just add it"))
+    add("CELL-061", "… [Cancel]: nothing changes",
+        cell(lambda: (pick("All Books", GO), key("x"), paste_key("Inbox")), {}, REFILE_Q, answer="Cancel"))
+
+    # ── §6 item 15: a copied folder's subfolders belong to the COPY — its own list of subfolders (the manual order) names
+    # the copies, never the originals; Ctrl+Z puts every order field back; Ctrl+Y makes the same copy again ──────────────
+    ORDER_JS = """() => window.folders.map(f => ({ id: f.id, name: f.name, parent: f.parentId || null,
+        kids: f.childFolderIds ? [...f.childFolderIds] : null, sortIndex: f.sortIndex ?? null }))"""
+
+    def copy_keeps_its_own_subfolders():
+        try:
+            before = page.evaluate(ORDER_JS)
+            folder_menu("Space Opera", "Copy")
+            folder_menu("Fantasy", "Paste")
+            page.wait_for_timeout(400)
+            after = {f["name"]: f for f in page.evaluate(ORDER_JS)}
+            top, sub = after.get("Space Opera (Copy)"), after.get("Old Favorites (Copy)")
+            check(top and sub, f"no copy made: {sorted(after)}")
+            check(top["kids"] == [sub["id"]], f"the copy's subfolders are {top['kids']} — should be its own copy {sub['id']} "
+                                              f"(not the original 'f-old')")
+            check(sub["parent"] == top["id"], "the subfolder copy isn't inside the copy")
+            check(top["id"] in (after["Fantasy"]["kids"] or []),
+                  f"Fantasy's subfolders don't list the copy: {after['Fantasy']['kids']}")
+            undo_once()
+            check(page.evaluate(ORDER_JS) == before, "one Ctrl+Z didn't put every folder (and its order fields) back exactly")
+            page.keyboard.press("Control+y")
+            page.wait_for_timeout(500)
+            again = {f["name"]: f for f in page.evaluate(ORDER_JS)}
+            check(again.get("Space Opera (Copy)") == top and again.get("Old Favorites (Copy)") == sub,
+                  "Ctrl+Y didn't make the same copy again (it used to say 'Cannot redo copy operation')")
+            undo_once()
+            check(page.evaluate(ORDER_JS) == before, "Ctrl+Z after Ctrl+Y didn't put it back")
+        finally:
+            clean_up()
+    add("CELL-062", "a copied folder's subfolders belong to the COPY (its own subfolder list names the copies); Ctrl+Z puts "
+        "every order field back; Ctrl+Y copies it again (§6 item 15)", copy_keeps_its_own_subfolders)
+
+    def copy_from_trash_pasted_twice():
+        try:
+            before = state()
+            pick("Trash", TR)
+            key("c")
+            paste_key("Fantasy")
+            first = words()
+            paste_key("Inbox")                         # the copy is still on the clipboard; the book is restored now
+            second = words()
+            check("Restored" in first, f"the first paste should restore: {first!r}")
+            check("Added 'A Book in the Trash' to 'Inbox'" in norm(second) and "Restored" not in second,
+                  f"the second paste only adds (the book left the Trash at the first): {second!r}")
+            got = delta(before, state())
+            check(got == {"Trash": "-21", "Fantasy": "+21", "Inbox": "+21"}, f"changed {got}")
+            undo_once()
+            undo_once()
+            back = not_exactly(before, state())
+            check(not back, f"two Ctrl+Z left: {back}")
+        finally:
+            clean_up()
+    add("CELL-063", "a copy out of the Trash pasted twice: the first paste restores, the second only adds (\"Added\", "
+        "not \"Restored\"); two Ctrl+Z put it all back", copy_from_trash_pasted_twice)
+
+    # Warnings on purpose: CELL-053's refusal (MOVE-06); CELL-039's "a paste will restore" (MOVE-10, §6 item 6)
+    DELIBERATE = ("MOVE-06", "MOVE-10")
     if not ONLY:
-        test("CELL-058", "no unexpected console messages (CELL-053's refusal, MOVE-06, is a warning on purpose)",
-             lambda: check(not [x for x in app.unexpected_console() if "MOVE-06" not in x],
-                           [x for x in app.unexpected_console() if "MOVE-06" not in x]))
+        test("CELL-058", "no unexpected console messages (the warnings MOVE-06 and MOVE-10 are on purpose)",
+             lambda: check(not [x for x in app.unexpected_console() if not any(c in x for c in DELIBERATE)],
+                           [x for x in app.unexpected_console() if not any(c in x for c in DELIBERATE)]))
 
 done()

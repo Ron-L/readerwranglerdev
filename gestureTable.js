@@ -1,14 +1,15 @@
 // gestureTable.js — "the one table": what each gesture does in each place (docs/design/ONE-TABLE.md).
+// 7.30.0 (sprint 4): the move / copy / paste rows, and every word they say (below the Delete rows).
 // 7.28.1: its FIRST rows — the Delete key (TODO "The Delete key deletes the folder you're in — not the folders you
 // selected", id 20261014-1030ay). 7.28.1-alpha.2: books AND folders selected → both go, in one confirmation and one undo
-// (Ron, 2026-11-12, review queue Q-013 — as File Explorer does; was: the books only). The move / copy / paste rows are
-// designed in ONE-TABLE.md and follow in their own task (TODO "One table for every move, copy, paste and delete…",
-// id 20261106-1237).
+// (Ron, 2026-11-12, review queue Q-013 — as File Explorer does; was: the books only). 7.30.0: the move / copy / paste
+// rows (TODO "One table for every move, copy, paste and delete…", id 20261106-1237; ONE-TABLE.md §4–§6).
 //
 // Pure — no React, no DOM, no app state — so the rules are function-tested (test/gestureTable.test.js) and every
 // combination must have a row. Loaded as a classic script before readerwrangler.js (browser); required by the test
 // (Node). The table DECIDES; the app's existing operations DO (softDeleteBooks, permanentlyDeleteBooks, the Book List
-// removal, deleteFolders, deleteBooksAndFolders).
+// removal, deleteFolders, deleteBooksAndFolders; for move / copy / paste: placeItems → planBookPlacement, planReparent,
+// planFolderCopy).
 
 (() => {
 // Every kind of place the right pane can show — the one map from a place's id to its kind.
@@ -106,22 +107,198 @@ const DELETE_ROWS = {
     },
 };
 
-// decide(gesture, what, from) → { act, books?, words?, why? }. Only 'delete' has rows today.
-//   what: 'both' | 'books' | 'folders' | 'nothing'
-//   from: { placeId, focus: 'right' | 'left' }
-const decide = (gesture, what, from) => {
-    if (gesture !== 'delete') throw new Error(`gestureTable: no rows for the gesture "${gesture}" yet`);
-    const kind = placeKind(from && from.placeId);
-    const key = what === 'nothing' ? `nothing:${from && from.focus === 'left' ? 'left' : 'right'}` : what;
-    const row = DELETE_ROWS[key] && DELETE_ROWS[key][kind];
-    if (!row) throw new Error(`gestureTable: no Delete row for ${key} in ${kind}`);
-    return row;
+// ── Move / copy / paste (sprint 4 — ONE-TABLE.md §4–§6, decided 2026-11-13) ─────────────────────────────────────────
+// What's moved: books, folders, or both (§6 item 17: "a book and a folder selected together: both, for every gesture").
+const MOVE_WHATS = ['books', 'folders', 'both'];
+const VERBS = ['move', 'copy'];
+
+// The words a refusal says — one home (the keys' toast and, later, the menus' greyed items' "why" read them).
+const MOVE_WORDS = {
+    intoTrash: "Can't paste into the Trash. To put books in the Trash, press Delete.",
+    intoAllBooks: 'Every book is already in All Books. Open a folder or Book List to paste into it.',
+    openAPlace: 'Open a folder or Book List to paste into it.',
+    foldersOpenAFolder: 'Open a folder to paste folders into it.',
+    foldersIntoTrash: "Can't paste folders into the Trash. To delete folders, press Delete.",
+    folderOntoList: "A folder can't be moved onto a Book List. To add its books to the list, copy the folder instead.",
+    inboxCantMove: "The Inbox can't be moved.",
+    copyIntoItself: "Can't copy a folder into itself or its subfolder.",
 };
 
-// What Delete acts on, given the selection — in one place. bookCount / folderCount: how many of each are selected in the
-// right pane. (Until 7.28.1-alpha.2, books and folders together meant the books only.)
-const deleteWhat = (bookCount, folderCount) =>
+// The acts (what the app then runs — the table decides, the operations do):
+//   books:   move-books   — out of the folder or Book List they came from, into the destination; a book leaving its LAST
+//                           folder for a Book List goes to the Inbox, and the words say so ("Move and copy books
+//                           anywhere" decision 3)
+//            refile       — from All Books / a Search (no container) into a folder: out of every other folder, into this
+//                           one; asked first when a book is in 2+ other folders (§6 item 18)
+//            add-books    — only adds (a copy; and a move from no container onto a Book List — lists don't file books)
+//            restore      — out of the Trash into the destination: for every gesture, a copy too (§6 item 6)
+//            already-here — a move into the place it came from: nothing changes, and the words say so (§6 item 7.5)
+//   folders: move-folders — under the destination (a folder, the Inbox; the Folders view = the top level); never into
+//                           itself or below (the operation's own check); the Inbox itself never moves
+//            copy-folders — the whole tree as "X (Copy)", every book filed in the copy too (§6 items 8, 15)
+//            add-folder-books — a copy onto a Book List: the folders' books, every subfolder's too (decision 10 of
+//                           "Move and copy books anywhere", for the keys)
+//   both:    { act: 'both', books, folders } — each half by its own row; a half that refuses refuses the whole
+//   refuse   — nothing changes; `words` say why (Law 16). `why` on a row nobody decided: it says so, for Ron.
+const refuse = (words, why) => (why ? { act: 'refuse', words, why } : { act: 'refuse', words });
+// One row = the answer for each place it can go to, in PLACE_KINDS' order (folder, inbox, all-books, folders-view,
+// searches-view, book-lists-view, book-list, search, trash).
+const toEach = (...answers) => {
+    if (answers.length !== PLACE_KINDS.length) throw new Error('gestureTable: a row needs one answer per kind of place');
+    return Object.fromEntries(PLACE_KINDS.map((k, i) => [k, typeof answers[i] === 'string' ? { act: answers[i] } : answers[i]]));
+};
+const W = MOVE_WORDS;
+const ALL = refuse(W.intoAllBooks), OPEN = refuse(W.openAPlace), TRASH = refuse(W.intoTrash);
+// a move from a container (a folder, the Inbox, a Book List)
+const FROM_CONTAINER = toEach('move-books', 'move-books', ALL, ALL, OPEN, OPEN, 'move-books', OPEN, TRASH);
+// a move from no container (All Books, a Search; and the three headers, which show no books — that cell can't be reached)
+const FROM_NOWHERE = toEach('refile', 'refile', ALL, ALL, OPEN, OPEN, 'add-books', OPEN, TRASH);
+const FROM_TRASH = toEach('restore', 'restore', ALL, ALL, OPEN, OPEN, 'restore', OPEN, TRASH);
+const COPY = toEach('add-books', 'add-books', ALL, ALL, OPEN, OPEN, 'add-books', OPEN, TRASH);
+const BOOK_ROWS = {
+    move: {
+        'folder': FROM_CONTAINER, 'inbox': FROM_CONTAINER, 'book-list': FROM_CONTAINER,
+        'all-books': FROM_NOWHERE, 'search': FROM_NOWHERE,
+        'folders-view': FROM_NOWHERE, 'searches-view': FROM_NOWHERE, 'book-lists-view': FROM_NOWHERE,
+        'trash': FROM_TRASH,
+    },
+    copy: Object.fromEntries(PLACE_KINDS.map(k => [k, k === 'trash' ? FROM_TRASH : COPY])),
+};
+// Folders: the same wherever they came from (they can be selected in a folder, the Inbox and the Folders view).
+const F_OPEN = refuse(W.foldersOpenAFolder), F_TRASH = refuse(W.foldersIntoTrash);
+const FOLDER_ROWS = {
+    move: toEach('move-folders', 'move-folders', F_OPEN, 'move-folders', F_OPEN, F_OPEN,
+        refuse(W.folderOntoList, 'not decided — a folder MOVED onto a Book List (a copy adds its books); for Ron'), F_OPEN, F_TRASH),
+    copy: toEach('copy-folders', 'copy-folders', F_OPEN, 'copy-folders', F_OPEN, F_OPEN, 'add-folder-books', F_OPEN, F_TRASH),
+};
+const CONTAINER_KINDS = ['folder', 'inbox', 'book-list'];
+
+// decide(gesture, what, from, to) → { act, books?, folders?, words?, why? }
+//   'delete': what 'both' | 'books' | 'folders' | 'nothing'; from { placeId, focus: 'right' | 'left' } (§3)
+//   'move' | 'copy': what 'books' | 'folders' | 'both'; from { placeId } (where they came from); to { placeId }
+//   'paste': the clipboard's verb — from { placeId, clip: 'cut' | 'copy' } (a cut moves, a copy copies)
+const decide = (gesture, what, from, to) => {
+    if (gesture === 'delete') {
+        const kind = placeKind(from && from.placeId);
+        const key = what === 'nothing' ? `nothing:${from && from.focus === 'left' ? 'left' : 'right'}` : what;
+        const row = DELETE_ROWS[key] && DELETE_ROWS[key][kind];
+        if (!row) throw new Error(`gestureTable: no Delete row for ${key} in ${kind}`);
+        return row;
+    }
+    const verb = gesture === 'paste' ? (from && from.clip === 'cut' ? 'move' : 'copy') : gesture;
+    if (!VERBS.includes(verb)) throw new Error(`gestureTable: no rows for the gesture "${gesture}" yet`);
+    if (!MOVE_WHATS.includes(what)) throw new Error(`gestureTable: a ${verb} of "${what}" — nothing to ${verb}`);
+    const fromKind = placeKind(from && from.placeId), toKind = placeKind(to && to.placeId);
+    const books = () => (verb === 'move' && from.placeId === to.placeId && CONTAINER_KINDS.includes(toKind)
+        ? { act: 'already-here' } : BOOK_ROWS[verb][fromKind][toKind]);
+    const folders = () => FOLDER_ROWS[verb][toKind];
+    if (what === 'books') return books();
+    if (what === 'folders') return folders();
+    const b = books(), f = folders();
+    if (b.act === 'refuse') return b;
+    if (f.act === 'refuse') return f;
+    return { act: 'both', books: b.act, folders: f.act };
+};
+
+// What's selected — books and folders both, books, folders, or nothing — in one place, for every gesture (Delete since
+// 7.28.1-alpha.2; the clipboard keys since 7.30.0). bookCount / folderCount: how many of each are selected.
+const selectionWhat = (bookCount, folderCount) =>
     (bookCount > 0 && folderCount > 0 ? 'both' : bookCount > 0 ? 'books' : folderCount > 0 ? 'folders' : 'nothing');
+
+// Which selected folders a cut / copy may take: a cut never takes the Inbox (it never moves) — `kept` is what the words
+// must mention; a copy may take it (a copy of the Inbox is an ordinary folder holding its books).
+const clipFolders = (type, folderIds) => {
+    const taken = [], kept = [];
+    (folderIds || []).forEach(id => (type === 'cut' && id === '__inbox__' ? kept : taken).push(id));
+    return { taken, kept };
+};
+
+// ── The words (§6 items 6, 7, 8, 14, 18) — pure, so each sentence is function-tested word for word ────────────────────
+const q = (s) => `'${s}'`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const bookWhat = (n, title) => (n === 1 && title ? q(title) : plural(n, 'book'));
+const folderWhat = (names) => (names.length === 1 ? q(names[0]) : plural(names.length, 'folder'));
+const wereThere = (k) => `${k} ${k === 1 ? 'was' : 'were'} already there`;
+const nameList = (names) => (names.length <= 1 ? names.map(q).join('')
+    : `${names.slice(0, -1).map(q).join(', ')} and ${q(names[names.length - 1])}`);
+const fromFolders = (names) => (names.length <= 2 ? nameList(names) : plural(names.length, 'folder'));
+const place = (name) => (name ? q(name) : 'the top level');
+
+// One half's sentence. books: { act, n, title (when n is 1), moved, added, addedTitle, already, from: [names], to,
+// toList, sentToInbox }. folders: { act, names, already: [names], from, to (null = the top level), books, subfolders } —
+// for add-folder-books: { names, n, added, already, to, toList }.
+const bookSentence = (b) => {
+    const inOn = b.toList ? 'on' : 'in';
+    const there = b.already ? ` (${wereThere(b.already)})` : '';
+    if (b.act === 'already-here' || (b.act !== 'add-books' && b.act !== 'restore' && !b.moved && !b.added)) {
+        return b.n === 1 ? `Nothing moved — ${q(b.title)} is already ${inOn} ${q(b.to)}.` : `Nothing moved — those books are already ${inOn} ${q(b.to)}.`;
+    }
+    if (b.act === 'restore') {
+        return b.toList ? `Restored ${bookWhat(b.n, b.title)} from the Trash and added ${b.n === 1 ? 'it' : 'them'} to ${q(b.to)}.`
+            : `Restored ${bookWhat(b.n, b.title)} from the Trash into ${q(b.to)}.`;
+    }
+    if (b.act === 'add-books') {
+        if (!b.added) return b.n === 1 ? `${q(b.title)} is already ${inOn} ${q(b.to)}.` : `Nothing to add — all ${b.n} are already ${inOn} ${q(b.to)}.`;
+        const from = b.from && b.from.length ? ` from ${fromFolders(b.from)}` : '';
+        return `Added ${bookWhat(b.added, b.addedTitle)}${from} to ${q(b.to)}${there}.`;
+    }
+    // move-books / refile
+    const from = b.from || [];
+    if (!b.added) {
+        return b.n === 1 ? `Moved ${q(b.title)} out of ${fromFolders(from)} — it was already ${inOn} ${q(b.to)}.`
+            : `Moved ${b.n} books out of ${fromFolders(from)} — all ${b.n} were already ${inOn} ${q(b.to)}.`;
+    }
+    const k = b.sentToInbox || 0;
+    const inbox = k === 0 ? '' : b.n === 1 ? " It wasn't in any other folder, so it went to the Inbox."
+        : k === 1 ? " 1 wasn't in any other folder, so it went to the Inbox." : ` ${k} weren't in any other folder, so they went to the Inbox.`;
+    return `Moved ${bookWhat(b.n, b.title)}${from.length ? ` from ${fromFolders(from)}` : ''} to ${q(b.to)}${there}.${inbox}`;
+};
+const folderSentence = (f) => {
+    if (f.act === 'add-folder-books') return bookSentence({ act: 'add-books', n: f.n, added: f.added, already: f.already, from: f.names, to: f.to, toList: f.toList, title: f.names[0] });
+    if (f.act === 'copy-folders') {
+        const parts = [f.books ? plural(f.books, 'book') : '', f.subfolders ? plural(f.subfolders, 'subfolder') : ''].filter(Boolean);
+        const counts = parts.length ? ` (${parts.join(', ')})` : '';
+        return f.names.length === 1 ? `Copied ${q(f.names[0])}${counts} as ${q(`${f.names[0]} (Copy)`)}.`
+            : `Copied ${plural(f.names.length, 'folder')}${counts} ${f.to ? 'into' : 'to'} ${place(f.to)}.`;
+    }
+    // move-folders
+    if (!f.names.length) {
+        const al = f.already || [];
+        return al.length === 1 ? `Nothing moved — ${q(al[0])} is already in ${place(f.to)}.` : `Nothing moved — those folders are already in ${place(f.to)}.`;
+    }
+    return `Moved ${folderWhat(f.names)}${f.from ? ` from ${q(f.from)}` : ''} to ${place(f.to)}.`;
+};
+// The receipt of a move / copy / paste: one sentence per half — or ONE sentence when books and folders went plainly from
+// the same place to the same place ("Moved 'Space Opera' and 'Dune' from 'Science Fiction' to 'Fantasy'.").
+const placeWords = ({ books, folders }) => {
+    if (books && folders && books.act === 'move-books' && folders.act === 'move-folders' && books.added && !books.already
+        && !books.sentToInbox && folders.names.length && !(folders.already || []).length && folders.to === books.to
+        && (books.from || []).length === 1 && folders.from === books.from[0]) {
+        return `Moved ${folderWhat(folders.names)} and ${bookWhat(books.n, books.title)} from ${q(folders.from)} to ${q(books.to)}.`;
+    }
+    return [books && bookSentence(books), folders && folderSentence(folders)].filter(Boolean).join(' ');
+};
+
+// What Ctrl+X / Ctrl+C say. A copy out of the Trash warns where you decide (§6 item 6): a paste will restore.
+// counts: { books, title (one book's), folders, folderName (one folder's), fromTrash }
+const clipWords = (type, { books = 0, title, folders = 0, folderName, fromTrash } = {}) => {
+    if (type === 'copy' && fromTrash && books && !folders) {
+        return books === 1 ? `Copied ${q(title)} from the Trash. Pasting it will restore it — it'll leave the Trash.`
+            : `Copied ${books} books from the Trash. Pasting them will restore them — they'll leave the Trash.`;
+    }
+    const what = books && folders ? `${plural(books, 'book')} and ${plural(folders, 'folder')}`
+        : books ? bookWhat(books, title) : folders === 1 && folderName ? q(folderName) : plural(folders, 'folder');
+    return `${type === 'cut' ? 'Cut' : 'Copied'} ${what}`;
+};
+
+// The re-file question (§6 item 18): a cut from All Books (or with a Search applied) pasted into a folder, when a book is
+// in 2+ other folders. One book: Ron's words; several: the same shape (Claude's, 2026-11-13 — goes to Ron with the
+// release's new words). others: the other folders' names (one book); inOthers: how many of the books are in other folders.
+const REFILE_BUTTONS = { move: 'Move', add: 'Just add it', cancel: 'Cancel' };
+const refileAsks = (otherFoldersPerBook) => (otherFoldersPerBook || []).some(o => o.length >= 2);
+const refileQuestion = ({ n, title, to, others, inOthers }) => (n === 1
+    ? { title: `Move ${q(title)} to ${q(to)}?`, message: `It's also in ${nameList(others)} — moving takes it out of them.` }
+    : { title: `Move ${n} books to ${q(to)}?`, message: `${inOthers} of them ${inOthers === 1 ? 'is' : 'are'} also in other folders — moving takes ${inOthers === 1 ? 'it' : 'them'} out.` });
 
 // Which selected folders a Delete may take: never the Inbox (nor any place that isn't a real folder). Returns
 // { deletable: [...], kept: [...] } — `kept` is what the words must mention.
@@ -131,12 +308,9 @@ const splitDeletableFolders = (folderIds) => {
     return { deletable, kept };
 };
 
-if (typeof window !== 'undefined') {
-    window.gestureTable = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, deleteWhat,
-        splitDeletableFolders };
-}
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, deleteWhat,
-        splitDeletableFolders };
-}
+const api = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, selectionWhat,
+    splitDeletableFolders, MOVE_WHATS, VERBS, MOVE_WORDS, BOOK_ROWS, FOLDER_ROWS, clipFolders, placeWords, clipWords,
+    REFILE_BUTTONS, refileAsks, refileQuestion };
+if (typeof window !== 'undefined') window.gestureTable = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
