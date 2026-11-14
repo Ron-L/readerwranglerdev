@@ -52,7 +52,7 @@ B.saga2 = book({ title: 'The Test Saga, Book Two', series: 'The Test Saga', seri
 B.saga3 = book({ title: 'The Test Saga, Book Three', series: 'The Test Saga', seriesPosition: '3' });
 B.saga25 = book({ title: 'The Test Saga: Between the Books', series: 'The Test Saga', seriesPosition: '2.5' });
 // Two authors on one book (never parsed — the whole text is the author).
-B.coauthored = book({ title: 'Written Together', author: 'Avery Testwriter, Blake Coauthor' }); // filed in TWO folders (Fantasy, Science Fiction): a move out of one isn't its last folder
+B.coauthored = book({ title: 'Good Omens', author: 'Avery Testwriter, Blake Coauthor' }); // filed in TWO folders (Fantasy, Science Fiction): a move out of one isn't its last folder
 // One book per ownership kind (the wishlist one carries a price goal).
 for (const kind of OWNERSHIP_KINDS) {
     B['own_' + kind] = book({

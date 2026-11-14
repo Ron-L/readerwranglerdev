@@ -6,7 +6,8 @@ Finds every test file, reads its header, picks the ones asked for, runs each, an
 
     py tools/run_tests.py                     tier 1 (the default): the fast function tests
     py tools/run_tests.py --tier all          everything (tier 3 starts its own local relay — see below)
-    py tools/run_tests.py --tier all --release   the release run: a SKIPPED file fails it, named with why
+    py tools/run_tests.py --tier all --release   the release run: a SKIPPED file fails it, named with why — and so does
+                                              a test still marked "differs today" (decided, not built), named
     py tools/run_tests.py --tag merge         by area — in every tier unless --tier says one
     py tools/run_tests.py --id MERGE-012      the file(s) holding that test ID — in every tier unless --tier says one
     py tools/run_tests.py --changed           the tests covering what changed (staged + unstaged) — the commit hook
@@ -154,6 +155,12 @@ def run_file(tf, relay_url=None, timeout=600):
     return r.returncode == 0, out
 
 
+def differs_today_ids(out):
+    """The test IDs a file's output reports as "differs today" — the screen-test harness's `  ~ ID name` lines
+    (test/ui/harness.py differs_today: a decided behavior the app doesn't have yet). --release refuses while any remain."""
+    return re.findall(r"^\s*~ ([A-Z][A-Z0-9]*-\d{3}) ", out, re.M)
+
+
 def changed_files():
     names = set()
     for args in (["git", "diff", "--cached", "--name-only"], ["git", "diff", "--name-only"]):
@@ -181,8 +188,8 @@ def main(argv=None, files=None, relay=None):
     ap.add_argument("--list", action="store_true", help="show what would run, run nothing")
     ap.add_argument("--quiet", action="store_true", help="print only failures and the summary (the commit hook)")
     ap.add_argument("--release", action="store_true",
-                    help="a release run: a skipped file FAILS the run (the release checklist: py tools/run_tests.py "
-                         "--tier all --release)")
+                    help="a release run: a skipped file, or a test still marked 'differs today', FAILS the run (the "
+                         "release checklist: py tools/run_tests.py --tier all --release)")
     a = ap.parse_args(argv)
 
     tier = default_tier(a) if a.tier is None else ("all" if a.tier == "all" else int(a.tier))
@@ -213,8 +220,13 @@ def main(argv=None, files=None, relay=None):
         for f, why in skipped:
             print(f"- {f.rel()}: skipped — {why}")
 
+    differ = []   # (file, [test IDs]) — tests still marked "differs today" (test/ui/harness.py differs_today)
+
     def run_and_report(f, relay_url):
         ok, out = run_file(f, relay_url=relay_url)
+        ids = differs_today_ids(out)
+        if ids:
+            differ.append((f, ids))
         summary = next((ln for ln in reversed(out.splitlines()) if re.search(r"\bpassed\b", ln)), "")
         if ok:
             count["passed"] += 1
@@ -255,11 +267,18 @@ def main(argv=None, files=None, relay=None):
                 print(f"✓ local relay stopped — every process it started is gone, ports {', '.join(map(str, r.ports))} free")
     print(f"Tests: {count['passed']} file(s) passed, {count['failed']} failed"
           + (f", {len(skipped)} skipped" if skipped else ""))
+    refused = False
     if a.release and skipped:    # a release needs every file to have RUN — skipped is not passed (7.28.0)
         print(f"✗ release run: {len(skipped)} file(s) skipped — a release needs every file to run:\n    "
               + "\n    ".join(f"{f.rel()} — {why}" for f, why in skipped))
-        return 1
-    return 1 if count["failed"] else 0
+        refused = True
+    if a.release and differ:     # a decided behavior not built yet is fine while building, never in a release (7.30.0)
+        n = sum(len(ids) for _, ids in differ)
+        print(f"✗ release run: {n} test(s) still differ from what was decided (marked 'differs today') — build them, or "
+              f"take the decision back to Ron, before a release:\n    "
+              + "\n    ".join(f"{f.rel()}: {', '.join(ids)}" for f, ids in differ))
+        refused = True
+    return 1 if refused or count["failed"] else 0
 
 
 if __name__ == "__main__":

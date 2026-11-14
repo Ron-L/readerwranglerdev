@@ -1,6 +1,7 @@
 """
 test/ui/harness.py — the Python twin of test/harness.js for screen tests: stable IDs (AREA-NNN), a failure is counted
 and the file carries on, done() prints the summary and exits 1 if anything failed (tools/run_tests.py reads both).
+differs_today() — a test of decided behavior the app doesn't have yet, with what it does today (2026-11-13, CELL-…).
 """
 import re
 import sys
@@ -38,6 +39,39 @@ def test(tid, name, fn):
         print(f"  ✗ {tid} {name}\n      " + "\n      ".join(msg.splitlines()[:6]), flush=True)
 
 
+_differ = []
+
+
+def differs_today(tid, name, fn, today):
+    """A test that asserts the DECIDED behavior where the app is known to differ today (test-first, before the build —
+    sprint 4 of docs/design/ONE-TABLE.md). `today` is what was measured: text (or a list of texts) that the failure's
+    words must contain. Three outcomes, so a mark can't hide a new problem or outlive its fix:
+      - it fails AND its words hold every `today` text → the known difference: reported, not counted as a failure;
+      - it fails with other words → a FAILURE (the app changed, or the test broke — read it);
+      - it passes → a FAILURE: the app now does what was decided — drop the mark (call test() instead)."""
+    if not re.fullmatch(r"[A-Z][A-Z0-9]*-\d{3}", tid) or tid in _seen:
+        _failures.append(tid)
+        print(f"  ✗ {tid} {name}\n      bad or repeated test ID — use AREA-NNN", flush=True)
+        return
+    _seen.add(tid)
+    marks = [today] if isinstance(today, str) else list(today)
+    try:
+        fn()
+    except Exception as e:   # noqa: BLE001
+        msg = str(e) or traceback.format_exc(limit=1)
+        if isinstance(e, AssertionError) and all(m in msg for m in marks):
+            _differ.append(tid)
+            print(f"  ~ {tid} {name}\n      differs today, as measured:\n      "
+                  + "\n      ".join(msg.splitlines()[:8]), flush=True)
+            return
+        _failures.append(tid)
+        print(f"  ✗ {tid} {name}\n      not the difference measured (expected words: {marks}):\n      "
+              + "\n      ".join(msg.splitlines()[:8]), flush=True)
+        return
+    _failures.append(tid)
+    print(f"  ✗ {tid} {name}\n      now does what was decided — drop its 'differs today' mark", flush=True)
+
+
 def check(cond, msg):
     if not cond:
         raise AssertionError(msg)
@@ -51,5 +85,6 @@ def fail_after(label, msg):
 
 
 def done():
-    print(f"{_passed} passed, {len(_failures)} failed", flush=True)
+    print(f"{_passed} passed, {len(_failures)} failed" + (f", {len(_differ)} differ today (as measured)" if _differ else ""),
+          flush=True)
     sys.exit(1 if _failures else 0)

@@ -346,6 +346,41 @@ else:
     got = listed([])
     row("RUN-029", "no flags at all still means tier 1", got == ["a.test.js", "test_c.py"], str(got))
 
+    # --- --release refuses while any test still "differs today" (7.30.0, sprint 4): a differs_today mark (test/ui/
+    # harness.py) is a decided behavior not built yet — fine while building, never in a release. The sample uses the REAL
+    # harness, so the runner reads the very lines a screen test prints.
+    ui_harness = os.path.join(ROOT, "test", "ui").replace("\\", "/")
+    differs = write("test_i.py", f"""# sample
+# tags: cells-sample, tier 1
+# covers: readerwrangler.js
+import sys
+sys.path.insert(0, r"{ui_harness}")
+from harness import differs_today, done, test
+test("SAMPLE-010", "built", lambda: None)
+def today():
+    raise AssertionError("today it says the old words")
+differs_today("SAMPLE-011", "decided, not built yet", today, "the old words")
+differs_today("SAMPLE-012", "decided, not built yet either", today, "the old words")
+done()
+""")
+
+    def run_differs(argv):
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                code = rt.main(argv, files=[rt.TestFile(js_ok), rt.TestFile(differs)])
+        except SystemExit as e:
+            code = f"SystemExit {e.code}"
+        return code, buf.getvalue()
+
+    code, out = run_differs(["--tier", "1", "--release"])
+    row("RUN-033", "--release: a test that still differs from what was decided fails the run, naming each test and its file",
+        code == 1 and "SAMPLE-011" in out and "SAMPLE-012" in out and "test_i.py" in out and "SAMPLE-010" not in out.split("release run")[-1],
+        f"exit {code}: {out[-500:]}")
+    code, out = run_differs(["--tier", "1"])
+    row("RUN-034", "without --release the same run passes (while building, a 'differs today' mark is expected)",
+        code == 0 and "2 differ today" in out, f"exit {code}: {out[-400:]}")
+
 failed = [r for r in results if not r[2]]
 print(f"{len(results) - len(failed)} passed, {len(failed)} failed")
 sys.exit(1 if failed else 0)

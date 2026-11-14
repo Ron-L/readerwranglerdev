@@ -142,6 +142,8 @@
     - [Undo history sometimes empties by itself](#undo-history-sometimes-empties-by-itself)
     - [Find out why some books end up in no folder](#find-out-why-some-books-end-up-in-no-folder)
     - [A screen test that failed once: the File menu not found after the start-up test](#a-screen-test-that-failed-once-the-file-menu-not-found-after-the-start-up-test)
+    - [A screen test that failed once: the logging script not loaded at start-up (Diagnostics)](#a-screen-test-that-failed-once-the-logging-script-not-loaded-at-start-up-diagnostics)
+    - [A screen test that failed once: Reset's reload hung while a commit ran alongside](#a-screen-test-that-failed-once-resets-reload-hung-while-a-commit-ran-alongside)
     - [Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced](#books-just-bought-werent-at-the-top-of-all-books-sorted-by-date-added--once-not-reproduced)
   - [🧊 Someday](#someday)
     - [Formats other than Kindle: undo my Kindle-only preference](#formats-other-than-kindle-undo-my-kindle-only-preference)
@@ -251,7 +253,7 @@ Also ONE-TABLE.md §6 item 9: the right-click Delete with books and folders both
   Ctrl+C on a selected book was seen copying the current folder as well (timing-dependent; no harm reproduced); and the
   main keyboard listener's dependency list omits the clipboard (stale-closure risk — paste now reads it through a ref).
   And a receipt that claims what didn't happen: Ctrl+V of a book into a folder it's already in changes nothing but says
-  *"Pasted 'Written Together' into 'Fantasy'"* (seen 2026-11-06) — an "already there" row needs its own words.
+  *"Pasted 'Good Omens' into 'Fantasy'"* (seen 2026-11-06) — an "already there" row needs its own words.
 - **Built ahead of the table, in 7.25.1** (the stopgap it replaces — the operations stay): one paste for Ctrl+V and the
   menu (`pasteClipboard`), one answer to "can books be pasted here?" (`pasteRefusal`: a real folder — the Inbox included
   — or a Book List), and the Book List paste (`pasteBooksIntoBookList`: copy adds; cut moves, last folder → Inbox, one
@@ -1635,6 +1637,20 @@ rows.
   true for a cut from a Book List pasted into a FOLDER after 7.25.1; a cut from a Book List pasted into another Book List
   now leaves the first list — 7.25.1's Book List paste.) Found in
   7.10.1-alpha.7, filed not fixed.
+- **7.30.0 (sprint 4) changed the ground under this task** — the one table answers every move / copy / paste of today's
+  keys, menus and drags (`gestureTable.decide`, `placeByTable`, `dropItems`, `dropTreeFolders`; ONE-TABLE.md §7). The
+  "How" lines above describe the code before it; decision 11's "say what happened" is done there. What's left here are
+  the NEW gestures, plus these leftovers the sprint found (ONE-TABLE.md §7, alpha.2–8):
+  1. **Fake drop signals** (decision 11): the move cursor shows, then the drop is refused or does something else — a
+     Search entry (books), the "Book Lists" crumb (folders, books), the Folders header and the Inbox while Ctrl will
+     copy; the edge line's colour for a left-pane folder drag in a sorted mode can show red where a move then happens.
+  2. **A Ctrl-drag of a LEFT-pane folder doesn't copy** (the left pane's drag only allows a move).
+  3. **The tree's "＋ New subfolder here" box says "inside this one"** — it means the folder next to the ＋, not the one
+     you're in.
+  4. On a right-pane folder row, a right-pane folder drag whose parent isn't the open folder does nothing and says
+     nothing — reachable only if the right pane changes place mid-drag.
+  5. During a left-pane folder drag, hovering a collapsed folder opens it after 500 ms (timing-dependent; it can shift
+     the rows below the pointer).
 
 #### Retire two leftover book fields: the hidden "seen" flag and the old price-goal field
 <!-- id 20261012-0000b -->
@@ -3887,6 +3903,41 @@ failed once is watched, not forgotten. (Moved here from "Logging as its own modu
 - **Read it before fixing it** (TESTING.md §7): what was on screen (the failure screenshot) — was the menu bar covered,
   or not yet drawn?
 - **Set it aside the same day** (with a TODO) rather than re-run past it.
+
+### A screen test that failed once: the logging script not loaded at start-up (Diagnostics)
+<!-- id 20261113-2108 -->
+
+_Why it matters:_ A test that fails now and then teaches everyone to ignore failures (TESTING.md §7) — and this one
+looked like the page starting without its logging script, which on a real visit would mean no log and no messages.
+
+**What happened**
+- Once (2026-11-13, sprint 4, before 7.30.0-alpha.3): test_diagnostics.py failed at page start-up — the log said
+  `UI-03 Uncaught ReferenceError: rwLog is not defined (readerwrangler.js:164)` (the app's first log call), then a 180 s
+  wait for the screen timed out. The file passed alone (11/11) and in the full rerun on the same files; my own two full
+  runs after it passed too.
+
+**Next time it happens**
+- **Read it before fixing it** (TESTING.md §7): did the logging script's request fail or arrive late (the failure's
+  console and network), and was `serve.py` rebuilding `dist/` at that moment?
+- **Set it aside the same day** (with a TODO) rather than re-run past it.
+
+### A screen test that failed once: Reset's reload hung while a commit ran alongside
+<!-- id 20261113-2359 -->
+
+_Why it matters:_ A test that fails now and then teaches everyone to ignore failures (TESTING.md §7) — and Reset is
+the one place where a hang would leave a person stuck mid-reset.
+
+**What happened**
+- Once (2026-11-13 ~23:45, sprint 4, on 7.30.0-alpha.8): in a full tier-2 run, test_reset.py failed 5 of 7 — RESET-003
+  "the reset tab reloads normally (it hung) and stays reset (the other tab's folders came back)", then RESET-004–006 and
+  the session's log. **A commit (TODO.md only) ran its checks during that run.** The file passed alone (6/6) right
+  after, and the full tier 2 passed again with nothing else running. The full output wasn't kept (the run was filtered).
+
+**Next time it happens**
+- **Read it before fixing it** (TESTING.md §7): keep the run's full output; was anything else using the machine (a
+  commit's checks, another test run, `serve.py` rebuilding)? Reset waits on the browser letting go of the book store —
+  a slow machine may be enough.
+- Meanwhile: **no commits during a test run** (Claude's practice from 2026-11-13).
 
 ### Books just bought weren't at the top of All Books sorted by Date Added — once, not reproduced
 <!-- id 20261112-1925 -->
