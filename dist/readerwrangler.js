@@ -153,7 +153,7 @@ var MenuDivider = () => /*#__PURE__*/React.createElement("div", { className: "rw
 // Clear emergency reset timer — app code loaded successfully
 if (window._appMountTimer) {clearTimeout(window._appMountTimer);window._appMountTimer = null;}
 
-var ORGANIZER_VERSION = "7.30.0-alpha.6"; // Build version for this file
+var ORGANIZER_VERSION = "7.30.0-alpha.7"; // Build version for this file
 // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
 // problem… (7.29.0: one copy, so the two can't drift)
 var DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -2233,13 +2233,14 @@ function ReaderWrangler() {
   // Copy to › / Add to Book List › (and their "New folder here…" / "New Book List…") and today's drags (dropItems).
   // The table answers (gestureTable.decide — for a drag, its verb by decisions 6–7), the one placement does it
   // (placeItems — ONE undo step, ONE receipt). A refusal says the table's words. Returns true when it acted.
-  // opts: { ctrl } (a drag: Ctrl held at the drop), { at } (where the receipt shows), { create } (see placeItems).
-  var placeByTable = (gesture, bookIds, folderIds, from, target, { ctrl = false, at, create } = {}) => {
+  // opts: { ctrl } (a drag: Ctrl held at the drop), { at } (where the receipt shows), { create } (see placeItems),
+  // { slot } (see placeItems).
+  var placeByTable = (gesture, bookIds, folderIds, from, target, { ctrl = false, at, create, slot } = {}) => {
     var what = gestureTable.selectionWhat(bookIds.length, folderIds.length);
     if (what === 'nothing') return false;
     var row = gestureTable.decide(gesture, what, { placeId: from, ctrl }, { placeId: target });
     if (row.act === 'refuse') {rwLog.log('info', 'MOVE', row.words, null, { toast: at || true });return false;}
-    placeItems(row, { bookIds, folderIds, from }, target, { at, create });
+    placeItems(row, { bookIds, folderIds, from }, target, { at, create, slot });
     return true;
   };
   // A drop of right-pane items (books and / or folders, as the drag carried them) onto a place — every drop target
@@ -2253,10 +2254,13 @@ function ReaderWrangler() {
   // — not from the place the right pane shows, so the drag's verb is a move (one kind: folders). Ctrl isn't read: the
   // left pane's drag offers a move only (effectAllowed 'move'); a Ctrl-drag copy from there is the drag task's.
   // Was reparentFolder with the place's id — on "Book Lists" in the folder path, a parent that isn't a folder.
-  var dropTreeFolders = (folderIds, target) => {
+  // 7.30.0-alpha.7 - every left-pane folder drop calls it too: the Folders header, the Inbox, a folder's middle —
+  // and a folder's top / bottom quarter under ANOTHER parent, with slot { targetFolderId, position } (placed there,
+  // in Manual order). Within one parent the edge is a reorder (reorderFoldersInParent), outside the table.
+  var dropTreeFolders = (folderIds, target, slot) => {
     var ids = (folderIds || []).filter((id) => folders.some((f) => f.id === id));
     var parent = ids.length ? folders.find((f) => f.id === ids[0]).parentId : null;
-    return placeByTable('drag', [], ids, parent || '__library__', target);
+    return placeByTable('drag', [], ids, parent || '__library__', target, { slot });
   };
 
   // Books and / or folders into a place, as the table's row says: ONE undo step (a COMPOUND of the operations' own
@@ -2265,7 +2269,9 @@ function ReaderWrangler() {
   // create (7.30.0-alpha.2): the destination is made by this gesture ("New folder here…", "New Book List…") —
   // { step (its CREATE_FOLDER / BOOKLIST_CREATE), apply() (makes it), folderList / listList (the folders / lists
   // with it in, to plan against) }; its making is part of the ONE undo step. at: where the receipt shows.
-  var placeItems = async (row, { bookIds, folderIds, from }, target, { at, create } = {}) => {
+  // slot (7.30.0-alpha.7): folders moved to a POSITION among the destination's children — { targetFolderId,
+  // position: 'before' | 'after' } (a left-pane folder dropped on the edge of a folder under another parent).
+  var placeItems = async (row, { bookIds, folderIds, from }, target, { at, create, slot } = {}) => {
     var lists = create ? { folderList: create.folderList || folders, listList: create.listList || bookLists } : {};
     var bookAct = row.act === 'both' ? row.books : bookIds.length ? row.act : null;
     var folderAct = row.act === 'both' ? row.folders : folderIds.length ? row.act : null;
@@ -2275,7 +2281,7 @@ function ReaderWrangler() {
       toPlace = [...new Set([...bookIds, ...folderTreeBooks(folderIds)])];
       bookAct = 'add-books';
     } else if (folderAct) {
-      folderPlan = folderAct === 'move-folders' ? planFolderMove(folderIds, target, lists) : planFolderCopy(folderIds, target, lists);
+      folderPlan = folderAct === 'move-folders' ? planFolderMove(folderIds, target, { ...lists, slot }) : planFolderCopy(folderIds, target, lists);
       if (!folderPlan) return false; // refused by the folder operation's own check — it said why
     }
     if (bookAct === 'refile') {
@@ -4175,8 +4181,9 @@ function ReaderWrangler() {
   // Folders moved by a paste (7.30.0): under the destination — the Folders view is the top level — through
   // planReparent (its checks: never into itself or below; the Inbox never moves). A folder already there stays, and
   // the words say so. Returns { step (null: nothing moves), words }, or null when refused (it said why).
-  // folderList (7.30.0-alpha.4): with a destination the gesture is making in (placeItems' create)
-  var planFolderMove = (folderIds, target, { folderList = folders } = {}) => {
+  // folderList (7.30.0-alpha.4): with a destination the gesture is making in (placeItems' create). slot
+  // (7.30.0-alpha.7): { targetFolderId, position } — placed at that position (planReparent's, Manual order only).
+  var planFolderMove = (folderIds, target, { folderList = folders, slot } = {}) => {
     var parent = target === '__library__' ? null : target;
     var parentOf = (id) => (folderList.find((f) => f.id === id) || {}).parentId ?? null;
     var already = folderIds.filter((id) => parentOf(id) === parent);
@@ -4184,7 +4191,7 @@ function ReaderWrangler() {
     if (moving.length === 0) {
       return { step: null, words: { act: 'move-folders', names: [], already: already.map((id) => nameOfPlace(id, { folderList })), to: parent ? nameOfPlace(parent, { folderList }) : null } };
     }
-    return planReparent(moving, parent, { folderList });
+    return planReparent(moving, parent, { folderList, ...(slot || {}) });
   };
   // THE folder copy (7.30.0; §6 items 8, 15) — the paste's, the folder menu's and a Ctrl-drag's (three copies before,
   // and the Ctrl-drag moved the folder): each folder's whole tree as "X (Copy)", every book filed in the copy too (a
@@ -15006,12 +15013,24 @@ function ReaderWrangler() {
       },
       onDrop: (e) => {
         e.preventDefault();
-        var folderData = e.dataTransfer.getData('application/x-folder-reorder');
-        if (folderData) {
-          var { folderIds } = JSON.parse(folderData);
-          reparentFolder(folderIds, null);
-        }
         setFolderDropHighlight(null);
+        // 7.30.0-alpha.7 - the table answers (the top level), as on "Folders" in the folder path
+        // (was reparentFolder(…, null) on its own: a folder already at the top level was re-placed,
+        // saying "Moved"; a right-pane drag of folders AND books moved the folders and dropped the
+        // books silently). Right-pane items — what the drag carried, Ctrl read:
+        var rwItemsStr = e.dataTransfer.getData('application/x-rw-items');
+        if (rwItemsStr) {
+          var { sourceFolder, itemIds } = JSON.parse(rwItemsStr);
+          dropItems(itemIds, '__library__', sourceFolder, ctrlKeyRef.current);
+          setExplorerSelectedItems(new Set());
+          stopDragVirtualization();
+          setExplorerDragBookId(null);
+          setExplorerDragData(null);
+          return;
+        }
+        // a left-pane folder (it carries only x-folder-reorder)
+        var folderData = e.dataTransfer.getData('application/x-folder-reorder');
+        if (folderData) dropTreeFolders(JSON.parse(folderData).folderIds, '__library__');
       },
       title: "Your personal organization \u2014 drag books into any folder below to arrange your library." }, "Folders"
 
@@ -15168,7 +15187,7 @@ function ReaderWrangler() {
         if (folderDataStr) {
           try {
             var folderDragData = JSON.parse(folderDataStr);
-            reparentFolder(folderDragData.folderIds, '__inbox__');
+            dropTreeFolders(folderDragData.folderIds, '__inbox__'); // 7.30.0-alpha.7 - the table's (was reparentFolder)
           } catch (err) {rwLog.log('error', 'MOVE-01', "That move didn't work.", { where: 'folders dropped on the Inbox', error: err && err.message, stack: err && err.stack }, { toast: true });}
         }
         setFolderDropHighlight(null);
@@ -15399,7 +15418,9 @@ function ReaderWrangler() {
                   setSidebarFolderDragTarget(null);
 
                   if (_target2?.type === 'reparent') {
-                    reparentFolder(folderIds, folder.id);
+                    // 7.30.0-alpha.7 - the table's (was reparentFolder on its own: a folder dropped on the
+                    // folder it's already in was re-placed at its top, saying "Moved")
+                    dropTreeFolders(folderIds, folder.id);
                   } else if (_target2?.type === 'reorder') {
                     // v7.6.0-alpha.1 (wave A) - Consolidated onto the canonical operations. The old inline
                     // reorder recorded a REORDER_FOLDER payload the undo reducer couldn't read (sidebar
@@ -15407,8 +15428,9 @@ function ReaderWrangler() {
                     var draggedFolder = folders.find((f) => f.id === folderIds[0]);
                     if (!draggedFolder) return;
                     if (draggedFolder.parentId !== folder.parentId) {
-                      // Cross-parent drag to a position: reparent places at the drop target (Manual mode)
-                      reparentFolder(folderIds, folder.parentId, { targetFolderId: folder.id, position: _target2.position });
+                      // Cross-parent drag to a position: placed at the drop target (Manual mode) — the
+                      // table's move to that parent, with the position (7.30.0-alpha.7; was reparentFolder)
+                      dropTreeFolders(folderIds, folder.parentId || '__library__', { targetFolderId: folder.id, position: _target2.position });
                     } else {
                       // Same-parent: canonical reorder (guards non-Manual sort with its own toast)
                       reorderFoldersInParent(folder.parentId, folderIds, folder.id, _target2.position);

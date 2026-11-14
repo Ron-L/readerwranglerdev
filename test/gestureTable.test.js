@@ -10,6 +10,7 @@
 // header (TABLE-023), a drag's / a menu's refusal words for the top level (TABLE-024), the "New…" boxes' words (TABLE-025).
 // 7.30.0-alpha.6: folders dragged onto the Book Lists / Searches headers — a drag's words (TABLE-026); a folder's new
 // parent is a real folder or the top level — planReparent's guard, reparentProblem, and the one intoItself (TABLE-027).
+// 7.30.0-alpha.7: books dragged onto the Book Lists header — a drag's words (TABLE-028).
 const assert = require('assert');
 const t = require('../gestureTable.js');
 const { test, done } = require('./harness');
@@ -450,6 +451,27 @@ test('TABLE-027', "a folder's new parent (planReparent's guard, under the table)
     assert.strictEqual(t.intoItself(['f-old'], 'f-scifi', fl), false);
     assert.strictEqual(t.intoItself(['f-scifi'], 'f-new', [...fl, { id: 'f-new', parentId: 'f-space' }]), true, 'a folder being made below it');
     assert.strictEqual(t.intoItself(['f-scifi'], null, fl), false, 'the top level');
+});
+
+// ── 7.30.0-alpha.7: books dragged onto the Book Lists header (the folder path, a Book List open) ─────────────────────────
+test('TABLE-028', 'books dragged onto the Book Lists header (the folder path): refused, in a drag\'s words naming the place — not the paste\'s', () => {
+    const W = t.MOVE_WORDS;
+    assert.strictEqual(W.dragBooksNotOntoBookLists,
+        "Nothing moved — books can't go onto the Book Lists heading, only onto a Book List. Drop them on one in the left pane.");
+    for (const from of ['__booklist_bl-1__', 'f-scifi', '__all__', '__trash__']) for (const ctrl of [false, true]) {
+        const d = t.decide('drag', 'books', { placeId: from, ctrl }, { placeId: '__booklists__' });
+        assert.deepStrictEqual(d, { act: 'refuse', words: W.dragBooksNotOntoBookLists }, `drag${ctrl ? ' + Ctrl' : ''} books ${from} → Book Lists`);
+    }
+    // books and folders together: the books' refusal (a refusing half refuses the whole)
+    assert.strictEqual(t.decide('drag', 'both', { placeId: 'f-scifi' }, { placeId: '__booklists__' }).words, W.dragBooksNotOntoBookLists);
+    // the paste and the menus keep their own words; a drag onto a Book List itself still adds
+    assert.strictEqual(t.decide('paste', 'books', { placeId: '__booklist_bl-1__', clip: 'cut' }, { placeId: '__booklists__' }).words, W.openAPlace);
+    assert.strictEqual(t.decide('copy', 'books', { placeId: '__booklist_bl-1__' }, { placeId: '__booklists__' }).words, W.openAPlace);
+    assert.strictEqual(t.decide('drag', 'books', { placeId: 'f-scifi' }, { placeId: '__booklist_bl-2__' }).act, 'add-books');
+    assert.strictEqual(t.decide('drag', 'books', { placeId: '__booklist_bl-1__' }, { placeId: '__booklist_bl-2__' }).act, 'move-books');
+    // the other drag words are untouched: folders onto Book Lists, books and folders onto the top level
+    assert.strictEqual(t.decide('drag', 'folders', { placeId: 'f-scifi' }, { placeId: '__booklists__' }).words, W.dragFoldersNotIntoBookLists);
+    assert.strictEqual(t.decide('drag', 'both', { placeId: 'f-scifi' }, { placeId: '__library__' }).words, W.dragBothNotTopLevel);
 });
 
 done();

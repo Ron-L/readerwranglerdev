@@ -5,7 +5,8 @@
 // (Ron, 2026-11-12, review queue Q-013 — as File Explorer does; was: the books only). 7.30.0: the move / copy / paste
 // rows (TODO "One table for every move, copy, paste and delete…", id 20261106-1237; ONE-TABLE.md §4–§6). 7.30.0-alpha.6:
 // a drag's words for folders refused at the Book Lists / Searches headers; reparentProblem + intoItself (planReparent's
-// checks, pure — a folder's new parent is a real folder or the top level).
+// checks, pure — a folder's new parent is a real folder or the top level). 7.30.0-alpha.7: a drag's words for books
+// dropped on the Book Lists header (DRAG_BOOK_WORDS, beside DRAG_FOLDER_WORDS).
 //
 // Pure — no React, no DOM, no app state — so the rules are function-tested (test/gestureTable.test.js) and every
 // combination must have a row. Loaded as a classic script before readerwrangler.js (browser); required by the test
@@ -133,12 +134,17 @@ const MOVE_WORDS = {
     // words, naming the place (the paste keeps foldersOpenAFolder)
     dragFoldersNotIntoBookLists: "Nothing moved — folders can't go into Book Lists, only into another folder or the top level.",
     dragFoldersNotIntoSearches: "Nothing moved — folders can't go into Searches, only into another folder or the top level.",
+    // 7.30.0-alpha.7: books dragged onto "Book Lists" in the folder path (a Book List open) — a drag's words, naming the
+    // place (was the paste's "Open a folder or Book List to paste into it"). "Searches" takes no book drag (its crumb
+    // doesn't accept one), so it has no such words.
+    dragBooksNotOntoBookLists: "Nothing moved — books can't go onto the Book Lists heading, only onto a Book List. Drop them on one in the left pane.",
     // 7.30.0-alpha.6: planReparent's guard (reparentProblem) — a caller that asked for a parent that isn't a folder; the
     // table refuses such a gesture first, so a person sees this only if a gesture skipped the table (a bug)
     parentNotAFolder: 'Nothing moved — a folder can only go into another folder or the top level.',
 };
-// a drag's words for folders refused at a header (the act is the row's — only the words fit the drag)
+// a drag's words for folders / books refused at a header (the act is the row's — only the words fit the drag)
 const DRAG_FOLDER_WORDS = { 'book-lists-view': MOVE_WORDS.dragFoldersNotIntoBookLists, 'searches-view': MOVE_WORDS.dragFoldersNotIntoSearches };
+const DRAG_BOOK_WORDS = { 'book-lists-view': MOVE_WORDS.dragBooksNotOntoBookLists };
 
 // The acts (what the app then runs — the table decides, the operations do):
 //   books:   move-books   — out of the folder or Book List they came from, into the destination; a book leaving its LAST
@@ -226,10 +232,10 @@ const decide = (gesture, what, from, to) => {
     // instead — a drop of books and folders on "Folders" in the folder path, the folder menu's Root. The act never differs.
     const fit = (r) => (r.act === 'refuse' && toKind === 'folders-view' && gesture !== 'paste'
         ? refuse(gesture === 'drag' && what === 'both' ? W.dragBothNotTopLevel : W.booksNotTopLevel) : r);
+    const fitDrag = (r, words) => (r.act === 'refuse' && gesture === 'drag' && words[toKind] ? refuse(words[toKind]) : r);
     const books = () => (verb === 'move' && from.placeId === to.placeId && CONTAINER_KINDS.includes(toKind)
-        ? { act: 'already-here' } : fit(BOOK_ROWS[verb][fromKind][toKind]));
-    const fitFolders = (r) => (r.act === 'refuse' && gesture === 'drag' && DRAG_FOLDER_WORDS[toKind] ? refuse(DRAG_FOLDER_WORDS[toKind]) : r);
-    const folders = () => fitFolders(FOLDER_ROWS[verb][toKind]);
+        ? { act: 'already-here' } : fitDrag(fit(BOOK_ROWS[verb][fromKind][toKind]), DRAG_BOOK_WORDS));
+    const folders = () => fitDrag(FOLDER_ROWS[verb][toKind], DRAG_FOLDER_WORDS);
     if (what === 'books') return books();
     if (what === 'folders') return folders();
     const b = books(), f = folders();

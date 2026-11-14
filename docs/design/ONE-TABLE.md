@@ -476,7 +476,60 @@ hadn't listed, and the cells whose answer wasn't clear:
    books ~18408), `pasteClipboard` (both menus' Paste, the key), `placeItems` → `planFolderMove` / `planFolderCopy` /
    `planBookPlacement`. The folder menu's Move to › with folders only still calls `reparentFolder` (its large-move
    confirmation; the folder row's own answer, CELL-047) — its targets come from the folder tree, so never a place that
-   isn't a folder, and the guard (item 3) stands under it and under the three left-pane drops above.
+   isn't a folder, and the guard (item 3) stands under it and under the three left-pane drops above. (Those three ask the
+   table since alpha.7 — its site map, below, replaces this one.)
+
+   — **7.30.0-alpha.7, every folder drop asks the table — built:**
+   1. **The left pane's own folder drops** — a folder dragged in the left pane onto the **Folders header**, the **Inbox**, or
+      the **middle of a folder** — now call `dropTreeFolders` (→ `placeByTable('drag', …)` → `placeItems` →
+      `planFolderMove`), as the folder path and the right pane's rows did since alpha.6: one answer, one undo step, the
+      table's words. Were `reparentFolder` on their own, which re-placed a folder dropped where it already was and said
+      *"Moved 'Space Opera' from 'Science Fiction' to 'Science Fiction'."*; now §6 item 7: *"Nothing moved — 'An Empty
+      Folder' is already in the top level."* / *"Nothing moved — 'Space Opera' is already in 'Science Fiction'."* CELL-099
+      and CELL-102 (each failed first, with those old words), CELL-100, 101, 103 (guards — the same change and words before
+      and after).
+   2. **A folder's top / bottom quarter under ANOTHER parent** (the left pane; a left-pane folder or right-pane folders
+      alone) — placed at that position among the new parent's children — goes through the table too, **keeping the
+      position**: `dropTreeFolders(…, the row's parent, slot { targetFolderId, position })`; `placeByTable` / `placeItems` /
+      `planFolderMove` pass `slot` on to `planReparent` (its `targetFolderId` / `position`, Manual order only — as before).
+      CELL-104 (a guard: Space Opera dropped on Science Fiction's bottom quarter lands at the top level just BELOW Science
+      Fiction; seen failing with the position left out — it landed at the top, under the pinned Fantasy). **Within one
+      parent** the edge stays `reorderFoldersInParent` — a reorder, outside the table.
+   3. **The Folders header takes a right-pane drag through the table too** (found on the way — that drag carries
+      `x-folder-reorder`, which the header accepts): `dropItems(…, '__library__', …)` as the Inbox and the folders do.
+      Was `reparentFolder(…, null)` on the folders alone — a drag of a book and a folder moved the folder to the top level
+      and dropped the book silently; now refused in the drag's words (*"Nothing moved — books can't go to the top level,
+      only folders. …"*, CELL-105, failed first). Folders alone still go to the top level (CELL-106, guard); with Ctrl held
+      they are copied (the table's drag row, as on the Inbox and every folder — was a move).
+   4. **Books dragged onto "Book Lists" in the folder path** (a Book List open) are refused in a drag's words, beside
+      `DRAG_FOLDER_WORDS`: `DRAG_BOOK_WORDS` → `MOVE_WORDS.dragBooksNotOntoBookLists` — *"Nothing moved — books can't go
+      onto the Book Lists heading, only onto a Book List. Drop them on one in the left pane."* (was the paste's: *"Open a
+      folder or Book List to paste into it."*). TABLE-028, CELL-107 (each failed first). "Searches" has no such words: its
+      crumb doesn't accept a book drag.
+
+   **The site map (Law 5 — two searches: every `onDrop`, and every call of `reparentFolder` / `dropItems` /
+   `dropTreeFolders` / `placeByTable` / `reorderFoldersInParent`):**
+
+   | Drop (readerwrangler.js, alpha.7) | What answers it |
+   |---|---|
+   | Left pane: a Search entry (~14756) | `repositionSearch` — a reorder, outside the table |
+   | Left pane: a Book List entry (~14925) | `reorderBookLists` (a list among lists) / `dropItems` (books) |
+   | Left pane: the Folders header (~15014) | `dropItems` (right-pane items — alpha.7); `dropTreeFolders` (a left-pane folder — alpha.7) |
+   | Left pane: the Inbox (~15167) | `dropItems` (right-pane items); `dropTreeFolders` (a left-pane folder — alpha.7) |
+   | Left pane: a folder (~15357) | `dropItems` (right-pane items, middle — or anything carrying books); a folder on its middle: `dropTreeFolders` (alpha.7); on its edge, another parent: `dropTreeFolders` with the position (alpha.7); on its edge, the same parent: `reorderFoldersInParent` (a reorder) |
+   | Left pane: the Trash (~15693) | `softDeleteBooks` — §6 Q5, unchanged |
+   | The folder path (~15758) | `dropItems` (right-pane items); `dropTreeFolders` (a left-pane folder) |
+   | Right pane: a column header (~16419) | `handleColumnDrop` — the columns' order, outside the table |
+   | Right pane: a folder row, list (~16698) / cover (~17428) | `dropItems` (anything carrying books, or folders on the middle); `dropTreeFolders` (a left-pane folder on the middle); `reorderFoldersInParent` (right-pane folders alone on the edge) |
+   | Right pane: a book row, list (~17016) / cover (~17622) | `reorderBooksInFolder` (Manual order) — outside the table |
+   | Tag Manager rows (~17970) | `reorderTags` — outside the table |
+
+   **No drop of books or folders answers a move or copy outside the table any more.** What's left outside it is
+   reordering within one parent or list (Searches, Book Lists, folders, books, columns, tags), and the Trash's drop
+   (`softDeleteBooks`, §6 Q5). `reparentFolder` has one caller left: the folder menu's Move to › with folders only (its
+   large-move confirmation; its targets come from the folder tree — the guard, `reparentProblem`, stands under it).
+   Found, not changed: a left-pane folder dropped on the top / bottom quarter of a right-pane folder row does nothing and
+   says nothing (that row's reorder compares `dragData.parentId`, which a left-pane drag doesn't carry).
 5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
    — **7.30.0-alpha.1 — built:** the second listener and its folder clipboard are gone; ONE clipboard
    `{ type, bookIds, folderIds, from }` filled by `putOnClipboard` (Ctrl+X / Ctrl+C on the selection — books, folders or
