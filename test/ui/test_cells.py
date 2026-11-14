@@ -10,6 +10,9 @@
 # built (test-first). A cell that differs today has its measured words in the TODAY table below (differs_today in
 # harness.py): it is reported, not failed — and it FAILS if it starts passing (drop its line) or fails some other way.
 # RW_CELLS=CELL-005,CELL-019 runs just those cells (while building a row).
+# 7.30.0-alpha.4: the menus take the whole selection — books and folders (§6 item 17) — CELL-070–080, 086, 087; a mixed
+# drop on the "Folders" crumb says a drag's words (CELL-081); the Trash's "New…" boxes say "restore" (CELL-082–084).
+# 7.30.0-alpha.5: the left pane's dead drop branches removed — CELL-085 guards the Inbox's restore (now the table's).
 # A cell whose decided behavior isn't written anywhere records TODAY's behavior instead, and says so in its name
 # ("today's, not decided") — those are listed in the sprint's report for Ron, never guessed.
 #
@@ -724,6 +727,173 @@ with App() as app:
             clean_up()
     add("CELL-069", "Add to Book List › New Book List… out of the Trash: the new list, the book restored onto it — one "
         "Ctrl+Z takes back the list and the restore", new_list_from_trash)
+
+    # ── 7.30.0-alpha.4: the menus take the WHOLE selection — books and folders both (§6 item 17, "for every gesture") ────
+    # Was: with a book and a folder selected, the book menu's Move to › / Copy to › / Add to Book List › / Cut / Copy took
+    # the books only (its header "1 book selected"); the folder menu's Move to › / Cut / Copy the right-clicked folder only.
+    MIXED = ("Science Fiction", "Space Opera", ND)            # a folder and a book, selected in Science Fiction
+    BOTH_MOVED = {"Science Fiction": "-18", "Fantasy": "+18", "Space Opera ⇒": "Fantasy"}
+    BOTH_WORDS = ["Moved 'Space Opera' and 'A Book With No Description' from 'Science Fiction' to 'Fantasy'"]
+    BOTH_COPIED = {"Fantasy": "+18", **COPY_TREE}
+    COPY_WORDS = ["Added 'A Book With No Description' to 'Fantasy'", "Copied 'Space Opera' (2 books, 1 subfolder)"]
+
+    def mixed_book_menu_header():
+        try:
+            pick(*MIXED)
+            page.locator("tbody tr", has_text=ND).first.click(button="right")
+            menu = page.get_by_role("menu", name="Book options")
+            menu.wait_for(timeout=3000)
+            head = menu.locator("div").first.inner_text().strip()
+            check(head == "1 book and 1 folder selected", f"the book menu's header says {head!r}")
+        finally:
+            clean_up()
+    add("CELL-070", "a book and a folder selected: the book menu's header says \"1 book and 1 folder selected\" (was \"1 "
+        "book selected\")", mixed_book_menu_header)
+    add("CELL-071", "a book and a folder selected, the book menu's Move to › a folder: BOTH move; one receipt; one Ctrl+Z",
+        cell(lambda: (pick(*MIXED), book_menu(ND, "Move to", "Move to folder", "Fantasy")), BOTH_MOVED, BOTH_WORDS))
+    add("CELL-072", "… the book menu's Copy to ›: the book added, the folder's whole tree copied",
+        cell(lambda: (pick(*MIXED), book_menu(ND, "Copy to", "Copy to folder", "Fantasy")), BOTH_COPIED, COPY_WORDS))
+    add("CELL-073", "… the book menu's Add to Book List ›: the book AND the folder's books (its subfolders' too) go on the "
+        "list (§6 item 8)",
+        cell(lambda: (pick(*MIXED), book_menu(ND, "Add to Book List", "Add to Book List", "Read Next")),
+             {"Read Next": "+18 +19"}, ["Added 2 books to 'Read Next' (1 was already there)"]))
+
+    def book_menu_item(title, label):
+        page.locator("tbody tr", has_text=title).first.click(button="right")
+        menu = page.get_by_role("menu", name="Book options")
+        menu.wait_for(timeout=3000)
+        app.click_reachable(menu.get_by_text(label, exact=True).first)
+        page.wait_for_timeout(200)
+    add("CELL-074", "… the book menu's Cut → Ctrl+V: both move (as Ctrl+X)",
+        cell(lambda: (pick(*MIXED), book_menu_item(ND, "Cut"), paste_key("Fantasy")), BOTH_MOVED, BOTH_WORDS))
+    add("CELL-075", "… the book menu's Copy → Ctrl+V: both copied (as Ctrl+C)",
+        cell(lambda: (pick(*MIXED), book_menu_item(ND, "Copy"), paste_key("Fantasy")), BOTH_COPIED, COPY_WORDS))
+
+    def right_folder_menu(folder, item, target=None):
+        """Right-click a folder ROW in the right pane (the selection stays) → an item, or Move to › a target."""
+        page.locator("tbody tr", has_text=folder).first.click(button="right")
+        menu = page.get_by_role("menu", name="Folder options")
+        menu.wait_for(timeout=3000)
+        if target is None:
+            app.click_reachable(menu.get_by_text(item, exact=True).first)
+            page.wait_for_timeout(200)
+            return
+        app.hover(menu.locator(".submenu-trigger", has_text=item).first)
+        sub = page.locator('[aria-label="Move to folder"]')
+        sub.wait_for(timeout=3000)
+        mark()
+        app.click_reachable(sub.get_by_text(target, exact=True).first)
+
+    def folders_view():
+        """Open the Folders header (the right pane lists the Inbox and the top-level folders)."""
+        page.mouse.move(900, 600)
+        app.click_reachable(page.locator("[data-left-pane] span.cursor-pointer", has_text=re.compile(r"^Folders$")).first)
+        page.locator("tbody tr", has_text="An Empty Folder").first.wait_for(timeout=3000)
+        page.wait_for_timeout(100)
+    add("CELL-076", "a book and a folder selected, the FOLDER's menu (right pane) Move to ›: both move — one answer with "
+        "the book menu",
+        cell(lambda: (pick(*MIXED), right_folder_menu("Space Opera", "Move to", "Fantasy")), BOTH_MOVED, BOTH_WORDS))
+    add("CELL-077", "… the folder menu's Cut → Ctrl+V: both move",
+        cell(lambda: (pick(*MIXED), right_folder_menu("Space Opera", "Cut"), paste_key("Fantasy")), BOTH_MOVED, BOTH_WORDS))
+    add("CELL-078", "… the folder menu's Copy → Ctrl+V: both copied",
+        cell(lambda: (pick(*MIXED), right_folder_menu("Space Opera", "Copy"), paste_key("Fantasy")), BOTH_COPIED,
+             COPY_WORDS))
+    add("CELL-079", "two folders selected (the Folders view), the folder menu's Move to ›: both folders move (was: the "
+        "right-clicked one only — as Pin and Delete already took the selection)",
+        cell(lambda: (folders_view(), select("Every Ownership Kind", "An Empty Folder"),
+                      right_folder_menu("An Empty Folder", "Move to", "Fantasy")),
+             {"Every Ownership Kind ⇒": "Fantasy", "An Empty Folder ⇒": "Fantasy"}, ["Moved 2 folders", "to 'Fantasy'"]))
+
+    def greyed_targets():
+        """Law 16: a target the gesture can't take is greyed with the reason — never offered and then refused."""
+        try:
+            pick(*MIXED)
+            page.locator("tbody tr", has_text=ND).first.click(button="right")
+            menu = page.get_by_role("menu", name="Book options")
+            menu.wait_for(timeout=3000)
+            app.hover(menu.locator(".submenu-trigger", has_text="Move to").first)
+            sub = page.locator('[aria-label="Move to folder"]')
+            sub.wait_for(timeout=3000)
+            # a folder can't go into itself: the selected Space Opera (a subfolder — found with the filter box) is greyed
+            sub.locator("input").first.fill("Space")
+            space = sub.get_by_role("menuitem").filter(has_text="Space Opera").first
+            space.wait_for(timeout=3000)
+            check(space.get_attribute("aria-disabled") == "true" and "into itself" in (space.get_attribute("title") or ""),
+                  f"the selected folder should be greyed in Move to › with the reason — aria-disabled "
+                  f"{space.get_attribute('aria-disabled')!r}, title {space.get_attribute('title')!r}")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(200)
+            clean_up()
+            pick(*MIXED)
+            page.locator("tbody tr", has_text="Space Opera").first.click(button="right")
+            fmenu = page.get_by_role("menu", name="Folder options")
+            fmenu.wait_for(timeout=3000)
+            app.hover(fmenu.locator(".submenu-trigger", has_text="Move to").first)
+            fsub = page.locator('[aria-label="Move to folder"]')
+            fsub.wait_for(timeout=3000)
+            root = fsub.get_by_text("Root", exact=True).first.locator("xpath=..")
+            check(root.get_attribute("aria-disabled") == "true"
+                  and "top level" in (root.get_attribute("title") or ""),
+                  f"with a book selected too, Root should be greyed with the reason — aria-disabled "
+                  f"{root.get_attribute('aria-disabled')!r}, title {root.get_attribute('title')!r}")
+        finally:
+            clean_up()
+    add("CELL-080", "a book and a folder selected: Move to › greys what can't take them, with the reason (Law 16) — the "
+        "selected folder itself (into itself), and the folder menu's Root (books can't go to the top level)",
+        greyed_targets)
+
+    def mixed_drop_on_folders_crumb():
+        pick(*MIXED)
+        crumb = page.locator("button", has_text=re.compile(r"^Folders$")).first
+        mark()
+        page.locator("tbody tr", has_text=ND).first.drag_to(crumb, timeout=10_000)
+    add("CELL-081", "a book and a folder dragged onto \"Folders\" in the folder path above the right pane: nothing moves, "
+        "in a drag's words — not the paste's (\"Open a folder or Book List to paste into it\")",
+        cell(mixed_drop_on_folders_crumb, {}, ["Nothing moved", "books can't go to the top level"]))
+
+    def new_box_words(trigger, submenu, entry, wanted):
+        def run():
+            try:
+                pick("Trash", TR)
+                page.locator("tbody tr", has_text=TR).first.click(button="right")
+                menu = page.get_by_role("menu", name="Book options")
+                menu.wait_for(timeout=3000)
+                app.hover(menu.locator(".submenu-trigger", has_text=trigger).first)
+                sub = page.locator(f'[aria-label="{submenu}"]')
+                sub.wait_for(timeout=3000)
+                app.click_reachable(sub.get_by_text(entry, exact=True).first)
+                ov = page.locator(".rw-imperative-overlay")
+                ov.first.wait_for(timeout=3000)
+                said = ov.first.inner_text()
+                check(wanted in said and not re.search(r"\b(copy|move)\b", said, re.I),
+                      f"in the Trash the box should say {wanted!r} (it restores) — it says {said!r}")
+            finally:
+                clean_up()
+        return run
+    add("CELL-082", "Move to › New folder here… in the Trash: the box says it RESTORES (was \"…and move 1 book into it\")",
+        new_box_words("Move to", "Move to folder", "New folder here…",
+                      "Create a folder and restore 1 book from the Trash into it."))
+    add("CELL-083", "Copy to › New folder here… in the Trash: the box says it restores (was \"…and copy 1 book into it\")",
+        new_box_words("Copy to", "Copy to folder", "New folder here…",
+                      "Create a folder and restore 1 book from the Trash into it."))
+    add("CELL-084", "Add to Book List › New Book List… in the Trash: the box says it restores",
+        new_box_words("Add to Book List", "Add to Book List", "New Book List…",
+                      "Restore 1 book from the Trash and add it to a new Book List."))
+    add("CELL-086", "a book and a folder selected, Move to › New folder here…: the new folder (in Science Fiction) gets "
+        "both; one receipt naming it; one Ctrl+Z takes back the folder and the move",
+        cell(lambda: (pick(*MIXED), new_folder(ND)),
+             {"Science Fiction": "-18", "new Beach Reads": "in Science Fiction: 18", "Space Opera ⇒": "Beach Reads"},
+             ["Moved 'Space Opera' and 'A Book With No Description' from 'Science Fiction' to 'Beach Reads'"]))
+    new_folder_copy = new_container("Copy to", "Copy to folder", "New folder here…", "Beach Reads")
+    add("CELL-087", "… Copy to › New folder here…: the book added to the new folder, the folder's tree copied into it",
+        cell(lambda: (pick(*MIXED), new_folder_copy(ND)),
+             {"new Beach Reads": "in Science Fiction: 18", "new Space Opera (Copy)": "in Beach Reads",
+              "new Old Favorites (Copy)": "in Space Opera (Copy): 19 20"},
+             ["Added 'A Book With No Description' to 'Beach Reads'", "Copied 'Space Opera' (2 books, 1 subfolder)"]))
+    add("CELL-085", "drag out of the Trash onto the Inbox (left pane): a restore — the one table's (the Inbox's own restore "
+        "copy is gone, 7.30.0-alpha.5)",
+        cell(lambda: (go("Trash"), drag(TR, "Inbox")), {"Trash": "-21", "Inbox": "+21"},
+             ["Restored", "from the Trash into 'Inbox'"]))
 
     # ── §6 item 6: a warning looks like a warning — amber, and it stays where it appeared ~4 s (others 1.5 s) ────────────
     TOAST_JS = """el => {

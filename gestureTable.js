@@ -122,6 +122,11 @@ const MOVE_WORDS = {
     folderOntoList: "A folder can't be moved onto a Book List. To add its books to the list, copy the folder instead.",
     inboxCantMove: "The Inbox can't be moved.",
     copyIntoItself: "Can't copy a folder into itself or its subfolder.",
+    moveIntoItself: "Can't move a folder into itself or its subfolder.",
+    // 7.30.0-alpha.4: books aimed at the top level (the Folders header) by a menu or a drag — the words name the place; the
+    // paste keeps openAPlace's / intoAllBooks' words (it is about pasting)
+    booksNotTopLevel: "Books can't go to the top level — only folders can.",
+    dragBothNotTopLevel: "Nothing moved — books can't go to the top level, only folders. Drop them on a folder, or drag the folders on their own.",
 };
 
 // The acts (what the app then runs — the table decides, the operations do):
@@ -205,8 +210,13 @@ const decide = (gesture, what, from, to) => {
     if (!VERBS.includes(verb)) throw new Error(`gestureTable: no rows for the gesture "${gesture}" yet`);
     if (!MOVE_WHATS.includes(what)) throw new Error(`gestureTable: a ${verb} of "${what}" — nothing to ${verb}`);
     const fromKind = placeKind(from && from.placeId), toKind = placeKind(to && to.placeId);
+    // A refusal's words fit the gesture (7.30.0-alpha.4): the rows' words are the paste's ("Open a folder or Book List to
+    // paste into it"); books aimed at the top level (the Folders header) by a menu or a drag are told about the place
+    // instead — a drop of books and folders on "Folders" in the folder path, the folder menu's Root. The act never differs.
+    const fit = (r) => (r.act === 'refuse' && toKind === 'folders-view' && gesture !== 'paste'
+        ? refuse(gesture === 'drag' && what === 'both' ? W.dragBothNotTopLevel : W.booksNotTopLevel) : r);
     const books = () => (verb === 'move' && from.placeId === to.placeId && CONTAINER_KINDS.includes(toKind)
-        ? { act: 'already-here' } : BOOK_ROWS[verb][fromKind][toKind]);
+        ? { act: 'already-here' } : fit(BOOK_ROWS[verb][fromKind][toKind]));
     const folders = () => FOLDER_ROWS[verb][toKind];
     if (what === 'books') return books();
     if (what === 'folders') return folders();
@@ -307,6 +317,30 @@ const clipWords = (type, { books = 0, title, folders = 0, folderName, fromTrash 
     return `${type === 'cut' ? 'Cut' : 'Copied'} ${what}`;
 };
 
+// The book menu's header (7.30.0-alpha.4): what's selected — the books, and the folders with them ("2 books and 1 folder
+// selected"; was the books only — the menu now acts on both, §6 item 17).
+const selectedWords = (books, folders) => `${folders ? `${plural(books, 'book')} and ${plural(folders, 'folder')}` : plural(books, 'book')} selected`;
+
+// What the menus' "New folder here…" / "New Book List…" boxes say they will do — from the table's act for what's selected
+// (7.30.0-alpha.4: in the Trash it is a restore, never "copy" / "move", §6 item 6). act: the book half's act (refile /
+// move-books → move; add-books → copy; restore); books / folders: how many are selected; toList: a new Book List (else a
+// folder); inside: the new folder goes inside the one you're in; existing: the suggested list name is an existing list's.
+const newPlaceWords = ({ act, books = 0, folders = 0, toList = false, inside = false, existing } = {}) => {
+    const restore = act === 'restore';
+    const them = books + folders === 1 ? 'it' : 'them';
+    const what = [books ? plural(books, 'book') : '',
+        folders ? (toList ? `the books in ${plural(folders, 'folder')}` : plural(folders, 'folder')) : ''].filter(Boolean).join(' and ');
+    if (toList) {
+        if (existing) {
+            return `A Book List named “${existing}” already exists — press OK to ${restore ? `restore ${what} from the Trash and add ${them} to that list`
+                : `add ${what} to it`}, or type a different name to create a new list.`;
+        }
+        return restore ? `Restore ${what} from the Trash and add ${them} to a new Book List.` : `Add ${what} to a new Book List.`;
+    }
+    const verb = restore ? 'restore' : act === 'add-books' ? 'copy' : 'move';
+    return `Create a folder${inside ? ' inside this one' : ''} and ${verb} ${what}${restore ? ' from the Trash' : ''} into it.`;
+};
+
 // The re-file question (§6 item 18): a cut from All Books (or with a Search applied) pasted into a folder, when a book is
 // in 2+ other folders. One book: Ron's words; several: the same shape (Claude's, 2026-11-13 — goes to Ron with the
 // release's new words). others: the other folders' names (one book); inOthers: how many of the books are in other folders.
@@ -331,7 +365,7 @@ const deleteBothLabel = (books, folders) => `Delete ${cap(books, 'Book')} and ${
 
 const api = { PLACE_KINDS, DELETE_WHATS, FOCUSES, DELETE_WORDS, DELETE_ROWS, placeKind, decide, selectionWhat,
     splitDeletableFolders, MOVE_WHATS, VERBS, MOVE_WORDS, BOOK_ROWS, FOLDER_ROWS, clipFolders, placeWords, clipWords,
-    REFILE_BUTTONS, refileAsks, refileQuestion, dragVerb, deleteBothLabel };
+    REFILE_BUTTONS, refileAsks, refileQuestion, dragVerb, deleteBothLabel, selectedWords, newPlaceWords };
 if (typeof window !== 'undefined') window.gestureTable = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

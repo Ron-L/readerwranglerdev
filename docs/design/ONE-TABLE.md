@@ -383,6 +383,37 @@ hadn't listed, and the cells whose answer wasn't clear:
    | Folder menu: Move to › (~18537) | `reparentFolder` (folders only) | unchanged (the folder's own row; CELL-047) |
    | The keys (Ctrl+X / C / V, Delete) | alpha.1 | unchanged |
    | Other `addBooksToBookList` callers (Auto-Organize's "add to list", the filter bar's "add shown books") | — | not book / folder gestures of this table — unchanged |
+
+   — **7.30.0-alpha.4, the menus take the WHOLE selection (§6 item 17) — built.** With books and folders selected, every
+   move / copy / cut item in the book menu and the folder menu (right-clicked in the right pane among the selection) takes
+   both, through the same path as the keys and the drags:
+
+   | Item | Before alpha.4 | Now |
+   |---|---|---|
+   | Book menu: header | "1 book selected" (books only) | `gestureTable.selectedWords` — "1 book and 1 folder selected" (TABLE-023, CELL-070) |
+   | Book menu: Move to › / Copy to › a folder | the books only | `placeSelection` → `placeByTable(verb, books, folders, …)` (CELL-071, 072); a target the selected folders can't take — itself or below — is greyed with the reason (`menuRefusal` → `intoItself`, Law 16; CELL-080), its "＋ New subfolder here" too |
+   | Book menu: "New folder here…" (Move to / Copy to) | the books only | both, into the new folder — one undo step (CELL-086, 087); `planFolderMove` / `planFolderCopy` / `planReparent` plan against the list with the new folder in (placeItems' `create`) |
+   | Book menu: Add to Book List › a list / "New Book List…" | the books only | the books AND the folders' books, every subfolder's too — the table's add-folder-books row (CELL-073) |
+   | Book menu: Cut / Copy | `putOnClipboard(type, books, [])` | `putOnClipboard(type, books, folders)` (CELL-074, 075) |
+   | Folder menu: Move to › | `reparentFolder([the clicked folder])` | books selected too: `placeByTable('move', …)` (CELL-076); folders only: `reparentFolder(every selected folder)` — as Pin and Delete already did (CELL-079); the tree hides every moved folder and what's below it (`intoItself`); **Root** with books selected: greyed, "Books can't go to the top level — only folders can." (CELL-080) |
+   | Folder menu: Cut / Copy | the clicked folder only | `putOnClipboard(type, menuBooks, menuTargets)` — the whole selection (CELL-077, 078) |
+   | Folder menu / book menu: Paste, Delete | alpha.1 / alpha.2 | unchanged |
+
+   **One "into itself" check** — `intoItself(folderIds, target, folderList)` walks UP from the target (so a folder being
+   made is checked too); `planReparent`, `planFolderCopy` and the menus' greyed targets use it (was `isDescendantFolder`,
+   walking down, plus the folder menu's own `isDescendantOf`). MOVE-06 says `MOVE_WORDS.moveIntoItself` ("Can't move a
+   folder into itself or its subfolder." — was "Can't move folder into itself or its subfolder").
+
+   **A drag's words** (CELL-081, TABLE-024): books and folders dropped on "Folders" in the folder path above the right pane
+   (the top level) are refused as before — the table's 'both' rule: a refusing half refuses the whole — but no longer in
+   the paste's words ("Every book is already in All Books. Open a folder or Book List to paste into it."): *"Nothing moved
+   — books can't go to the top level, only folders. Drop them on a folder, or drag the folders on their own."* `decide`
+   gives a menu or a drag aimed at the top level place-words (`booksNotTopLevel` / `dragBothNotTopLevel`); the paste keeps
+   its own. The act never differs (TABLE-021).
+
+   **The "New…" boxes in the Trash** (CELL-082–084, TABLE-025): `gestureTable.newPlaceWords`, from the table's act —
+   *"Create a folder and restore 1 book from the Trash into it."*, *"Restore 1 book from the Trash and add it to a new
+   Book List."* (were "…and move / copy 1 book into it", "Add 1 book to a new Book List.").
 5. One keyboard listener for the clipboard keys (§5); the harmful cells (§4.1 items 1, 3, 4, 5) fixed by their rows.
    — **7.30.0-alpha.1 — built:** the second listener and its folder clipboard are gone; ONE clipboard
    `{ type, bookIds, folderIds, from }` filled by `putOnClipboard` (Ctrl+X / Ctrl+C on the selection — books, folders or

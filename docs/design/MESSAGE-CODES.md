@@ -40,7 +40,7 @@ _Written by `py tools/message_codes.py` from every `rwLog.log(…)` call in the 
 | MOVE-03 | error | That move didn't work. | readerwrangler.js |
 | MOVE-04 | error | That move didn't work. | readerwrangler.js |
 | MOVE-05 | error | That move didn't work. | readerwrangler.js |
-| MOVE-06 | warning | Can't move folder into itself or its subfolder | readerwrangler.js |
+| MOVE-06 | warning | … | readerwrangler.js |
 | MOVE-07 | warning | Inbox cannot be moved | readerwrangler.js |
 | MOVE-10 | warning | … | readerwrangler.js |
 | PHONE-01 | warning | The pairing link couldn't be read — pair again from the computer | mobile.js |

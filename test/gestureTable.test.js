@@ -6,7 +6,8 @@
 // 7.28.1-alpha.2: books AND folders selected → Delete takes both (Ron, 2026-11-12, review queue Q-013) — TABLE-003, 009, 010.
 // 7.30.0 (sprint 4, TODO id 20261106-1237): the move / copy / paste rows and their words — TABLE-011–020 (ONE-TABLE.md
 // §4–§6; the screen side: test/ui/test_cells.py, CELL-001–058). 7.30.0-alpha.2: the drag's verb — TABLE-021 (and TABLE-011
-// covers the drag's rows); the right-click Delete naming books and folders — TABLE-022.
+// covers the drag's rows); the right-click Delete naming books and folders — TABLE-022. 7.30.0-alpha.4: the book menu's
+// header (TABLE-023), a drag's / a menu's refusal words for the top level (TABLE-024), the "New…" boxes' words (TABLE-025).
 const assert = require('assert');
 const t = require('../gestureTable.js');
 const { test, done } = require('./harness');
@@ -158,7 +159,9 @@ test('TABLE-012', 'the decided book rows (§4.1, §4.2; §6 items 6, 18): what a
     // refusals, with the reason's words (Law 16)
     for (const verb of ['move', 'copy']) {
         assert.strictEqual(row(verb, 'books', 'f-scifi', '__all__').words, t.MOVE_WORDS.intoAllBooks);
-        assert.strictEqual(row(verb, 'books', 'f-scifi', '__library__').words, t.MOVE_WORDS.intoAllBooks);
+        // 7.30.0-alpha.4: onto the top level (the folder menu's Root), a menu names the place — the paste keeps its words
+        assert.strictEqual(row(verb, 'books', 'f-scifi', '__library__').words, t.MOVE_WORDS.booksNotTopLevel);
+        assert.strictEqual(row('paste', 'books', 'f-scifi', '__library__', verb === 'move' ? 'cut' : 'copy').words, t.MOVE_WORDS.intoAllBooks);
         assert.strictEqual(row(verb, 'books', 'f-scifi', '__trash__').words, t.MOVE_WORDS.intoTrash);
         assert.strictEqual(row(verb, 'books', 'f-scifi', '__booklists__').words, t.MOVE_WORDS.openAPlace);
     }
@@ -320,11 +323,15 @@ test('TABLE-021', "a drag's verb (\"Move and copy books anywhere\" 6–7; §6 it
     // Ctrl always copies
     for (const [f, to] of [['folder', 'folder'], ['book-list', 'book-list'], ['folder', 'book-list']])
         assert.strictEqual(verb(f, to, true), 'copy', `Ctrl-drag ${f} → ${to}`);
-    // a drag's rows ARE the move / copy rows of its verb — one table, never a drag copy of it
+    // a drag's rows ARE the move / copy rows of its verb — one table, never a drag copy of it. (7.30.0-alpha.4: only a
+    // refusal's WORDS may fit the drag — books and folders dropped on the Folders header, TABLE-024; the act never differs.)
     for (const what of t.MOVE_WHATS) for (const fk of t.PLACE_KINDS) for (const tk of t.PLACE_KINDS) for (const ctrl of [false, true]) {
         const v = verb(fk, tk, ctrl);
-        assert.deepStrictEqual(t.decide('drag', what, { placeId: PLACE_IDS[fk], ctrl }, { placeId: PLACE_IDS[tk] }),
-            row(v, what, PLACE_IDS[fk], PLACE_IDS[tk]), `drag${ctrl ? ' + Ctrl' : ''} ${what} ${fk} → ${tk} = ${v}`);
+        const d = t.decide('drag', what, { placeId: PLACE_IDS[fk], ctrl }, { placeId: PLACE_IDS[tk] });
+        const r = row(v, what, PLACE_IDS[fk], PLACE_IDS[tk]);
+        const at = `drag${ctrl ? ' + Ctrl' : ''} ${what} ${fk} → ${tk} = ${v}`;
+        if (d.act === 'refuse' && tk === 'folders-view') assert.strictEqual(r.act, 'refuse', at);
+        else assert.deepStrictEqual(d, r, at);
     }
     // what the drag does, by the cells it decides (CELL-024–033, 057)
     const act = (what, from, to, ctrl) => t.decide('drag', what, { placeId: from, ctrl }, { placeId: to }).act;
@@ -346,6 +353,54 @@ test('TABLE-022', "the right-click Delete with books AND folders selected (§6 i
     assert.strictEqual(t.deleteBothLabel(2, 1), 'Delete 2 Books and 1 Folder');
     assert.strictEqual(t.deleteBothLabel(1, 1), 'Delete 1 Book and 1 Folder');
     assert.strictEqual(t.deleteBothLabel(3, 2), 'Delete 3 Books and 2 Folders');
+});
+
+// ── 7.30.0-alpha.4: the menus take the whole selection (§6 item 17); a drag's own refusal words; the "New…" boxes ─────────
+test('TABLE-023', "the book menu's header says what's selected — books, and the folders with them (§6 item 17)", () => {
+    assert.strictEqual(t.selectedWords(1, 0), '1 book selected');
+    assert.strictEqual(t.selectedWords(3, 0), '3 books selected');
+    assert.strictEqual(t.selectedWords(2, 1), '2 books and 1 folder selected');
+    assert.strictEqual(t.selectedWords(1, 2), '1 book and 2 folders selected');
+});
+
+test('TABLE-024', 'books and folders dropped on the Folders header (the top level): refused in words that fit a drag — not the paste\'s', () => {
+    const W = t.MOVE_WORDS;
+    for (const ctrl of [false, true]) {
+        const d = t.decide('drag', 'both', { placeId: 'f-scifi', ctrl }, { placeId: '__library__' });
+        assert.deepStrictEqual(d, { act: 'refuse', words: W.dragBothNotTopLevel }, `drag${ctrl ? ' + Ctrl' : ''}`);
+        assert.ok(!/paste/i.test(d.words), d.words);
+    }
+    assert.strictEqual(W.dragBothNotTopLevel,
+        "Nothing moved — books can't go to the top level, only folders. Drop them on a folder, or drag the folders on their own.");
+    // a menu (the folder menu's Root, with books selected too) names the place, for its greyed item's "why" (Law 16)
+    assert.deepStrictEqual(t.decide('move', 'both', { placeId: 'f-scifi' }, { placeId: '__library__' }), { act: 'refuse', words: W.booksNotTopLevel });
+    assert.strictEqual(W.booksNotTopLevel, "Books can't go to the top level — only folders can.");
+    // the paste keeps its own words (Ctrl+V in the Folders view)
+    assert.strictEqual(t.decide('paste', 'both', { placeId: 'f-scifi', clip: 'cut' }, { placeId: '__library__' }).words, W.intoAllBooks);
+    // folders alone still go there: the top level
+    assert.strictEqual(t.decide('drag', 'folders', { placeId: 'f-scifi' }, { placeId: '__library__' }).act, 'move-folders');
+});
+
+test('TABLE-025', 'the "New folder here…" / "New Book List…" boxes say what will happen, from the table — in the Trash: restore', () => {
+    const w = t.newPlaceWords;
+    assert.strictEqual(w({ act: 'move-books', books: 2 }), 'Create a folder and move 2 books into it.');
+    assert.strictEqual(w({ act: 'refile', books: 1 }), 'Create a folder and move 1 book into it.');
+    assert.strictEqual(w({ act: 'add-books', books: 1, inside: true }), 'Create a folder inside this one and copy 1 book into it.');
+    assert.strictEqual(w({ act: 'restore', books: 1 }), 'Create a folder and restore 1 book from the Trash into it.');
+    assert.strictEqual(w({ act: 'restore', books: 3, toList: true }), 'Restore 3 books from the Trash and add them to a new Book List.');
+    assert.strictEqual(w({ act: 'restore', books: 1, toList: true }), 'Restore 1 book from the Trash and add it to a new Book List.');
+    assert.strictEqual(w({ act: 'add-books', books: 2, toList: true }), 'Add 2 books to a new Book List.');
+    // books and folders selected together (§6 item 17)
+    assert.strictEqual(w({ act: 'move-books', books: 1, folders: 1 }), 'Create a folder and move 1 book and 1 folder into it.');
+    assert.strictEqual(w({ act: 'add-books', books: 1, folders: 2 }), 'Create a folder and copy 1 book and 2 folders into it.');
+    assert.strictEqual(w({ act: 'add-books', books: 1, folders: 2, toList: true }), 'Add 1 book and the books in 2 folders to a new Book List.');
+    // the suggested name is an existing list
+    assert.strictEqual(w({ act: 'add-books', books: 2, toList: true, existing: 'Read Next' }),
+        'A Book List named “Read Next” already exists — press OK to add 2 books to it, or type a different name to create a new list.');
+    assert.strictEqual(w({ act: 'restore', books: 1, toList: true, existing: 'Read Next' }),
+        'A Book List named “Read Next” already exists — press OK to restore 1 book from the Trash and add it to that list, or type a different name to create a new list.');
+    // out of the Trash it never says copy or move
+    for (const toList of [false, true]) assert.ok(!/copy|move/i.test(w({ act: 'restore', books: 2, toList })), `toList ${toList}`);
 });
 
 done();

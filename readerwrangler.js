@@ -153,7 +153,7 @@
         // Clear emergency reset timer — app code loaded successfully
         if (window._appMountTimer) { clearTimeout(window._appMountTimer); window._appMountTimer = null; }
 
-        const ORGANIZER_VERSION = "7.30.0-alpha.3";  // Build version for this file
+        const ORGANIZER_VERSION = "7.30.0-alpha.4";  // Build version for this file
         // The build line a copy of the diagnostics carries under its first line — Diagnostics' Copy and Help → Report a
         // problem… (7.29.0: one copy, so the two can't drift)
         const DIAGNOSTICS_HEADER = [`Desktop app ${ORGANIZER_VERSION} (page ${APP_VERSION})`];
@@ -2265,7 +2265,7 @@
                     toPlace = [...new Set([...bookIds, ...folderTreeBooks(folderIds)])];
                     bookAct = 'add-books';
                 } else if (folderAct) {
-                    folderPlan = folderAct === 'move-folders' ? planFolderMove(folderIds, target) : planFolderCopy(folderIds, target);
+                    folderPlan = folderAct === 'move-folders' ? planFolderMove(folderIds, target, lists) : planFolderCopy(folderIds, target, lists);
                     if (!folderPlan) return false; // refused by the folder operation's own check — it said why
                 }
                 if (bookAct === 'refile') {
@@ -4044,10 +4044,14 @@
 
             // v5.0.0-alpha.78 - Phase D: Reparent folder (move into another folder) with undo
             // v6.11.2 - Extracted from reparentFolder for reuse by moveItems
-            const isDescendantFolder = (folderId, targetId) => {
-                if (folderId === targetId) return true;
-                const children = folders.filter(f => f.parentId === folderId);
-                return children.some(child => isDescendantFolder(child.id, targetId));
+            // 7.30.0-alpha.4 - "Would this put a folder into itself or below it?" — the ONE check: a folder move, a folder copy,
+            // and the menus' greyed targets (Law 16). Walks UP from the target, so a destination that a gesture is making
+            // ("New folder here…" — in folderList, not yet in `folders`) is checked too. (Was isDescendantFolder, walking down.)
+            const intoItself = (folderIds, target, folderList = folders) => {
+                const parentOf = new Map(folderList.map(f => [f.id, f.parentId ?? null]));
+                const above = new Set();
+                for (let p = target; p && !above.has(p); p = parentOf.get(p)) above.add(p);
+                return folderIds.some(id => above.has(id));
             };
 
             // v6.13.1-alpha.14 (ops refactor #4) - THE single source of truth for reparenting folder(s) — moving them
@@ -4073,10 +4077,13 @@
                 rwLog.log('debug', 'MOVE', `Moved ${folderIds.length} folder(s) ${newParentId ? 'into a folder' : 'to the top level'}`);
                 return true;
             };
+            // opts.folderList (7.30.0-alpha.4): the folders to plan against — with a destination the gesture is making in
+            // ("New folder here…", placeItems' create)
             const planReparent = (folderIds, newParentId, opts = {}) => {
+                const fl = opts.folderList || folders;
                 for (const folderId of folderIds) {
-                    if (folderId === newParentId || isDescendantFolder(folderId, newParentId)) {
-                        rwLog.log('warning', 'MOVE-06', "Can't move folder into itself or its subfolder", null, { toast: true });
+                    if (intoItself([folderId], newParentId, fl)) {
+                        rwLog.log('warning', 'MOVE-06', `${gestureTable.MOVE_WORDS.moveIntoItself}`, null, { toast: true });
                         return null;
                     }
                     if (folderId === '__inbox__') {
@@ -4087,7 +4094,7 @@
 
                 // Save old parentIds for undo
                 const oldParentIds = folderIds.map(id => {
-                    const folder = folders.find(f => f.id === id);
+                    const folder = fl.find(f => f.id === id);
                     return { folderId: id, oldParentId: folder?.parentId };
                 });
 
@@ -4100,7 +4107,7 @@
                 // renumbers sortIndex over the full root order (bakes the unpositioned tail, same as
                 // reorderFoldersInParent); leaving root clears the stale sortIndex.
                 const moveSet = new Set(folderIds);
-                const nameOf = (id) => folders.find(f => f.id === id)?.name || '';
+                const nameOf = (id) => fl.find(f => f.id === id)?.name || '';
                 // Batch order: an explicit drag keeps the dragged order; default placement alphabetizes the batch
                 const movedOrdered = opts.targetFolderId
                     ? folderIds.slice()
@@ -4118,22 +4125,22 @@
                 const sortIndexBefore = {}, sortIndexAfter = {}, childIdsBefore = {}, childIdsAfter = {};
                 const oldNestedParents = new Set(oldParentIds.map(o => o.oldParentId).filter(pid => pid && pid !== newParentId));
                 for (const pid of oldNestedParents) {
-                    const p = folders.find(f => f.id === pid);
+                    const p = fl.find(f => f.id === pid);
                     if (!p || !p.childFolderIds || !p.childFolderIds.some(id => moveSet.has(id))) continue;
                     childIdsBefore[pid] = p.childFolderIds;
                     childIdsAfter[pid] = p.childFolderIds.filter(id => !moveSet.has(id));
                 }
                 if (newParentId) {
-                    const p = folders.find(f => f.id === newParentId);
+                    const p = fl.find(f => f.id === newParentId);
                     childIdsBefore[newParentId] = p?.childFolderIds ?? null;
                     childIdsAfter[newParentId] = destIds;
                     for (const id of folderIds) { // leaving root: clear the stale root index
-                        const f = folders.find(x => x.id === id);
+                        const f = fl.find(x => x.id === id);
                         if (f && f.sortIndex !== undefined) { sortIndexBefore[id] = f.sortIndex; sortIndexAfter[id] = null; }
                     }
                 } else {
                     destIds.forEach((id, idx) => {
-                        const f = folders.find(x => x.id === id);
+                        const f = fl.find(x => x.id === id);
                         const before = (f && f.sortIndex !== undefined) ? f.sortIndex : null;
                         if (before !== idx) { sortIndexBefore[id] = before; sortIndexAfter[id] = idx; }
                     });
@@ -4156,15 +4163,16 @@
             // Folders moved by a paste (7.30.0): under the destination — the Folders view is the top level — through
             // planReparent (its checks: never into itself or below; the Inbox never moves). A folder already there stays, and
             // the words say so. Returns { step (null: nothing moves), words }, or null when refused (it said why).
-            const planFolderMove = (folderIds, target) => {
+            // folderList (7.30.0-alpha.4): with a destination the gesture is making in (placeItems' create)
+            const planFolderMove = (folderIds, target, { folderList = folders } = {}) => {
                 const parent = target === '__library__' ? null : target;
-                const parentOf = (id) => (folders.find(f => f.id === id) || {}).parentId ?? null;
+                const parentOf = (id) => (folderList.find(f => f.id === id) || {}).parentId ?? null;
                 const already = folderIds.filter(id => parentOf(id) === parent);
                 const moving = folderIds.filter(id => !already.includes(id));
                 if (moving.length === 0) {
-                    return { step: null, words: { act: 'move-folders', names: [], already: already.map(nameOfPlace), to: parent ? nameOfPlace(parent) : null } };
+                    return { step: null, words: { act: 'move-folders', names: [], already: already.map(id => nameOfPlace(id, { folderList })), to: parent ? nameOfPlace(parent, { folderList }) : null } };
                 }
-                return planReparent(moving, parent);
+                return planReparent(moving, parent, { folderList });
             };
             // THE folder copy (7.30.0; §6 items 8, 15) — the paste's, the folder menu's and a Ctrl-drag's (three copies before,
             // and the Ctrl-drag moved the folder): each folder's whole tree as "X (Copy)", every book filed in the copy too (a
@@ -4172,11 +4180,11 @@
             // kept the original's childFolderIds), placed at the top of the destination (placeNewFoldersAtTop). Never into
             // itself or below. One step, COPY_FOLDERS: the new folders and the order fields it changed — so Ctrl+Z is exact and
             // Ctrl+Y works (it couldn't: "Cannot redo copy operation"). Returns { step, words }, or null when refused.
-            const planFolderCopy = (folderIds, target) => {
+            const planFolderCopy = (folderIds, target, { folderList = folders } = {}) => {
                 const parent = target === '__library__' ? null : target;
-                const byId = new Map(folders.map(f => [f.id, f]));
+                const byId = new Map(folderList.map(f => [f.id, f]));
                 const asked = new Set(folderIds.filter(id => byId.has(id)));
-                if (parent && [...asked].some(id => isDescendantFolder(id, parent))) {
+                if (parent && intoItself([...asked], parent, folderList)) {
                     rwLog.log('info', 'MOVE', gestureTable.MOVE_WORDS.copyIntoItself, null, { toast: true });
                     return null;
                 }
@@ -4194,7 +4202,7 @@
                     return copy;
                 };
                 roots.forEach(id => { const top = copyTree(byId.get(id), parent); delete top.sortIndex; tops.push(top); });
-                const placed = placeNewFoldersAtTop([...folders, ...copies], tops);
+                const placed = placeNewFoldersAtTop([...folderList, ...copies], tops);
                 const newIds = new Set(copies.map(c => c.id));
                 const orderBefore = { sortIndex: {}, childIds: {} }, orderAfter = { sortIndex: {}, childIds: {} };
                 placed.forEach(f => {
@@ -4204,7 +4212,7 @@
                     if (was.childFolderIds !== f.childFolderIds) { orderBefore.childIds[f.id] = was.childFolderIds ?? null; orderAfter.childIds[f.id] = f.childFolderIds ?? null; }
                 });
                 const names = roots.map(id => byId.get(id).name);
-                const to = parent ? nameOfPlace(parent) : null;
+                const to = parent ? nameOfPlace(parent, { folderList }) : null;
                 const step = {
                     type: 'COPY_FOLDERS', newFolders: placed.filter(f => newIds.has(f.id)), orderBefore, orderAfter,
                     label: `Copy ${names.length === 1 ? `'${names[0]}'` : `${names.length} folders`} to ${to ? `'${to}'` : 'the top level'}`
@@ -18533,25 +18541,31 @@
                         const menuTargets = (selFolderIds.length > 1 && selFolderIds.includes(folder.id)) ? selFolderIds : [folder.id];
                         // books selected too, the clicked folder among them: the one Delete item naming both (§6 item 9)
                         const bothDelete = selFolderIds.includes(folder.id) ? deleteBothItem() : null;
-
-                        // v5.0.0-alpha.135 - Helper: Check if targetId is a descendant of folderId
-                        const isDescendantOf = (targetId, ancestorId) => {
-                            if (!targetId || !ancestorId) return false;
-                            let current = folders.find(f => f.id === targetId);
-                            while (current) {
-                                if (current.id === ancestorId) return true;
-                                current = folders.find(f => f.id === current.parentId);
-                            }
-                            return false;
-                        };
+                        // 7.30.0-alpha.4 - and Move to › / Cut / Copy take the WHOLE selection too — the selected folders and the
+                        // books selected with them (§6 item 17; one answer with the book menu, the keys and the drags). Was: the
+                        // right-clicked folder only, even with several selected.
+                        const menuBooks = selFolderIds.includes(folder.id) ? getSelectedBookIds() : [];
 
                         // v6.13.1-alpha.14 (ops refactor #4) - Folder menu "Move to": thin wrapper over reparentFolder
                         // (the single reparent source), with the large-move confirm. Retires the MOVE_FOLDER type.
-                        const moveFolder = async (folderId, targetParentId) => {
-                            const ok = await reparentFolder([folderId], targetParentId, { confirmLarge: true });
+                        // 7.30.0-alpha.4 - with books selected too: the one table's placement (placeByTable), as the book menu.
+                        const moveFolder = async (targetParentId) => {
+                            if (menuBooks.length) {
+                                setFolderContextMenu(null); setContextSubmenu(null);
+                                placeByTable('move', menuBooks, menuTargets, selectedFolderId, targetParentId || '__library__');
+                                setExplorerSelectedItems(new Set());
+                                return true;
+                            }
+                            const ok = await reparentFolder(menuTargets, targetParentId, { confirmLarge: true });
                             if (ok) { setFolderContextMenu(null); setContextSubmenu(null); }
                             return ok;
                         };
+                        // Root = the top level: books can't go there (the table's words, greyed — Law 16)
+                        const rootWhy = (() => {
+                            if (!menuBooks.length) return null;
+                            const r = gestureTable.decide('move', 'both', { placeId: selectedFolderId }, { placeId: '__library__' });
+                            return r.act === 'refuse' ? r.words : null;
+                        })();
 
                         // v7.15.0 - Positioned via CursorPopup (measured; the old menuHeight=400 guess
                         // under-shot and clipped the bottom for a tall folder menu). v7.18.0-alpha.44 - now a
@@ -18685,13 +18699,12 @@
                                             // Build folder tree with collapse/expand
                                             const buildFolderTree = (parentId, depth = 0) => {
                                                 // v6.12.0-alpha.83 (1c) - Order via the shared helper (mirrors folderListSort); still exclude self + descendants.
+                                                // 7.30.0-alpha.4 - every folder moved (menuTargets), through the one check (intoItself)
                                                 return orderedChildFolders(parentId)
-                                                    .filter(f => f.id !== folder.id && !isDescendantOf(f.id, folder.id))
+                                                    .filter(f => !intoItself(menuTargets, f.id))
                                                     .map(f => {
                                                         const hasChildren = folders.some(child =>
-                                                            child.parentId === f.id &&
-                                                            child.id !== folder.id &&
-                                                            !isDescendantOf(child.id, folder.id)
+                                                            child.parentId === f.id && !intoItself(menuTargets, child.id)
                                                         );
                                                         const isExpanded = submenuExpandedFolders.has(f.id);
 
@@ -18711,7 +18724,7 @@
                                                                         className="flex items-center gap-2 flex-1"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            moveFolder(folder.id, f.id);
+                                                                            moveFolder(f.id);
                                                                         }}>
                                                                         <span>{f.id === folder.parentId ? '✓' : '📁'}</span>
                                                                         <span>{f.name}</span>
@@ -18735,10 +18748,11 @@
 
                                                     {/* Root option */}
                                                     <div
-                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                                                        className={`px-4 py-2 flex items-center gap-2 ${rootWhy ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'}`}
+                                                        aria-disabled={rootWhy ? 'true' : undefined} title={rootWhy || undefined}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            moveFolder(folder.id, null);
+                                                            if (!rootWhy) moveFolder(null);
                                                         }}>
                                                         <span className="w-4"></span>
                                                         <span>{folder.parentId === null ? '✓' : '📁'}</span>
@@ -18809,7 +18823,7 @@
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         role="menuitem"
                                         onClick={() => {
-                                            putOnClipboard('cut', [], [folder.id], selectedFolderId);
+                                            putOnClipboard('cut', menuBooks, menuTargets, selectedFolderId); // 7.30.0-alpha.4 - the whole selection
                                             setFolderContextMenu(null);
                                         }}>
                                         <span>✂️</span>
@@ -18823,7 +18837,7 @@
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         role="menuitem"
                                         onClick={() => {
-                                            putOnClipboard('copy', [], [folder.id], selectedFolderId);
+                                            putOnClipboard('copy', menuBooks, menuTargets, selectedFolderId); // 7.30.0-alpha.4 - the whole selection
                                             setFolderContextMenu(null);
                                         }}>
                                         <span>📋</span>
@@ -18992,40 +19006,55 @@
                         // Trash every verb restores, §6 item 6) included: the table answers each target, and one it refuses
                         // is greyed with the table's words as its "why" (Law 16) — never hidden by a list of views here.
                         const isTrashView = selectedFolderId === '__trash__';
+                        // 7.30.0-alpha.4 - the WHOLE selection: books, and the folders selected with them (§6 item 17 — "both, for
+                        // every gesture", as the keys and the drags; was the books only). The book menu always has >=1 book
+                        // (onContextMenu selects the right-clicked book when it wasn't selected).
+                        const selFolderIdsNow = getSelectedFolderIds();
+                        const selWhat = gestureTable.selectionWhat(Math.max(count, 1), selFolderIdsNow.length);
+                        // the table's answer for this selection's book half — the act the "New…" boxes describe
+                        const bookActFor = (verb, target) => {
+                            const r = gestureTable.decide(verb, selWhat, { placeId: selectedFolderId }, { placeId: target });
+                            return r.act === 'both' ? r.books : r.act;
+                        };
                         const menuRefusal = (verb, target) => {
-                            const r = gestureTable.decide(verb, 'books', { placeId: selectedFolderId }, { placeId: target });
-                            return r.act === 'refuse' ? r.words : null;
+                            const r = gestureTable.decide(verb, selWhat, { placeId: selectedFolderId }, { placeId: target });
+                            if (r.act === 'refuse') return r.words;
+                            // a selected folder never goes into itself or below — the folder operations' own check, asked here so
+                            // the target is greyed with its reason (Law 16), not offered and then refused
+                            if (selFolderIdsNow.length && !isBookListFolder(target) && intoItself(selFolderIdsNow, target)) {
+                                return verb === 'copy' ? gestureTable.MOVE_WORDS.copyIntoItself : gestureTable.MOVE_WORDS.moveIntoItself;
+                            }
+                            return null;
                         };
                         const closeMenus = () => { setExplorerBookContextMenu(null); setContextSubmenu(null); };
-                        // The selected books, by the verb, to the target. keepSelection: Add to Book List keeps it (v6.18.0 — the
+                        // What's selected, by the verb, to the target. keepSelection: Add to Book List keeps it (v6.18.0 — the
                         // books stay where they are, so you can keep adding) — except out of the Trash, where they just left.
-                        const placeSelectedBooks = (verb, target, { keepSelection = false, create } = {}) => {
-                            const ids = getSelectedBookIds();
-                            if (ids.length === 0) return;
+                        const placeSelection = (verb, target, { keepSelection = false, create } = {}) => {
+                            const ids = getSelectedBookIds(), fids = getSelectedFolderIds();
+                            if (ids.length === 0 && fids.length === 0) return;
                             closeMenus();
-                            placeByTable(verb, ids, [], selectedFolderId, target, { create });
+                            placeByTable(verb, ids, fids, selectedFolderId, target, { create });
                             if (!keepSelection || isTrashView) setExplorerSelectedItems(new Set());
                         };
-                        const handleMoveToFolder = (targetFolderId) => placeSelectedBooks('move', targetFolderId);
-                        const handleCopyToFolder = (targetFolderId) => placeSelectedBooks('copy', targetFolderId);
+                        const handleMoveToFolder = (targetFolderId) => placeSelection('move', targetFolderId);
+                        const handleCopyToFolder = (targetFolderId) => placeSelection('copy', targetFolderId);
 
                         // v6.12.0-alpha.53 - Add to Book List (supplemental: add/copy — a book can be on many lists).
-                        // Books only (getSelectedBookIds ignores folders). The book menu always has >=1 book
-                        // (onContextMenu selects the right-clicked book), so no empty-selection guard is needed.
+                        // 7.30.0-alpha.4 - with folders selected too, their books go on the list (every subfolder's too — the
+                        // table's add-folder-books, §6 item 8).
                         const currentBookListId = isBookListFolder(selectedFolderId)
                             ? selectedFolderId.replace(/^__booklist_/, '').replace(/__$/, '') : null;
-                        const handleAddToExistingBookList = (bookListId) => placeSelectedBooks('copy', `__booklist_${bookListId}__`, { keepSelection: true });
+                        const handleAddToExistingBookList = (bookListId) => placeSelection('copy', `__booklist_${bookListId}__`, { keepSelection: true });
                         const handleAddToNewBookList = async () => {
-                            const ids = getSelectedBookIds();
+                            const ids = getSelectedBookIds(), fids = getSelectedFolderIds();
                             if (ids.length === 0) return;
                             // v6.18.0 - Same smart name as the Auto-Organize path (series/author "- To Read"), from anywhere.
                             const suggested = suggestBookListName(ids.map(id => books.find(b => b.id === id)).filter(Boolean));
                             const suggestedMatch = suggested && bookLists.find(b => (b.name || '').trim().toLowerCase() === suggested.trim().toLowerCase());
-                            const n = ids.length, s = n !== 1 ? 's' : '';
                             const title = suggestedMatch ? 'Add to Book List' : 'New Book List';
-                            const message = suggestedMatch
-                                ? `A Book List named “${suggestedMatch.name}” already exists — press OK to add ${n} book${s} to it, or type a different name to create a new list.`
-                                : `Add ${n} book${s} to a new Book List.`;
+                            // 7.30.0-alpha.4 - the words say what the table will do (out of the Trash: a restore — was "Add…")
+                            const message = gestureTable.newPlaceWords({ act: bookActFor('copy', '__booklist_new__'), books: ids.length,
+                                folders: fids.length, toList: true, existing: suggestedMatch ? suggestedMatch.name : undefined });
                             const name = await showInputDialog('MOVE', title, message, suggested, 'List name (e.g. New To Read)');
                             if (name === null) return;
                             const trimmed = (name || '').trim() || 'New To Read';
@@ -19034,7 +19063,7 @@
                             // 7.30.0-alpha.2 - the new list, then the books placed on it by the table (out of the Trash: restored
                             // too) — the list's making and the placement are ONE undo step
                             const { bookList: newBL, step } = planBookListCreate(trimmed);
-                            placeSelectedBooks('copy', `__booklist_${newBL.id}__`, { keepSelection: true, create: {
+                            placeSelection('copy', `__booklist_${newBL.id}__`, { keepSelection: true, create: {
                                 step, apply: () => setBookLists(prev => [...prev, newBL]), listList: [...bookLists, newBL] } });
                         };
                         const handleRemoveFromCurrentBookList = () => {
@@ -19051,13 +19080,18 @@
                         // (a move leaves its source, from All Books it re-files, out of the Trash it restores; exact Ctrl+Z) —
                         // was its own copy of a move (a move from a Book List left the book on the list).
                         const handleNewFolderThenPlace = async (parentId, isCopy) => {
-                            const ids = getSelectedBookIds();
+                            const ids = getSelectedBookIds(), fids = getSelectedFolderIds();
                             if (ids.length === 0) return;
-                            const name = await showInputDialog('MOVE', 'New Folder', `Create a folder${parentId ? ' inside this one' : ''} and ${isCopy ? 'copy' : 'move'} ${ids.length} book${ids.length !== 1 ? 's' : ''} into it.`, '', 'Folder name');
+                            const verb = isCopy ? 'copy' : 'move';
+                            const newId = `folder-${Date.now()}`;
+                            // 7.30.0-alpha.4 - the words say what the table will do (out of the Trash: a restore — was "move" /
+                            // "copy"); the selected folders go too (§6 item 17)
+                            const message = gestureTable.newPlaceWords({ act: bookActFor(verb, newId), books: ids.length, folders: fids.length, inside: !!parentId });
+                            const name = await showInputDialog('MOVE', 'New Folder', message, '', 'Folder name');
                             if (name === null) return;
                             const trimmed = (name || '').trim() || 'New Folder';
-                            const newFolder = { id: `folder-${Date.now()}`, name: trimmed, parentId: parentId || null, bookIds: [], childFolderIds: [], collapsed: false };
-                            placeSelectedBooks(isCopy ? 'copy' : 'move', newFolder.id, { create: {
+                            const newFolder = { id: newId, name: trimmed, parentId: parentId || null, bookIds: [], childFolderIds: [], collapsed: false };
+                            placeSelection(verb, newFolder.id, { create: {
                                 step: { type: 'CREATE_FOLDER', folderId: newFolder.id, parentId: newFolder.parentId, folder: { ...newFolder }, label: `Create folder '${trimmed}'` },
                                 apply: () => setFolders(prev => placeNewFoldersAtTop([...prev, newFolder], [newFolder])), // v7.6.0-alpha.11 (wave C)
                                 folderList: [...folders, newFolder] } });
@@ -19138,11 +19172,14 @@
                                                     <span>{f.name}</span>
                                                 </div>
                                                 {/* v6.12.0-alpha.66 (E-2) - Create a nested subfolder here, then move/copy the selected books into it */}
+                                                {/* 7.30.0-alpha.4 - greyed where the folder itself is (a selected folder, or
+                                                    one inside it: a new subfolder there would be inside the folder moved) */}
                                                 <span
-                                                    className="w-5 text-center text-blue-600 font-bold cursor-pointer hover:bg-blue-100 rounded flex-shrink-0"
-                                                    title="New subfolder here"
+                                                    className={`w-5 text-center font-bold rounded flex-shrink-0 ${why ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 cursor-pointer hover:bg-blue-100'}`}
+                                                    title={why || 'New subfolder here'}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (why) return;
                                                         handleNewFolderThenPlace(f.id, contextSubmenu === 'copy-to');
                                                     }}>＋</span>
                                             </div>
@@ -19178,7 +19215,7 @@
                                 onClick={(e) => e.stopPropagation()}>
                                 {/* Header */}
                                 <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 border-b border-gray-200">
-                                    {getSelectedBookIds().length} book{getSelectedBookIds().length !== 1 ? 's' : ''} selected
+                                    {gestureTable.selectedWords(getSelectedBookIds().length, selFolderIdsNow.length) /* 7.30.0-alpha.4 - the folders too */}
                                 </div>
 
                                 {/* Move to, Copy to, Add to Book List, Cut/Copy/Paste — 7.30.0-alpha.2: wherever books are shown,
@@ -19328,7 +19365,7 @@
                                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                         role="menuitem"
                                         onClick={() => {
-                                            putOnClipboard('cut', getSelectedBookIds(), [], selectedFolderId); // 7.30.0 - the one clipboard
+                                            putOnClipboard('cut', getSelectedBookIds(), getSelectedFolderIds(), selectedFolderId); // 7.30.0 - the one clipboard; alpha.4 - the folders too
                                             setExplorerBookContextMenu(null);
                                             setContextSubmenu(null);
                                         }}>
@@ -19343,7 +19380,7 @@
                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
                                     role="menuitem"
                                     onClick={() => {
-                                        putOnClipboard('copy', getSelectedBookIds(), [], selectedFolderId); // 7.30.0 - the one clipboard
+                                        putOnClipboard('copy', getSelectedBookIds(), getSelectedFolderIds(), selectedFolderId); // 7.30.0 - the one clipboard; alpha.4 - the folders too
                                         setExplorerBookContextMenu(null);
                                         setContextSubmenu(null);
                                     }}>
