@@ -280,6 +280,37 @@ Decided in 7.28.1 without asking (autonomous mode — each is cheap to reverse):
 **Example titles** in this doc, the TODO and every message: real-looking titles ("Dune"). The test library's co-authored
 book, "Written Together", read as something the app did (Ron, 2026-11-13) — renamed "Good Omens" in sprint 4.
 
+**Decided after the measurement (Ron, 2026-11-13 18:07: "1-10 all agreed")** — what CELL-001–058 found that this doc
+hadn't listed, and the cells whose answer wasn't clear:
+
+10. **Ctrl+Z takes back exactly what the gesture changed — nothing more.** A book that was already in the destination
+    stays there after Ctrl+Z (CELL-005, 006, 035, 036); a copy pasted back where it already was leaves it there
+    (CELL-037 — today: in no folder); Move to › and a plain drag put the book back in its source (CELL-019, 026). As the
+    folder delete already does (§3.1, 7.28.1).
+11. **Ctrl+Z puts a book back in its old place** — its position in the folder, or on the Book List (CELL-001, 002, 004,
+    010, 015, 028); as a restore from the Trash already does.
+12. **The keyboard race** (one Ctrl+X cut the whole folder) goes with the second keyboard listener — "one keyboard
+    listener" (§5); nothing else to decide.
+13. **Ctrl+X / Ctrl+C act on what's selected** — a folder selected in the right pane is the one cut or copied, never
+    the folder you're in (CELL-050, 051); the Delete key's rule.
+14. **One wording for every gesture:** *"Moved 'Dune' from 'Sci-Fi' to 'Fantasy'"*; a copy says *"Added…"*; "already
+    there" always in §6 item 7's pattern; single quotes.
+15. **A copied folder's subfolders belong to the copy** (the code copies the original's `childFolderIds` — to confirm
+    and fix with §6 item 8). The drop cursor over a Search that takes nothing is filed with "no fake drop signals" in
+    "Move and copy books anywhere".
+16. **A plain drag from All Books onto a folder = a copy:** it only adds, and says "Added" (a plain drag guesses safe;
+    a re-file is Shift-drag, in the drag task) (CELL-033).
+17. **A book and a folder selected together: both, for every gesture** — as Delete (Q-013, File Explorer) (CELL-056,
+    057).
+18. **Cut from All Books (or with a Search applied), pasted into a folder = re-file** — and when the book is in 2+ other
+    folders, one question first:
+    > **Move 'Dune' to 'Fantasy'?** It's also in 'Sci-Fi' and 'Beach Reads' — moving takes it out of them.
+    > [Move] [Just add it] [Cancel]
+    (Several books: "Move 3 books to 'Fantasy'? 2 of them are also in other folders — moving takes them out." — the
+    same three buttons.) Ctrl+X is no longer refused in All Books (CELL-012, 013).
+19. **Right-click Move to › stays folders only** — "Add to Book List ›" covers putting books on a list (CELL-023: its
+    expectation changes to today's).
+
 ## 7. Build list
 
 **7.28.1 (this fix) — built:**

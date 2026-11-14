@@ -51,6 +51,12 @@ underneath".
 
 Plus a short **manual list per release** (§8) for what can't be automated.
 
+**While building — narrow, then wide** (Ron, 2026-11-13: "that speedup makes perfect sense"): each fix → test round runs
+only the tests for what's being built — its own IDs (`--id`), a file's cell filter (e.g. `RW_CELLS=CELL-005,CELL-019`),
+the function tests that cover the file (`--changed`). Once those pass: the **full tier 1 + tier 2, once, before the
+alpha is committed** — the regression check. In a sprint, Claude reruns both in full at review (an agent's "done" is a
+claim). The full run is never skipped; it just isn't repeated on every try.
+
 ## 4. The library — layout, IDs, tags, the runner
 
 - **Files:** `test/*.test.js` (function, Node), `test/ui/test_*.py` (screen, Playwright for Python), `relay/test-*.mjs`
