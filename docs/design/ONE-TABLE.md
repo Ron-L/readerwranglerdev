@@ -307,7 +307,8 @@ hadn't listed, and the cells whose answer wasn't clear:
     > **Move 'Dune' to 'Fantasy'?** It's also in 'Sci-Fi' and 'Beach Reads' — moving takes it out of them.
     > [Move] [Just add it] [Cancel]
     (Several books: "Move 3 books to 'Fantasy'? 2 of them are also in other folders — moving takes them out." — the
-    same three buttons.) Ctrl+X is no longer refused in All Books (CELL-012, 013).
+    same three buttons — that form is mine, following his; it goes to Ron with the release's new words.) Ctrl+X is no
+    longer refused in All Books (CELL-012, 013).
 19. **Right-click Move to › stays folders only** — "Add to Book List ›" covers putting books on a list (CELL-023: its
     expectation changes to today's).
 
